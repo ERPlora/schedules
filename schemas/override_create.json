@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "schedules.overrides.create",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["start_date", "end_date", "reason"],
+  "properties": {
+    "start_date": { "type": "string", "format": "date" },
+    "end_date": { "type": "string", "format": "date" },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "open_time": { "type": ["string", "null"], "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "default": null },
+    "close_time": { "type": ["string", "null"], "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "default": null },
+    "is_closed": { "type": "boolean", "default": false }
+  }
+}

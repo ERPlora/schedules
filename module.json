@@ -1,0 +1,177 @@
+{
+  "id": "schedules",
+  "name": "Schedules",
+  "version": "2.0.5",
+  "agent": {
+    "description": "Manages business opening hours, special days, and schedule overrides: query and update weekly schedules, create exceptions, and check whether the business is currently open.",
+    "keywords": ["schedule", "hours", "opening", "special day", "override", "business hours", "closed"]
+  },
+  "depends_on": [],
+  "permissions": [
+    "schedules.view_schedule",
+    "schedules.add_schedule",
+    "schedules.change_schedule",
+    "schedules.delete_schedule",
+    "schedules.manage_settings"
+  ],
+  "role_permissions": {
+    "admin": [
+      "*"
+    ],
+    "manager": [
+      "schedules.view_schedule",
+      "schedules.add_schedule",
+      "schedules.change_schedule",
+      "schedules.delete_schedule",
+      "schedules.manage_settings"
+    ],
+    "employee": [
+      "schedules.view_schedule"
+    ]
+  },
+  "navigation": [
+    {
+      "id": "hours",
+      "label": "Hours",
+      "icon": "time-outline",
+      "component": "erp-schedules-hours"
+    },
+    {
+      "id": "special_days",
+      "label": "Special Days",
+      "icon": "star-outline",
+      "component": "erp-schedules-hours"
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "icon": "settings-outline",
+      "component": "erp-schedules-hours"
+    }
+  ],
+  "migrations": {
+    "sqlite": [
+      "migrations/sqlite/001_init.sql"
+    ]
+  },
+  "queries": {
+    "schedules.business_hours.list": {
+      "permission": "schedules.view_schedule",
+      "sql": "queries/business_hours_list.sql",
+      "ai": { "description": "Lists the business opening and closing hours per day of the week" }
+    },
+    "schedules.special_days.list": {
+      "permission": "schedules.view_schedule",
+      "sql": "queries/special_days_list.sql",
+      "ai": { "description": "Lists special days with exceptional opening hours or closures" }
+    },
+    "schedules.overrides.list": {
+      "permission": "schedules.view_schedule",
+      "sql": "queries/overrides_list.sql",
+      "ai": { "description": "Lists one-off schedule overrides for specific dates" }
+    },
+    "schedules.settings.get": {
+      "permission": "schedules.view_schedule",
+      "sql": "queries/settings_get.sql",
+      "ai": { "description": "Retrieves the general settings of the schedules module" }
+    }
+  },
+  "commands": {
+    "schedules.business_hours.set": {
+      "permission": "schedules.change_schedule",
+      "transaction": true,
+      "sql": [
+        "commands/business_hours_set.sql"
+      ],
+      "schema": "schemas/business_hours_set.json",
+      "emit": [
+        "schedules.business_hours.updated"
+      ],
+      "ai": { "description": "Sets or updates the business opening hours for each day of the week" }
+    },
+    "schedules.special_days.create": {
+      "permission": "schedules.add_schedule",
+      "transaction": true,
+      "sql": [
+        "commands/special_day_create.sql"
+      ],
+      "schema": "schemas/special_day_create.json",
+      "emit": [
+        "schedules.special_day.created"
+      ],
+      "ai": { "description": "Creates a special day with exceptional opening hours or a closure" }
+    },
+    "schedules.special_days.delete": {
+      "permission": "schedules.delete_schedule",
+      "transaction": true,
+      "sql": [
+        "commands/special_day_delete.sql"
+      ],
+      "schema": "schemas/special_day_delete.json",
+      "emit": [
+        "schedules.special_day.deleted"
+      ],
+      "ai": { "description": "Deletes a previously registered special day (destructive)" }
+    },
+    "schedules.overrides.create": {
+      "permission": "schedules.add_schedule",
+      "transaction": true,
+      "sql": [
+        "commands/override_create.sql"
+      ],
+      "schema": "schemas/override_create.json",
+      "emit": [
+        "schedules.override.created"
+      ],
+      "ai": { "description": "Creates a one-off schedule override for a specific date" }
+    },
+    "schedules.overrides.delete": {
+      "permission": "schedules.delete_schedule",
+      "transaction": true,
+      "sql": [
+        "commands/override_delete.sql"
+      ],
+      "schema": "schemas/override_delete.json",
+      "emit": [
+        "schedules.override.deleted"
+      ],
+      "ai": { "description": "Deletes an existing schedule override (destructive)" }
+    },
+    "schedules.settings.save": {
+      "permission": "schedules.manage_settings",
+      "transaction": true,
+      "sql": [
+        "commands/settings_save.sql"
+      ],
+      "schema": "schemas/settings_save.json",
+      "emit": [
+        "schedules.settings.saved"
+      ],
+      "ai": { "description": "Saves the general settings of the schedules module" }
+    },
+    "schedules.bulk_create_special_days": {
+      "permission": "schedules.add_schedule",
+      "handler": {
+        "type": "wasm",
+        "file": "dist/handler.wasm",
+        "function": "bulk_create_special_days"
+      },
+      "emit": [
+        "schedules.special_day.created"
+      ],
+      "ai": { "description": "Creates multiple special days in a single bulk operation" }
+    },
+    "schedules.is_open": {
+      "permission": "schedules.view_schedule",
+      "handler": {
+        "type": "wasm",
+        "file": "dist/handler.wasm",
+        "function": "is_open"
+      },
+      "ai": { "description": "Checks whether the business is open at a given moment according to the configured schedule" }
+    }
+  },
+  "ui": {
+    "entry": "dist/schedules.esm.js"
+  }
+}

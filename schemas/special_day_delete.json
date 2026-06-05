@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "schedules.special_days.delete",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["special_day_id"],
+  "properties": {
+    "special_day_id": { "type": "string", "minLength": 1 }
+  }
+}

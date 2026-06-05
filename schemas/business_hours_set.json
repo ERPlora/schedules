@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "schedules.business_hours.set",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["day_of_week"],
+  "properties": {
+    "day_of_week": { "type": "integer", "minimum": 0, "maximum": 6 },
+    "open_time": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "default": "09:00" },
+    "close_time": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "default": "18:00" },
+    "is_closed": { "type": "boolean", "default": false },
+    "break_start": { "type": ["string", "null"], "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "default": null },
+    "break_end": { "type": ["string", "null"], "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "default": null }
+  }
+}
