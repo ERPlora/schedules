@@ -3,7 +3,7 @@
 -- una fila por día de la semana), SpecialDay (festivos / horas especiales por fecha) y
 -- ScheduleOverride (cambio temporal de horario por rango de fechas).
 -- Horario de negocio (NO turnos de empleados — eso es workforce_planning).
--- Contrato de fila estándar de hub-next (§2.5): hub_id + soft-delete + auditoría.
+-- Contrato de fila estándar de hub (§2.5): hub_id + soft-delete + auditoría.
 -- Las horas (open/close/break) se guardan como TEXT 'HH:MM' (SQLite no tiene tipo TIME);
 -- las fechas como TEXT ISO 'YYYY-MM-DD'.
 

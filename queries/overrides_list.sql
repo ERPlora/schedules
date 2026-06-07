@@ -3,4 +3,3 @@
 SELECT id, start_date, end_date, reason, open_time, close_time, is_closed
 FROM schedules_override
 WHERE hub_id = :hub_id AND is_deleted = 0
-ORDER BY start_date DESC;

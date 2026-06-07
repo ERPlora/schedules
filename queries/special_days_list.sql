@@ -4,4 +4,3 @@
 SELECT id, date, name, is_closed, open_time, close_time, recurring_yearly, notes
 FROM schedules_special_day
 WHERE hub_id = :hub_id AND is_deleted = 0
-ORDER BY date ASC;

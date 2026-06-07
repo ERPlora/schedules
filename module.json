@@ -4,7 +4,15 @@
   "version": "2.0.5",
   "agent": {
     "description": "Manages business opening hours, special days, and schedule overrides: query and update weekly schedules, create exceptions, and check whether the business is currently open.",
-    "keywords": ["schedule", "hours", "opening", "special day", "override", "business hours", "closed"]
+    "keywords": [
+      "schedule",
+      "hours",
+      "opening",
+      "special day",
+      "override",
+      "business hours",
+      "closed"
+    ]
   },
   "depends_on": [],
   "permissions": [
@@ -58,22 +66,139 @@
     "schedules.business_hours.list": {
       "permission": "schedules.view_schedule",
       "sql": "queries/business_hours_list.sql",
-      "ai": { "description": "Lists the business opening and closing hours per day of the week" }
+      "list": {
+        "sort": [
+          "id",
+          "day_of_week",
+          "open_time",
+          "close_time",
+          "is_closed",
+          "break_start",
+          "break_end"
+        ],
+        "default_sort": "id",
+        "default_dir": "asc",
+        "filters": {
+          "day_of_week": {
+            "op": "eq"
+          },
+          "open_time": {
+            "op": "eq"
+          },
+          "close_time": {
+            "op": "eq"
+          },
+          "is_closed": {
+            "op": "eq"
+          },
+          "break_start": {
+            "op": "eq"
+          },
+          "break_end": {
+            "op": "eq"
+          }
+        },
+        "page_size": 50
+      },
+      "ai": {
+        "description": "Lists the business opening and closing hours per day of the week"
+      }
     },
     "schedules.special_days.list": {
       "permission": "schedules.view_schedule",
       "sql": "queries/special_days_list.sql",
-      "ai": { "description": "Lists special days with exceptional opening hours or closures" }
+      "list": {
+        "search": [
+          "name"
+        ],
+        "sort": [
+          "id",
+          "date",
+          "name",
+          "is_closed",
+          "open_time",
+          "close_time",
+          "recurring_yearly",
+          "notes"
+        ],
+        "default_sort": "name",
+        "default_dir": "asc",
+        "filters": {
+          "date": {
+            "op": "range"
+          },
+          "name": {
+            "op": "eq"
+          },
+          "is_closed": {
+            "op": "eq"
+          },
+          "open_time": {
+            "op": "eq"
+          },
+          "close_time": {
+            "op": "eq"
+          },
+          "recurring_yearly": {
+            "op": "eq"
+          },
+          "notes": {
+            "op": "eq"
+          }
+        },
+        "page_size": 50
+      },
+      "ai": {
+        "description": "Lists special days with exceptional opening hours or closures"
+      }
     },
     "schedules.overrides.list": {
       "permission": "schedules.view_schedule",
       "sql": "queries/overrides_list.sql",
-      "ai": { "description": "Lists one-off schedule overrides for specific dates" }
+      "list": {
+        "sort": [
+          "id",
+          "start_date",
+          "end_date",
+          "reason",
+          "open_time",
+          "close_time",
+          "is_closed"
+        ],
+        "default_sort": "id",
+        "default_dir": "asc",
+        "filters": {
+          "start_date": {
+            "op": "range"
+          },
+          "end_date": {
+            "op": "range"
+          },
+          "reason": {
+            "op": "eq"
+          },
+          "open_time": {
+            "op": "eq"
+          },
+          "close_time": {
+            "op": "eq"
+          },
+          "is_closed": {
+            "op": "eq"
+          }
+        },
+        "page_size": 50
+      },
+      "ai": {
+        "description": "Lists one-off schedule overrides for specific dates"
+      }
     },
     "schedules.settings.get": {
       "permission": "schedules.view_schedule",
       "sql": "queries/settings_get.sql",
-      "ai": { "description": "Retrieves the general settings of the schedules module" }
+      "ai": {
+        "description": "Retrieves the general settings of the schedules module"
+      }
     }
   },
   "commands": {
@@ -87,7 +212,9 @@
       "emit": [
         "schedules.business_hours.updated"
       ],
-      "ai": { "description": "Sets or updates the business opening hours for each day of the week" }
+      "ai": {
+        "description": "Sets or updates the business opening hours for each day of the week"
+      }
     },
     "schedules.special_days.create": {
       "permission": "schedules.add_schedule",
@@ -99,7 +226,9 @@
       "emit": [
         "schedules.special_day.created"
       ],
-      "ai": { "description": "Creates a special day with exceptional opening hours or a closure" }
+      "ai": {
+        "description": "Creates a special day with exceptional opening hours or a closure"
+      }
     },
     "schedules.special_days.delete": {
       "permission": "schedules.delete_schedule",
@@ -111,7 +240,9 @@
       "emit": [
         "schedules.special_day.deleted"
       ],
-      "ai": { "description": "Deletes a previously registered special day (destructive)" }
+      "ai": {
+        "description": "Deletes a previously registered special day (destructive)"
+      }
     },
     "schedules.overrides.create": {
       "permission": "schedules.add_schedule",
@@ -123,7 +254,9 @@
       "emit": [
         "schedules.override.created"
       ],
-      "ai": { "description": "Creates a one-off schedule override for a specific date" }
+      "ai": {
+        "description": "Creates a one-off schedule override for a specific date"
+      }
     },
     "schedules.overrides.delete": {
       "permission": "schedules.delete_schedule",
@@ -135,7 +268,9 @@
       "emit": [
         "schedules.override.deleted"
       ],
-      "ai": { "description": "Deletes an existing schedule override (destructive)" }
+      "ai": {
+        "description": "Deletes an existing schedule override (destructive)"
+      }
     },
     "schedules.settings.save": {
       "permission": "schedules.manage_settings",
@@ -147,7 +282,9 @@
       "emit": [
         "schedules.settings.saved"
       ],
-      "ai": { "description": "Saves the general settings of the schedules module" }
+      "ai": {
+        "description": "Saves the general settings of the schedules module"
+      }
     },
     "schedules.bulk_create_special_days": {
       "permission": "schedules.add_schedule",
@@ -159,7 +296,9 @@
       "emit": [
         "schedules.special_day.created"
       ],
-      "ai": { "description": "Creates multiple special days in a single bulk operation" }
+      "ai": {
+        "description": "Creates multiple special days in a single bulk operation"
+      }
     },
     "schedules.is_open": {
       "permission": "schedules.view_schedule",
@@ -168,7 +307,9 @@
         "file": "dist/handler.wasm",
         "function": "is_open"
       },
-      "ai": { "description": "Checks whether the business is open at a given moment according to the configured schedule" }
+      "ai": {
+        "description": "Checks whether the business is open at a given moment according to the configured schedule"
+      }
     }
   },
   "ui": {
