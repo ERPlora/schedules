@@ -204,30 +204,26 @@
   "commands": {
     "schedules.business_hours.set": {
       "permission": "schedules.change_schedule",
-      "transaction": true,
-      "sql": [
-        "commands/business_hours_set.sql"
-      ],
       "schema": "schemas/business_hours_set.json",
-      "emit": [
-        "schedules.business_hours.updated"
-      ],
+      "handler": {
+        "type": "wasm",
+        "file": "dist/handler.wasm",
+        "function": "set_business_hours"
+      },
       "ai": {
-        "description": "Sets or updates the business opening hours for each day of the week"
+        "description": "Sets or updates the business opening hours for each day of the week (the handler validates hours and emits schedules.business_hours.updated)"
       }
     },
     "schedules.special_days.create": {
       "permission": "schedules.add_schedule",
-      "transaction": true,
-      "sql": [
-        "commands/special_day_create.sql"
-      ],
       "schema": "schemas/special_day_create.json",
-      "emit": [
-        "schedules.special_day.created"
-      ],
+      "handler": {
+        "type": "wasm",
+        "file": "dist/handler.wasm",
+        "function": "create_special_day"
+      },
       "ai": {
-        "description": "Creates a special day with exceptional opening hours or a closure"
+        "description": "Creates a special day with exceptional opening hours or a closure (the handler validates hours and emits schedules.special_day.created)"
       }
     },
     "schedules.special_days.delete": {
@@ -246,16 +242,14 @@
     },
     "schedules.overrides.create": {
       "permission": "schedules.add_schedule",
-      "transaction": true,
-      "sql": [
-        "commands/override_create.sql"
-      ],
       "schema": "schemas/override_create.json",
-      "emit": [
-        "schedules.override.created"
-      ],
+      "handler": {
+        "type": "wasm",
+        "file": "dist/handler.wasm",
+        "function": "create_override"
+      },
       "ai": {
-        "description": "Creates a one-off schedule override for a specific date"
+        "description": "Creates a one-off schedule override for a specific date (the handler validates the date range and hours, and emits schedules.override.created)"
       }
     },
     "schedules.overrides.delete": {
@@ -293,11 +287,8 @@
         "file": "dist/handler.wasm",
         "function": "bulk_create_special_days"
       },
-      "emit": [
-        "schedules.special_day.created"
-      ],
       "ai": {
-        "description": "Creates multiple special days in a single bulk operation"
+        "description": "Creates multiple special days in a single bulk operation (fault-tolerant; the handler emits one schedules.special_day.created per created day)"
       }
     },
     "schedules.is_open": {
@@ -308,8 +299,32 @@
         "function": "is_open"
       },
       "ai": {
-        "description": "Checks whether the business is open at a given moment according to the configured schedule"
+        "description": "Checks whether the business is open at a given moment according to the configured schedule (pass the rows from schedules.business_hours.list / special_days.list / overrides.list in the payload)"
       }
+    },
+    "schedules._set_business_hours": {
+      "permission": "schedules.change_schedule",
+      "sql": [
+        "commands/business_hours_set.sql"
+      ]
+    },
+    "schedules._insert_special_day": {
+      "permission": "schedules.add_schedule",
+      "sql": [
+        "commands/special_day_create.sql"
+      ]
+    },
+    "schedules._insert_special_day_skip": {
+      "permission": "schedules.add_schedule",
+      "sql": [
+        "commands/_insert_special_day_skip.sql"
+      ]
+    },
+    "schedules._insert_override": {
+      "permission": "schedules.add_schedule",
+      "sql": [
+        "commands/override_create.sql"
+      ]
     }
   },
   "ui": {
