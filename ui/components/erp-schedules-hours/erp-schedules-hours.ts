@@ -101,6 +101,18 @@ export class ErpSchedulesHours extends LitElement {
 
   @state() sdClosed = true;
 
+  @state() bhDay = 0;
+
+  @state() bhOpen = '09:00';
+
+  @state() bhClose = '18:00';
+
+  @state() bhClosed = false;
+
+  @state() bhBreakStart = '';
+
+  @state() bhBreakEnd = '';
+
   @state() ovStart = '';
 
   @state() ovEnd = '';
@@ -170,6 +182,8 @@ export class ErpSchedulesHours extends LitElement {
 
   private rowActions = [{ id: 'delete', label: 'Eliminar', icon: 'trash-outline', color: 'danger' }];
 
+  private hoursActions = [{ id: 'edit', label: 'Editar', icon: 'create-outline' }];
+
   // TODO-LIT: componentWillLoad → connectedCallback. Recuerda: connectedCallback se dispara
   // en CADA reconexión al DOM (no solo en el primer montaje). Si la init debe correr una
   // sola vez tras el primer render, considera firstUpdated() en su lugar.
@@ -235,6 +249,41 @@ export class ErpSchedulesHours extends LitElement {
     }
   }
 
+  /** Upsert del horario semanal del día seleccionado (schedules.business_hours.set). */
+  private async saveBusinessHours(ev: Event) {
+    ev.preventDefault();
+    this.saving = true;
+    this.formError = '';
+    try {
+      await erplora().command('schedules.business_hours.set', {
+        day_of_week: Number(this.bhDay),
+        open_time: this.bhOpen || '09:00',
+        close_time: this.bhClose || '18:00',
+        is_closed: this.bhClosed,
+        break_start: this.bhBreakStart || null,
+        break_end: this.bhBreakEnd || null,
+      });
+      await this.hoursCtrl.load();
+    } catch (e) {
+      // Errores de validación del runtime (invalid_hours / invalid_break / invalid_day).
+      this.formError = e instanceof Error ? e.message : 'No se pudo guardar el horario';
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  /** Acción de fila "editar": precarga el formulario con el día seleccionado. */
+  private onHoursAction(ev: CustomEvent<{ actionId: string; row: Record<string, unknown> }>) {
+    if (ev.detail.actionId !== 'edit') return;
+    const row = ev.detail.row as unknown as BusinessHours;
+    this.bhDay = row.day_of_week;
+    this.bhOpen = row.open_time ?? '09:00';
+    this.bhClose = row.close_time ?? '18:00';
+    this.bhClosed = !!row.is_closed;
+    this.bhBreakStart = row.break_start ?? '';
+    this.bhBreakEnd = row.break_end ?? '';
+  }
+
   private async createSpecialDay(ev: Event) {
     ev.preventDefault();
     if (!this.sdDate || !this.sdName.trim()) return;
@@ -247,6 +296,8 @@ export class ErpSchedulesHours extends LitElement {
         is_closed: this.sdClosed,
         recurring_yearly: false,
         notes: '',
+        // El handler valida already_exists contra las fechas ya cargadas (error de negocio).
+        existing_dates: (this.specialCtrl?.rows ?? []).map((r) => r.date),
       });
       this.sdDate = '';
       this.sdName = '';
@@ -322,7 +373,27 @@ export class ErpSchedulesHours extends LitElement {
   }
 
   private renderHours() {
-    return html`<ok-data-table .serverSide=${true} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? 'asc'} .searchable=${true} .emptyMessage=${this.hoursCtrl?.loading ? 'Cargando…' : 'Sin horario configurado.'} @pageChange=${(e: CustomEvent<number>) => this.hoursCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.hoursCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.hoursCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.hoursCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>`;
+    return html`<div>
+        <form class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
+          <ion-select label="Día" .value=${this.bhDay} @ionChange=${(e: any) => (this.bhDay = Number(e.target.value))}>
+            ${DAY_NAMES.map((label, value) => html`<ion-select-option .value=${value}>${label}</ion-select-option>`)}
+          </ion-select>
+          <label class="chk">
+            <ion-checkbox ?checked=${this.bhClosed} @ionChange=${(e: any) => (this.bhClosed = !!e.target.checked)}></ion-checkbox>
+            Cerrado
+          </label>
+          ${this.bhClosed
+            ? nothing
+            : html`
+                <ion-input label="Abre" type="time" .value=${this.bhOpen} @ionInput=${(e: any) => (this.bhOpen = e.target.value)}></ion-input>
+                <ion-input label="Cierra" type="time" .value=${this.bhClose} @ionInput=${(e: any) => (this.bhClose = e.target.value)}></ion-input>
+                <ion-input label="Descanso desde" type="time" .value=${this.bhBreakStart} @ionInput=${(e: any) => (this.bhBreakStart = e.target.value)}></ion-input>
+                <ion-input label="Descanso hasta" type="time" .value=${this.bhBreakEnd} @ionInput=${(e: any) => (this.bhBreakEnd = e.target.value)}></ion-input>
+              `}
+          <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? 'Guardando…' : 'Guardar día'}</ion-button>
+        </form>
+        <ok-data-table .serverSide=${true} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? 'asc'} .searchable=${true} .actions=${this.hoursActions} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} .emptyMessage=${this.hoursCtrl?.loading ? 'Cargando…' : 'Sin horario configurado.'} @pageChange=${(e: CustomEvent<number>) => this.hoursCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.hoursCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.hoursCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.hoursCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
+      </div>`;
   }
 
   private renderSpecialDays() {
