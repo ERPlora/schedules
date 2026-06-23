@@ -1,0 +1,14 @@
+{
+  "name": "Schedules",
+  "navigation": {
+    "hours": {
+      "label": "Hours"
+    },
+    "special_days": {
+      "label": "Special Days"
+    },
+    "settings": {
+      "label": "Settings"
+    }
+  }
+}

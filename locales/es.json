@@ -1,0 +1,14 @@
+{
+  "name": "Horarios",
+  "navigation": {
+    "hours": {
+      "label": "Horario"
+    },
+    "special_days": {
+      "label": "Días especiales"
+    },
+    "settings": {
+      "label": "Ajustes"
+    }
+  }
+}
