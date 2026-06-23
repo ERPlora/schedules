@@ -5,12 +5,20 @@ import '@erplora/outfitkit/ok-data-table';
 import type { DataTableColumn } from '@erplora/outfitkit';
 import { createListController } from '@erplora/module-sdk';
 import type { ListController, ListClient, ListParams, ListPage } from '@erplora/module-sdk';
+// Catálogo i18n del módulo (ADR-0055): esbuild inlinea estos JSON en el `dist` del WC. Los textos
+// internos se resuelven con `erplora.t(CATALOG, 'ui.clave')` (idioma activo, fallback locale→en→clave).
+import esLocale from '../../../locales/es.json';
+import enLocale from '../../../locales/en.json';
+const CATALOG: Record<string, unknown> = { es: esLocale, en: enLocale };
 
 interface ErploraClientLike extends ListClient {
   query<T = unknown>(name: string, params?: Record<string, unknown>): Promise<T>;
   queryPage<R = unknown>(name: string, params: ListParams): Promise<ListPage<R>>;
   command<T = unknown>(name: string, payload?: Record<string, unknown>): Promise<T>;
   on(event: string, cb: (payload: unknown) => void): () => void;
+  /** i18n del módulo (ADR-0055): idioma activo + traducción del catálogo `ui`. */
+  locale: string;
+  t(catalog: Record<string, unknown>, key: string, params?: Record<string, unknown>): string;
 }
 
 interface BusinessHours {
@@ -44,17 +52,8 @@ interface ScheduleOverride {
   is_closed: number;
 }
 
-const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-const CLOSED_OPTIONS = [
-  { value: '1', label: 'Cerrado' },
-  { value: '0', label: 'Abierto' },
-];
-
-const YESNO_OPTIONS = [
-  { value: '1', label: 'Sí' },
-  { value: '0', label: 'No' },
-];
+// Claves i18n de los días (lunes→domingo). El índice coincide con `day_of_week` (0 = lunes).
+const DAY_KEYS = ['ui.monday', 'ui.tuesday', 'ui.wednesday', 'ui.thursday', 'ui.friday', 'ui.saturday', 'ui.sunday'];
 
 type Tab = 'hours' | 'special_days' | 'settings';
 
@@ -127,68 +126,107 @@ export class ErpSchedulesHours extends LitElement {
 
   private unsub?: () => void;
 
-  private hoursColumns: DataTableColumn[] = [
-    {
-      key: 'day_of_week',
-      header: 'Día',
-      sortable: true,
-      filterable: true,
-      filterType: 'select',
-      options: DAY_NAMES.map((label, value) => ({ value: String(value), label })),
-      format: (r) => DAY_NAMES[r.day_of_week as number] ?? String(r.day_of_week),
-    },
-    { key: 'open_time', header: 'Abre', sortable: true, filterable: true, filterType: 'text', format: (r) => ((r.is_closed as number) ? 'Cerrado' : (r.open_time as string)) },
-    { key: 'close_time', header: 'Cierra', sortable: true, filterable: true, filterType: 'text', format: (r) => ((r.is_closed as number) ? '—' : (r.close_time as string)) },
-    { key: 'break_start', header: 'Descanso', sortable: true, filterable: true, filterType: 'text', format: (r) => (r.break_start ? `${r.break_start}–${r.break_end ?? ''}` : '—') },
-  ];
+  // Getters (no campos): se reevalúan en cada render, así los textos cambian con el idioma activo
+  // (ADR-0055). `connectedCallback` re-renderiza al recibir `erplora:locale-changed`.
+  private dayLabel(value: number): string {
+    return DAY_KEYS[value] ? erplora().t(CATALOG, DAY_KEYS[value]) : String(value);
+  }
 
-  private specialColumns: DataTableColumn[] = [
-    { key: 'date', header: 'Fecha', sortable: true, filterable: true, filterType: 'daterange' },
-    { key: 'name', header: 'Nombre', sortable: true, filterable: true, filterType: 'text' },
-    {
-      key: 'is_closed',
-      header: 'Estado',
-      sortable: true,
-      filterable: true,
-      filterType: 'select',
-      options: CLOSED_OPTIONS,
-      format: (r) => ((r.is_closed as number) ? 'Cerrado' : `${r.open_time ?? ''}–${r.close_time ?? ''}`),
-    },
-    {
-      key: 'recurring_yearly',
-      header: 'Anual',
-      sortable: true,
-      filterable: true,
-      filterType: 'select',
-      options: YESNO_OPTIONS,
-      format: (r) => ((r.recurring_yearly as number) ? 'Sí' : 'No'),
-    },
-  ];
+  private get closedOptions() {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    return [
+      { value: '1', label: t('ui.closed') },
+      { value: '0', label: t('ui.open') },
+    ];
+  }
 
-  private overrideColumns: DataTableColumn[] = [
-    { key: 'start_date', header: 'Desde', sortable: true, filterable: true, filterType: 'daterange' },
-    { key: 'end_date', header: 'Hasta', sortable: true, filterable: true, filterType: 'daterange' },
-    { key: 'reason', header: 'Motivo', sortable: true, filterable: true, filterType: 'text' },
-    {
-      key: 'is_closed',
-      header: 'Estado',
-      sortable: true,
-      filterable: true,
-      filterType: 'select',
-      options: CLOSED_OPTIONS,
-      format: (r) => ((r.is_closed as number) ? 'Cerrado' : `${r.open_time ?? ''}–${r.close_time ?? ''}`),
-    },
-  ];
+  private get yesNoOptions() {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    return [
+      { value: '1', label: t('ui.yes') },
+      { value: '0', label: t('ui.no') },
+    ];
+  }
 
-  private rowActions = [{ id: 'delete', label: 'Eliminar', icon: 'trash-outline', color: 'danger' }];
+  private get hoursColumns(): DataTableColumn[] {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    return [
+      {
+        key: 'day_of_week',
+        header: t('ui.colDay'),
+        sortable: true,
+        filterable: true,
+        filterType: 'select',
+        options: DAY_KEYS.map((_, value) => ({ value: String(value), label: this.dayLabel(value) })),
+        format: (r) => this.dayLabel(r.day_of_week as number),
+      },
+      { key: 'open_time', header: t('ui.colOpen'), sortable: true, filterable: true, filterType: 'text', format: (r) => ((r.is_closed as number) ? t('ui.closed') : (r.open_time as string)) },
+      { key: 'close_time', header: t('ui.colClose'), sortable: true, filterable: true, filterType: 'text', format: (r) => ((r.is_closed as number) ? '—' : (r.close_time as string)) },
+      { key: 'break_start', header: t('ui.colBreak'), sortable: true, filterable: true, filterType: 'text', format: (r) => (r.break_start ? `${r.break_start}–${r.break_end ?? ''}` : '—') },
+    ];
+  }
 
-  private hoursActions = [{ id: 'edit', label: 'Editar', icon: 'create-outline' }];
+  private get specialColumns(): DataTableColumn[] {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    return [
+      { key: 'date', header: t('ui.colDate'), sortable: true, filterable: true, filterType: 'daterange' },
+      { key: 'name', header: t('ui.colName'), sortable: true, filterable: true, filterType: 'text' },
+      {
+        key: 'is_closed',
+        header: t('ui.colStatus'),
+        sortable: true,
+        filterable: true,
+        filterType: 'select',
+        options: this.closedOptions,
+        format: (r) => ((r.is_closed as number) ? t('ui.closed') : `${r.open_time ?? ''}–${r.close_time ?? ''}`),
+      },
+      {
+        key: 'recurring_yearly',
+        header: t('ui.colYearly'),
+        sortable: true,
+        filterable: true,
+        filterType: 'select',
+        options: this.yesNoOptions,
+        format: (r) => ((r.recurring_yearly as number) ? t('ui.yes') : t('ui.no')),
+      },
+    ];
+  }
+
+  private get overrideColumns(): DataTableColumn[] {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    return [
+      { key: 'start_date', header: t('ui.colFrom'), sortable: true, filterable: true, filterType: 'daterange' },
+      { key: 'end_date', header: t('ui.colTo'), sortable: true, filterable: true, filterType: 'daterange' },
+      { key: 'reason', header: t('ui.colReason'), sortable: true, filterable: true, filterType: 'text' },
+      {
+        key: 'is_closed',
+        header: t('ui.colStatus'),
+        sortable: true,
+        filterable: true,
+        filterType: 'select',
+        options: this.closedOptions,
+        format: (r) => ((r.is_closed as number) ? t('ui.closed') : `${r.open_time ?? ''}–${r.close_time ?? ''}`),
+      },
+    ];
+  }
+
+  private get rowActions() {
+    return [{ id: 'delete', label: erplora().t(CATALOG, 'ui.actionDelete'), icon: 'trash-outline', color: 'danger' }];
+  }
+
+  private get hoursActions() {
+    return [{ id: 'edit', label: erplora().t(CATALOG, 'ui.actionEdit'), icon: 'create-outline' }];
+  }
+
+  // ADR-0055: re-render al cambiar el idioma activo (los textos van por getters/`t()`).
+  private readonly onLocaleChange = (): void => this.requestUpdate();
 
   // TODO-LIT: componentWillLoad → connectedCallback. Recuerda: connectedCallback se dispara
   // en CADA reconexión al DOM (no solo en el primer montaje). Si la init debe correr una
   // sola vez tras el primer render, considera firstUpdated() en su lugar.
   async connectedCallback() {
     super.connectedCallback();
+    window.addEventListener('erplora:locale-changed', this.onLocaleChange);
     const rerender = () => this.requestUpdate();
     this.hoursCtrl = createListController<BusinessHours>(erplora(), 'schedules.business_hours.list', rerender, {
       pageSize: 50,
@@ -227,6 +265,7 @@ export class ErpSchedulesHours extends LitElement {
   }
 
   disconnectedCallback() {
+    window.removeEventListener('erplora:locale-changed', this.onLocaleChange);
     super.disconnectedCallback();
     this.unsub?.();
   }
@@ -266,7 +305,7 @@ export class ErpSchedulesHours extends LitElement {
       await this.hoursCtrl.load();
     } catch (e) {
       // Errores de validación del runtime (invalid_hours / invalid_break / invalid_day).
-      this.formError = e instanceof Error ? e.message : 'No se pudo guardar el horario';
+      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorSaveHours');
     } finally {
       this.saving = false;
     }
@@ -304,7 +343,7 @@ export class ErpSchedulesHours extends LitElement {
       this.sdClosed = true;
       await this.specialCtrl.load();
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : 'No se pudo crear el día especial';
+      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorCreateSpecialDay');
     } finally {
       this.saving = false;
     }
@@ -327,7 +366,7 @@ export class ErpSchedulesHours extends LitElement {
       this.ovReason = '';
       await this.overrideCtrl.load();
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : 'No se pudo crear el override';
+      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorCreateOverride');
     } finally {
       this.saving = false;
     }
@@ -346,7 +385,7 @@ export class ErpSchedulesHours extends LitElement {
       });
       await this.loadSettings();
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : 'No se pudieron guardar los ajustes';
+      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorSaveSettings');
     } finally {
       this.saving = false;
     }
@@ -358,7 +397,7 @@ export class ErpSchedulesHours extends LitElement {
       await erplora().command('schedules.special_days.delete', { special_day_id: ev.detail.row.id });
       await this.specialCtrl.load();
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : 'No se pudo eliminar';
+      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorDelete');
     }
   }
 
@@ -368,82 +407,86 @@ export class ErpSchedulesHours extends LitElement {
       await erplora().command('schedules.overrides.delete', { override_id: ev.detail.row.id });
       await this.overrideCtrl.load();
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : 'No se pudo eliminar';
+      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorDelete');
     }
   }
 
   private renderHours() {
+    const t = (k: string): string => erplora().t(CATALOG, k);
     return html`<div>
         <form class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
-          <ion-select label="Día" .value=${this.bhDay} @ionChange=${(e: any) => (this.bhDay = Number(e.target.value))}>
-            ${DAY_NAMES.map((label, value) => html`<ion-select-option .value=${value}>${label}</ion-select-option>`)}
+          <ion-select label=${t('ui.fieldDay')} .value=${this.bhDay} @ionChange=${(e: any) => (this.bhDay = Number(e.target.value))}>
+            ${DAY_KEYS.map((_, value) => html`<ion-select-option .value=${value}>${this.dayLabel(value)}</ion-select-option>`)}
           </ion-select>
           <label class="chk">
             <ion-checkbox ?checked=${this.bhClosed} @ionChange=${(e: any) => (this.bhClosed = !!e.target.checked)}></ion-checkbox>
-            Cerrado
+            ${t('ui.closed')}
           </label>
           ${this.bhClosed
             ? nothing
             : html`
-                <ion-input label="Abre" type="time" .value=${this.bhOpen} @ionInput=${(e: any) => (this.bhOpen = e.target.value)}></ion-input>
-                <ion-input label="Cierra" type="time" .value=${this.bhClose} @ionInput=${(e: any) => (this.bhClose = e.target.value)}></ion-input>
-                <ion-input label="Descanso desde" type="time" .value=${this.bhBreakStart} @ionInput=${(e: any) => (this.bhBreakStart = e.target.value)}></ion-input>
-                <ion-input label="Descanso hasta" type="time" .value=${this.bhBreakEnd} @ionInput=${(e: any) => (this.bhBreakEnd = e.target.value)}></ion-input>
+                <ion-input label=${t('ui.fieldOpen')} type="time" .value=${this.bhOpen} @ionInput=${(e: any) => (this.bhOpen = e.target.value)}></ion-input>
+                <ion-input label=${t('ui.fieldClose')} type="time" .value=${this.bhClose} @ionInput=${(e: any) => (this.bhClose = e.target.value)}></ion-input>
+                <ion-input label=${t('ui.fieldBreakStart')} type="time" .value=${this.bhBreakStart} @ionInput=${(e: any) => (this.bhBreakStart = e.target.value)}></ion-input>
+                <ion-input label=${t('ui.fieldBreakEnd')} type="time" .value=${this.bhBreakEnd} @ionInput=${(e: any) => (this.bhBreakEnd = e.target.value)}></ion-input>
               `}
-          <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? 'Guardando…' : 'Guardar día'}</ion-button>
+          <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.saveDay')}</ion-button>
         </form>
-        <ok-data-table .serverSide=${true} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? 'asc'} .searchable=${true} .actions=${this.hoursActions} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} .emptyMessage=${this.hoursCtrl?.loading ? 'Cargando…' : 'Sin horario configurado.'} @pageChange=${(e: CustomEvent<number>) => this.hoursCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.hoursCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.hoursCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.hoursCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
+        <ok-data-table .serverSide=${true} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? 'asc'} .searchable=${true} .actions=${this.hoursActions} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} .emptyMessage=${this.hoursCtrl?.loading ? t('ui.loading') : t('ui.emptyHours')} @pageChange=${(e: CustomEvent<number>) => this.hoursCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.hoursCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.hoursCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.hoursCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
       </div>`;
   }
 
   private renderSpecialDays() {
+    const t = (k: string): string => erplora().t(CATALOG, k);
     return html`<div>
         <form class="form" @submit=${(e) => this.createSpecialDay(e)}>
           <ion-input type="date" .value=${this.sdDate} @ionInput=${(e: any) => (this.sdDate = e.target.value)}></ion-input>
-          <ion-input placeholder="Nombre (p.ej. Navidad)" .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
-          <ion-select placeholder="Estado…" .value=${this.sdClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.sdClosed = e.target.value === 'closed')}>
-            <ion-select-option value="closed">Cerrado</ion-select-option>
-            <ion-select-option value="open">Abierto</ion-select-option>
+          <ion-input placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
+          <ion-select placeholder=${t('ui.placeholderStatus')} .value=${this.sdClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.sdClosed = e.target.value === 'closed')}>
+            <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
+            <ion-select-option value="open">${t('ui.open')}</ion-select-option>
           </ion-select>
-          <ion-button type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? 'Guardando…' : 'Añadir día'}</ion-button>
+          <ion-button type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t('ui.saving') : t('ui.addDay')}</ion-button>
         </form>
-        <ok-data-table .serverSide=${true} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${"Buscar día especial…"} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? 'Cargando…' : 'Sin días especiales.'} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
-        <h3>Overrides</h3>
+        <ok-data-table .serverSide=${true} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
+        <h3>${t('ui.overrides')}</h3>
         <form class="form" @submit=${(e) => this.createOverride(e)}>
           <ion-input type="date" .value=${this.ovStart} @ionInput=${(e: any) => (this.ovStart = e.target.value)}></ion-input>
           <ion-input type="date" .value=${this.ovEnd} @ionInput=${(e: any) => (this.ovEnd = e.target.value)}></ion-input>
-          <ion-input placeholder="Motivo" .value=${this.ovReason} @ionInput=${(e: any) => (this.ovReason = e.target.value)}></ion-input>
-          <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? 'Guardando…' : 'Añadir override'}</ion-button>
+          <ion-input placeholder=${t('ui.placeholderReason')} .value=${this.ovReason} @ionInput=${(e: any) => (this.ovReason = e.target.value)}></ion-input>
+          <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t('ui.saving') : t('ui.addOverride')}</ion-button>
         </form>
-        <ok-data-table .serverSide=${true} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${"Buscar override…"} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? 'Cargando…' : 'Sin overrides.'} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
+        <ok-data-table .serverSide=${true} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
       </div>`;
   }
 
   private renderSettings() {
+    const t = (k: string): string => erplora().t(CATALOG, k);
     return html`<form class="form" @submit=${(e) => this.saveSettings(e)}>
-        <ion-input placeholder="Zona horaria" .value=${this.settings.timezone} @ionInput=${(e: any) => (this.settings = { ...this.settings, timezone: e.target.value })}></ion-input>
-        <ion-select placeholder="Semana empieza…" .value=${this.settings.week_starts_on} @ionChange=${(e: any) => (this.settings = { ...this.settings, week_starts_on: Number(e.target.value) })}>
-          <ion-select-option .value=${1}>Lunes</ion-select-option>
-          <ion-select-option .value=${7}>Domingo</ion-select-option>
+        <ion-input placeholder=${t('ui.placeholderTimezone')} .value=${this.settings.timezone} @ionInput=${(e: any) => (this.settings = { ...this.settings, timezone: e.target.value })}></ion-input>
+        <ion-select placeholder=${t('ui.placeholderWeekStart')} .value=${this.settings.week_starts_on} @ionChange=${(e: any) => (this.settings = { ...this.settings, week_starts_on: Number(e.target.value) })}>
+          <ion-select-option .value=${1}>${t('ui.monday')}</ion-select-option>
+          <ion-select-option .value=${7}>${t('ui.sunday')}</ion-select-option>
         </ion-select>
-        <ion-input type="number" min="5" max="120" placeholder="Duración slot (min)" .value=${this.settings.slot_duration} @ionInput=${(e: any) => (this.settings = { ...this.settings, slot_duration: Number(e.target.value) })}></ion-input>
+        <ion-input type="number" min="5" max="120" placeholder=${t('ui.placeholderSlotDuration')} .value=${this.settings.slot_duration} @ionInput=${(e: any) => (this.settings = { ...this.settings, slot_duration: Number(e.target.value) })}></ion-input>
         <label class="chk">
           <ion-checkbox ?checked=${!!this.settings.auto_close_enabled} @ionChange=${(e: any) => (this.settings = { ...this.settings, auto_close_enabled: e.target.checked ? 1 : 0 })}></ion-checkbox>
-          Cierre automático
+          ${t('ui.autoClose')}
         </label>
-        <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? 'Guardando…' : 'Guardar'}</ion-button>
+        <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.save')}</ion-button>
       </form>`;
   }
 
   render() {
+    const t = (k: string): string => erplora().t(CATALOG, k);
     return html`<div>
         <header>
-          <h2>Horarios</h2>
+          <h2>${t('ui.title')}</h2>
         </header>
         <nav>
-          <button class=${this.tab === 'hours' ? 'active' : ''} @click=${() => (this.tab = 'hours')}>Horas</button>
-          <button class=${this.tab === 'special_days' ? 'active' : ''} @click=${() => (this.tab = 'special_days')}>Días especiales</button>
-          <button class=${this.tab === 'settings' ? 'active' : ''} @click=${() => (this.tab = 'settings')}>Ajustes</button>
+          <button class=${this.tab === 'hours' ? 'active' : ''} @click=${() => (this.tab = 'hours')}>${t('ui.tabHours')}</button>
+          <button class=${this.tab === 'special_days' ? 'active' : ''} @click=${() => (this.tab = 'special_days')}>${t('ui.tabSpecialDays')}</button>
+          <button class=${this.tab === 'settings' ? 'active' : ''} @click=${() => (this.tab = 'settings')}>${t('ui.tabSettings')}</button>
         </nav>
         ${this.formError ? html`<p class="err">${this.formError}</p>` : nothing}
         ${this.hoursCtrl?.error ? html`<p class="err">${this.hoursCtrl.error}</p>` : nothing}
