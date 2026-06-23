@@ -9,7 +9,7 @@ var __decorateClass = (decorators, target, key, kind) => {
   return result;
 };
 
-// node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
+// node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
 var ElementInternalsShim = class ElementInternals {
   get shadowRoot() {
     return this.__host.__shadowRoot;
@@ -88,7 +88,7 @@ var ElementInternalsShim = class ElementInternals {
   }
 };
 
-// node_modules/@lit-labs/ssr-dom-shim/lib/events.js
+// node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/lib/events.js
 var __classPrivateFieldSet = function(receiver, state, value, kind, f3) {
   if (kind === "m") throw new TypeError("Private method is not writable");
   if (kind === "a" && !f3) throw new TypeError("Private accessor was defined without a setter");
@@ -246,7 +246,7 @@ Object.defineProperties(CustomEventShim.prototype, {
 var EventShimWithRealType = EventShim;
 var CustomEventShimWithRealType = CustomEventShim;
 
-// node_modules/@lit-labs/ssr-dom-shim/lib/css.js
+// node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/lib/css.js
 var _a2;
 var CSSRuleShim = (_a2 = class CSSRule {
   constructor() {
@@ -277,7 +277,7 @@ var CSSRuleShim = (_a2 = class CSSRule {
   }
 }, _a2.STYLE_RULE = 1, _a2.CHARSET_RULE = 2, _a2.IMPORT_RULE = 3, _a2.MEDIA_RULE = 4, _a2.FONT_FACE_RULE = 5, _a2.PAGE_RULE = 6, _a2.NAMESPACE_RULE = 10, _a2.KEYFRAMES_RULE = 7, _a2.KEYFRAME_RULE = 8, _a2.SUPPORTS_RULE = 12, _a2.COUNTER_STYLE_RULE = 11, _a2.FONT_FEATURE_VALUES_RULE = 14, _a2.MARGIN_RULE = 9, _a2);
 
-// node_modules/@lit-labs/ssr-dom-shim/index.js
+// node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/index.js
 globalThis.Event ??= EventShimWithRealType;
 globalThis.CustomEvent ??= CustomEventShimWithRealType;
 var constructionToken = Symbol();
@@ -674,7 +674,7 @@ var CustomElementRegistryShimWithRealType = CustomElementRegistry;
 var customElements2 = new CustomElementRegistryShimWithRealType();
 var windowShim = new WindowShim(constructionToken);
 
-// node_modules/@lit/reactive-element/node/css-tag.js
+// node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/css-tag.js
 var t = globalThis;
 var e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
 var s = Symbol();
@@ -719,7 +719,7 @@ var c = e || void 0 === t.CSSStyleSheet ? (t5) => t5 : (t5) => t5 instanceof CSS
   return r(e5);
 })(t5) : t5;
 
-// node_modules/@lit/reactive-element/node/reactive-element.js
+// node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/reactive-element.js
 var { is: h, defineProperty: r2, getOwnPropertyDescriptor: o2, getOwnPropertyNames: n2, getOwnPropertySymbols: a, getPrototypeOf: c2 } = Object;
 var l = globalThis;
 l.customElements ??= customElements2;
@@ -942,7 +942,7 @@ var g = class extends (globalThis.HTMLElement ?? HTMLElementShimWithRealType) {
 };
 g.elementStyles = [], g.shadowRootOptions = { mode: "open" }, g[f("elementProperties")] = /* @__PURE__ */ new Map(), g[f("finalized")] = /* @__PURE__ */ new Map(), u?.({ ReactiveElement: g }), (l.reactiveElementVersions ??= []).push("2.1.2");
 
-// node_modules/lit-html/lit-html.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/lit-html.js
 var t2 = globalThis;
 var i2 = (t5) => t5;
 var s2 = t2.trustedTypes;
@@ -1197,7 +1197,7 @@ var D = (t5, i7, s5) => {
   return h4._$AI(t5), h4;
 };
 
-// node_modules/lit-element/lit-element.js
+// node_modules/.pnpm/lit-element@4.2.2/node_modules/lit-element/lit-element.js
 var s3 = globalThis;
 var i3 = class extends g {
   constructor() {
@@ -1226,7 +1226,7 @@ var o4 = s3.litElementPolyfillSupport;
 o4?.({ LitElement: i3 });
 (s3.litElementVersions ??= []).push("4.2.2");
 
-// node_modules/@lit/reactive-element/node/decorators/property.js
+// node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/decorators/property.js
 var o5 = { attribute: true, type: String, converter: b, reflect: false, hasChanged: m };
 var r4 = (t5 = o5, e5, r6) => {
   const { kind: n6, metadata: i7 } = r6;
@@ -1256,19 +1256,19 @@ function n4(t5) {
   })(t5, e5, o7);
 }
 
-// node_modules/@lit/reactive-element/node/decorators/state.js
+// node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/decorators/state.js
 function r5(r6) {
   return n4({ ...r6, state: true, attribute: false });
 }
 
-// ../outfitkit/dist/define.js
+// node_modules/.pnpm/@outfitkit+core@file+..+outfitkit/node_modules/@outfitkit/core/dist/define.js
 function define(tag, ctor) {
   if (typeof customElements !== "undefined" && !customElements.get(tag)) {
     customElements.define(tag, ctor);
   }
 }
 
-// node_modules/lit-html/directive.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive.js
 var t3 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
 var e4 = (t5) => (...e5) => ({ _$litDirective$: t5, values: e5 });
 var i4 = class {
@@ -1288,7 +1288,7 @@ var i4 = class {
   }
 };
 
-// node_modules/lit-html/directive-helpers.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive-helpers.js
 var { I: t4 } = j;
 var i5 = (o7) => o7;
 var s4 = () => document.createComment("");
@@ -1321,7 +1321,7 @@ var h3 = (o7) => {
   o7._$AR(), o7._$AA.remove();
 };
 
-// node_modules/lit-html/directives/repeat.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/repeat.js
 var u4 = (e5, s5, t5) => {
   const r6 = /* @__PURE__ */ new Map();
   for (let l3 = s5; l3 <= t5; l3++) r6.set(e5[l3], l3);
@@ -1374,7 +1374,7 @@ var c4 = e4(class extends i4 {
   }
 });
 
-// node_modules/lit-html/directives/style-map.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/style-map.js
 var n5 = "important";
 var i6 = " !" + n5;
 var o6 = e4(class extends i4 {
@@ -1403,7 +1403,7 @@ var o6 = e4(class extends i4 {
   }
 });
 
-// ../outfitkit/dist/ok-data-table.js
+// node_modules/.pnpm/@outfitkit+core@file+..+outfitkit/node_modules/@outfitkit/core/dist/ok-data-table.js
 var __defProp2 = Object.defineProperty;
 var __decorateClass2 = (decorators, target, key, kind) => {
   var result = void 0;
@@ -2681,7 +2681,7 @@ __decorateClass2([
 ], OkDataTable.prototype, "menuOpen");
 define("ok-data-table", OkDataTable);
 
-// ../hub/packages/module-sdk/src/index.ts
+// node_modules/.pnpm/@erplora+module-sdk@file+..+hub+packages+module-sdk/node_modules/@erplora/module-sdk/src/index.ts
 function isEmpty(v3) {
   return v3 === null || v3 === void 0 || v3 === "";
 }
@@ -2799,7 +2799,7 @@ function createListController(client, queryName, onChange = () => {
   return new ListController(client, queryName, onChange, opts);
 }
 
-// ../modules-workspace/modules/schedules/locales/es.json
+// modules/schedules/locales/es.json
 var es_default = {
   name: "Horarios",
   navigation: {
@@ -2848,6 +2848,7 @@ var es_default = {
     fieldClose: "Cierra",
     fieldBreakStart: "Descanso desde",
     fieldBreakEnd: "Descanso hasta",
+    fieldWeekStart: "Semana empieza",
     saving: "Guardando\u2026",
     saveDay: "Guardar d\xEDa",
     addDay: "A\xF1adir d\xEDa",
@@ -2874,7 +2875,7 @@ var es_default = {
   }
 };
 
-// ../modules-workspace/modules/schedules/locales/en.json
+// modules/schedules/locales/en.json
 var en_default = {
   name: "Schedules",
   navigation: {
@@ -2923,6 +2924,7 @@ var en_default = {
     fieldClose: "Closes",
     fieldBreakStart: "Break from",
     fieldBreakEnd: "Break to",
+    fieldWeekStart: "Week starts",
     saving: "Saving\u2026",
     saveDay: "Save day",
     addDay: "Add day",
@@ -2949,7 +2951,7 @@ var en_default = {
   }
 };
 
-// ../modules-workspace/modules/schedules/ui/components/erp-schedules-hours/erp-schedules-hours.ts
+// modules/schedules/ui/components/erp-schedules-hours/erp-schedules-hours.ts
 var CATALOG = { es: es_default, en: en_default };
 var DAY_KEYS = ["ui.monday", "ui.tuesday", "ui.wednesday", "ui.thursday", "ui.friday", "ui.saturday", "ui.sunday"];
 function erplora() {
@@ -2993,8 +2995,8 @@ var ErpSchedulesHours = class extends i3 {
     nav { display:flex; gap:.25rem; margin-bottom:1rem; }
     nav button { border:1px solid var(--line,#e7e2d6); background:var(--surface-2,#f7f4ec); border-radius:8px; padding:.4rem .8rem; cursor:pointer; }
     nav button.active { background:var(--accent,#1c1b18); color:#fff; }
-    .form { display:flex; gap:.5rem; flex-wrap:wrap; align-items:end; margin:.5rem 0 1rem; }
-    .form ion-input, .form ion-select { --background:var(--surface-2,#f7f4ec); border:1px solid var(--line,#e7e2d6); border-radius:8px; min-width:8rem; }
+    .form { display:flex; gap:.75rem; flex-wrap:wrap; align-items:end; margin:.5rem 0 1.25rem; }
+    .form ion-input, .form ion-select { flex:1 1 11rem; min-width:9rem; }
     .err { color:#d9480f; font-weight:600; }
     label.chk { display:flex; gap:.35rem; align-items:center; }
   `;
@@ -3263,7 +3265,7 @@ var ErpSchedulesHours = class extends i3 {
     const t5 = (k2) => erplora().t(CATALOG, k2);
     return b2`<div>
         <form class="form" @submit=${(e5) => this.saveBusinessHours(e5)}>
-          <ion-select label=${t5("ui.fieldDay")} .value=${this.bhDay} @ionChange=${(e5) => this.bhDay = Number(e5.target.value)}>
+          <ion-select fill="outline" label-placement="floating" label=${t5("ui.fieldDay")} .value=${this.bhDay} @ionChange=${(e5) => this.bhDay = Number(e5.target.value)}>
             ${DAY_KEYS.map((_2, value) => b2`<ion-select-option .value=${value}>${this.dayLabel(value)}</ion-select-option>`)}
           </ion-select>
           <label class="chk">
@@ -3271,10 +3273,10 @@ var ErpSchedulesHours = class extends i3 {
             ${t5("ui.closed")}
           </label>
           ${this.bhClosed ? A : b2`
-                <ion-input label=${t5("ui.fieldOpen")} type="time" .value=${this.bhOpen} @ionInput=${(e5) => this.bhOpen = e5.target.value}></ion-input>
-                <ion-input label=${t5("ui.fieldClose")} type="time" .value=${this.bhClose} @ionInput=${(e5) => this.bhClose = e5.target.value}></ion-input>
-                <ion-input label=${t5("ui.fieldBreakStart")} type="time" .value=${this.bhBreakStart} @ionInput=${(e5) => this.bhBreakStart = e5.target.value}></ion-input>
-                <ion-input label=${t5("ui.fieldBreakEnd")} type="time" .value=${this.bhBreakEnd} @ionInput=${(e5) => this.bhBreakEnd = e5.target.value}></ion-input>
+                <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${this.bhOpen} @ionInput=${(e5) => this.bhOpen = e5.target.value}></ion-input>
+                <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${this.bhClose} @ionInput=${(e5) => this.bhClose = e5.target.value}></ion-input>
+                <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldBreakStart")} type="time" .value=${this.bhBreakStart} @ionInput=${(e5) => this.bhBreakStart = e5.target.value}></ion-input>
+                <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldBreakEnd")} type="time" .value=${this.bhBreakEnd} @ionInput=${(e5) => this.bhBreakEnd = e5.target.value}></ion-input>
               `}
           <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t5("ui.saving") : t5("ui.saveDay")}</ion-button>
         </form>
@@ -3285,9 +3287,9 @@ var ErpSchedulesHours = class extends i3 {
     const t5 = (k2) => erplora().t(CATALOG, k2);
     return b2`<div>
         <form class="form" @submit=${(e5) => this.createSpecialDay(e5)}>
-          <ion-input type="date" .value=${this.sdDate} @ionInput=${(e5) => this.sdDate = e5.target.value}></ion-input>
-          <ion-input placeholder=${t5("ui.placeholderName")} .value=${this.sdName} @ionInput=${(e5) => this.sdName = e5.target.value}></ion-input>
-          <ion-select placeholder=${t5("ui.placeholderStatus")} .value=${this.sdClosed ? "closed" : "open"} @ionChange=${(e5) => this.sdClosed = e5.target.value === "closed"}>
+          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colDate")} type="date" .value=${this.sdDate} @ionInput=${(e5) => this.sdDate = e5.target.value}></ion-input>
+          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colName")} placeholder=${t5("ui.placeholderName")} .value=${this.sdName} @ionInput=${(e5) => this.sdName = e5.target.value}></ion-input>
+          <ion-select fill="outline" label-placement="floating" label=${t5("ui.colStatus")} .value=${this.sdClosed ? "closed" : "open"} @ionChange=${(e5) => this.sdClosed = e5.target.value === "closed"}>
             <ion-select-option value="closed">${t5("ui.closed")}</ion-select-option>
             <ion-select-option value="open">${t5("ui.open")}</ion-select-option>
           </ion-select>
@@ -3296,9 +3298,9 @@ var ErpSchedulesHours = class extends i3 {
         <ok-data-table .serverSide=${true} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchSpecialDay")} .actions=${this.rowActions} @rowAction=${(e5) => this.onSpecialAction(e5)} .emptyMessage=${this.specialCtrl?.loading ? t5("ui.loading") : t5("ui.emptySpecialDays")} @pageChange=${(e5) => this.specialCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.specialCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.specialCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.specialCtrl.setFilter(e5.detail.col, e5.detail.value)}></ok-data-table>
         <h3>${t5("ui.overrides")}</h3>
         <form class="form" @submit=${(e5) => this.createOverride(e5)}>
-          <ion-input type="date" .value=${this.ovStart} @ionInput=${(e5) => this.ovStart = e5.target.value}></ion-input>
-          <ion-input type="date" .value=${this.ovEnd} @ionInput=${(e5) => this.ovEnd = e5.target.value}></ion-input>
-          <ion-input placeholder=${t5("ui.placeholderReason")} .value=${this.ovReason} @ionInput=${(e5) => this.ovReason = e5.target.value}></ion-input>
+          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colFrom")} type="date" .value=${this.ovStart} @ionInput=${(e5) => this.ovStart = e5.target.value}></ion-input>
+          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colTo")} type="date" .value=${this.ovEnd} @ionInput=${(e5) => this.ovEnd = e5.target.value}></ion-input>
+          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colReason")} .value=${this.ovReason} @ionInput=${(e5) => this.ovReason = e5.target.value}></ion-input>
           <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t5("ui.saving") : t5("ui.addOverride")}</ion-button>
         </form>
         <ok-data-table .serverSide=${true} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchOverride")} .actions=${this.rowActions} @rowAction=${(e5) => this.onOverrideAction(e5)} .emptyMessage=${this.overrideCtrl?.loading ? t5("ui.loading") : t5("ui.emptyOverrides")} @pageChange=${(e5) => this.overrideCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.overrideCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.overrideCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.overrideCtrl.setFilter(e5.detail.col, e5.detail.value)}></ok-data-table>
@@ -3307,12 +3309,12 @@ var ErpSchedulesHours = class extends i3 {
   renderSettings() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
     return b2`<form class="form" @submit=${(e5) => this.saveSettings(e5)}>
-        <ion-input placeholder=${t5("ui.placeholderTimezone")} .value=${this.settings.timezone} @ionInput=${(e5) => this.settings = { ...this.settings, timezone: e5.target.value }}></ion-input>
-        <ion-select placeholder=${t5("ui.placeholderWeekStart")} .value=${this.settings.week_starts_on} @ionChange=${(e5) => this.settings = { ...this.settings, week_starts_on: Number(e5.target.value) }}>
+        <ion-input fill="outline" label-placement="floating" label=${t5("ui.placeholderTimezone")} .value=${this.settings.timezone} @ionInput=${(e5) => this.settings = { ...this.settings, timezone: e5.target.value }}></ion-input>
+        <ion-select fill="outline" label-placement="floating" label=${t5("ui.fieldWeekStart")} .value=${this.settings.week_starts_on} @ionChange=${(e5) => this.settings = { ...this.settings, week_starts_on: Number(e5.target.value) }}>
           <ion-select-option .value=${1}>${t5("ui.monday")}</ion-select-option>
           <ion-select-option .value=${7}>${t5("ui.sunday")}</ion-select-option>
         </ion-select>
-        <ion-input type="number" min="5" max="120" placeholder=${t5("ui.placeholderSlotDuration")} .value=${this.settings.slot_duration} @ionInput=${(e5) => this.settings = { ...this.settings, slot_duration: Number(e5.target.value) }}></ion-input>
+        <ion-input fill="outline" label-placement="floating" type="number" min="5" max="120" label=${t5("ui.placeholderSlotDuration")} .value=${this.settings.slot_duration} @ionInput=${(e5) => this.settings = { ...this.settings, slot_duration: Number(e5.target.value) }}></ion-input>
         <label class="chk">
           <ion-checkbox ?checked=${!!this.settings.auto_close_enabled} @ionChange=${(e5) => this.settings = { ...this.settings, auto_close_enabled: e5.target.checked ? 1 : 0 }}></ion-checkbox>
           ${t5("ui.autoClose")}

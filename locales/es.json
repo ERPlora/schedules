@@ -46,6 +46,7 @@
     "fieldClose": "Cierra",
     "fieldBreakStart": "Descanso desde",
     "fieldBreakEnd": "Descanso hasta",
+    "fieldWeekStart": "Semana empieza",
     "saving": "Guardando…",
     "saveDay": "Guardar día",
     "addDay": "Añadir día",
