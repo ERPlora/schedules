@@ -67,11 +67,11 @@ function erplora(): ErploraClientLike {
 
 export class ErpSchedulesHours extends LitElement {
   static styles = css`
-    :host { display:block; font-family: system-ui, sans-serif; color: var(--ink, #1c1b18); }
+    :host { display:block; font-family: system-ui, sans-serif; color: var(--ion-text-color, #1c1b18); }
     header { display:flex; gap:.5rem; align-items:center; margin-bottom:.75rem; }
     h2 { margin:0; font-size:1.15rem; flex:1; }
     nav { display:flex; gap:.25rem; margin-bottom:1rem; }
-    nav button { border:1px solid var(--line,#e7e2d6); background:var(--surface-2,#f7f4ec); border-radius:8px; padding:.4rem .8rem; cursor:pointer; }
+    nav button { border:1px solid var(--ion-border-color,#e7e2d6); background:var(--ok-surface-2, var(--ion-color-step-50, rgba(var(--ion-text-color-rgb, 24, 24, 27), 0.04))); border-radius:8px; padding:.4rem .8rem; cursor:pointer; }
     nav button.active { background:var(--accent,#1c1b18); color:#fff; }
     .form { display:flex; gap:.75rem; flex-wrap:wrap; align-items:end; margin:.5rem 0 1.25rem; }
     .form ion-input, .form ion-select { flex:1 1 11rem; min-width:9rem; }
