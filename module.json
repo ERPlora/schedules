@@ -102,7 +102,8 @@
       },
       "ai": {
         "description": "Lists the business opening and closing hours per day of the week"
-      }
+      },
+      "expose_api": true
     },
     "schedules.special_days.list": {
       "permission": "schedules.view_schedule",
@@ -150,7 +151,8 @@
       },
       "ai": {
         "description": "Lists special days with exceptional opening hours or closures"
-      }
+      },
+      "expose_api": true
     },
     "schedules.overrides.list": {
       "permission": "schedules.view_schedule",
@@ -191,7 +193,8 @@
       },
       "ai": {
         "description": "Lists one-off schedule overrides for specific dates"
-      }
+      },
+      "expose_api": true
     },
     "schedules.settings.get": {
       "permission": "schedules.view_schedule",
