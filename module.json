@@ -49,14 +49,15 @@
       "label": "Special Days",
       "icon": "star-outline",
       "component": "erp-schedules-hours"
-    },
-    {
-      "id": "settings",
-      "label": "Settings",
-      "icon": "settings-outline",
-      "component": "erp-schedules-hours"
     }
   ],
+  "settings": {
+    "title": "Horarios",
+    "icon": "time-outline",
+    "schema": "schemas/settings_save.json",
+    "get": "schedules.settings.get",
+    "set": "schedules.settings.save"
+  },
   "migrations": {
     "sqlite": [
       "migrations/sqlite/001_init.sql"
