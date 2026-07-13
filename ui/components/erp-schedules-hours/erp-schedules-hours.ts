@@ -255,14 +255,16 @@ export class ErpSchedulesHours extends LitElement {
       this.loadSettings(),
     ]);
     try {
+            // Una suscripción por evento, con su literal EN la llamada (ADR-0127: el extractor
+      // de contratos no sigue arrays; el nombre vive donde se usa).
       const offs = [
-        'schedules.business_hours.updated',
-        'schedules.special_day.created',
-        'schedules.special_day.deleted',
-        'schedules.override.created',
-        'schedules.override.deleted',
-        'schedules.settings.saved',
-      ].map((ev) => erplora().on(ev, () => this.reloadAll()));
+        erplora().on('schedules.business_hours.updated', () => this.reloadAll()),
+        erplora().on('schedules.special_day.created', () => this.reloadAll()),
+        erplora().on('schedules.special_day.deleted', () => this.reloadAll()),
+        erplora().on('schedules.override.created', () => this.reloadAll()),
+        erplora().on('schedules.override.deleted', () => this.reloadAll()),
+        erplora().on('schedules.settings.saved', () => this.reloadAll()),
+      ];
       this.unsub = () => offs.forEach((o) => o());
     } catch {
       /* sin SDK (preview) → sin reactividad en vivo */

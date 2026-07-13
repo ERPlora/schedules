@@ -3298,13 +3298,13 @@ var ErpSchedulesHours = class extends i3 {
     ]);
     try {
       const offs = [
-        "schedules.business_hours.updated",
-        "schedules.special_day.created",
-        "schedules.special_day.deleted",
-        "schedules.override.created",
-        "schedules.override.deleted",
-        "schedules.settings.saved"
-      ].map((ev) => erplora().on(ev, () => this.reloadAll()));
+        erplora().on("schedules.business_hours.updated", () => this.reloadAll()),
+        erplora().on("schedules.special_day.created", () => this.reloadAll()),
+        erplora().on("schedules.special_day.deleted", () => this.reloadAll()),
+        erplora().on("schedules.override.created", () => this.reloadAll()),
+        erplora().on("schedules.override.deleted", () => this.reloadAll()),
+        erplora().on("schedules.settings.saved", () => this.reloadAll())
+      ];
       this.unsub = () => offs.forEach((o7) => o7());
     } catch {
     }
