@@ -128,7 +128,7 @@
             "op": "range"
           },
           "name": {
-            "op": "eq"
+            "op": "like"
           },
           "is_closed": {
             "op": "eq"
@@ -143,7 +143,7 @@
             "op": "eq"
           },
           "notes": {
-            "op": "eq"
+            "op": "like"
           }
         },
         "page_size": 50
@@ -175,7 +175,7 @@
             "op": "range"
           },
           "reason": {
-            "op": "eq"
+            "op": "like"
           },
           "open_time": {
             "op": "eq"
