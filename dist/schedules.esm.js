@@ -9,7 +9,7 @@ var __decorateClass = (decorators, target, key, kind) => {
   return result;
 };
 
-// ../../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
+// node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
 var ElementInternalsShim = class ElementInternals {
   get shadowRoot() {
     return this.__host.__shadowRoot;
@@ -88,7 +88,7 @@ var ElementInternalsShim = class ElementInternals {
   }
 };
 
-// ../../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/events.js
+// node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/lib/events.js
 var __classPrivateFieldSet = function(receiver, state, value, kind, f3) {
   if (kind === "m") throw new TypeError("Private method is not writable");
   if (kind === "a" && !f3) throw new TypeError("Private accessor was defined without a setter");
@@ -246,7 +246,7 @@ Object.defineProperties(CustomEventShim.prototype, {
 var EventShimWithRealType = EventShim;
 var CustomEventShimWithRealType = CustomEventShim;
 
-// ../../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/css.js
+// node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/lib/css.js
 var _a2;
 var CSSRuleShim = (_a2 = class CSSRule {
   constructor() {
@@ -277,7 +277,7 @@ var CSSRuleShim = (_a2 = class CSSRule {
   }
 }, _a2.STYLE_RULE = 1, _a2.CHARSET_RULE = 2, _a2.IMPORT_RULE = 3, _a2.MEDIA_RULE = 4, _a2.FONT_FACE_RULE = 5, _a2.PAGE_RULE = 6, _a2.NAMESPACE_RULE = 10, _a2.KEYFRAMES_RULE = 7, _a2.KEYFRAME_RULE = 8, _a2.SUPPORTS_RULE = 12, _a2.COUNTER_STYLE_RULE = 11, _a2.FONT_FEATURE_VALUES_RULE = 14, _a2.MARGIN_RULE = 9, _a2);
 
-// ../../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/index.js
+// node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/index.js
 globalThis.Event ??= EventShimWithRealType;
 globalThis.CustomEvent ??= CustomEventShimWithRealType;
 var constructionToken = Symbol();
@@ -674,7 +674,7 @@ var CustomElementRegistryShimWithRealType = CustomElementRegistry;
 var customElements2 = new CustomElementRegistryShimWithRealType();
 var windowShim = new WindowShim(constructionToken);
 
-// ../../module-toolkit/node_modules/@lit/reactive-element/node/css-tag.js
+// node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/css-tag.js
 var t = globalThis;
 var e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
 var s = Symbol();
@@ -719,7 +719,7 @@ var c = e || void 0 === t.CSSStyleSheet ? (t5) => t5 : (t5) => t5 instanceof CSS
   return r(e5);
 })(t5) : t5;
 
-// ../../module-toolkit/node_modules/@lit/reactive-element/node/reactive-element.js
+// node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/reactive-element.js
 var { is: h, defineProperty: r2, getOwnPropertyDescriptor: o2, getOwnPropertyNames: n2, getOwnPropertySymbols: a, getPrototypeOf: c2 } = Object;
 var l = globalThis;
 l.customElements ??= customElements2;
@@ -942,7 +942,7 @@ var g = class extends (globalThis.HTMLElement ?? HTMLElementShimWithRealType) {
 };
 g.elementStyles = [], g.shadowRootOptions = { mode: "open" }, g[f("elementProperties")] = /* @__PURE__ */ new Map(), g[f("finalized")] = /* @__PURE__ */ new Map(), u?.({ ReactiveElement: g }), (l.reactiveElementVersions ??= []).push("2.1.2");
 
-// ../../module-toolkit/node_modules/lit-html/lit-html.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/lit-html.js
 var t2 = globalThis;
 var i2 = (t5) => t5;
 var s2 = t2.trustedTypes;
@@ -1197,7 +1197,7 @@ var D = (t5, i7, s5) => {
   return h4._$AI(t5), h4;
 };
 
-// ../../module-toolkit/node_modules/lit-element/lit-element.js
+// node_modules/.pnpm/lit-element@4.2.2/node_modules/lit-element/lit-element.js
 var s3 = globalThis;
 var i3 = class extends g {
   constructor() {
@@ -1226,7 +1226,7 @@ var o4 = s3.litElementPolyfillSupport;
 o4?.({ LitElement: i3 });
 (s3.litElementVersions ??= []).push("4.2.2");
 
-// ../../module-toolkit/node_modules/@lit/reactive-element/node/decorators/property.js
+// node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/decorators/property.js
 var o5 = { attribute: true, type: String, converter: b, reflect: false, hasChanged: m };
 var r4 = (t5 = o5, e5, r6) => {
   const { kind: n6, metadata: i7 } = r6;
@@ -1256,19 +1256,19 @@ function n4(t5) {
   })(t5, e5, o7);
 }
 
-// ../../module-toolkit/node_modules/@lit/reactive-element/node/decorators/state.js
+// node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/decorators/state.js
 function r5(r6) {
   return n4({ ...r6, state: true, attribute: false });
 }
 
-// ../../outfitkit/dist/define.js
+// node_modules/.pnpm/@erplora+outfitkit@file+..+outfitkit/node_modules/@erplora/outfitkit/dist/define.js
 function define(tag, ctor) {
   if (typeof customElements !== "undefined" && !customElements.get(tag)) {
     customElements.define(tag, ctor);
   }
 }
 
-// ../../module-toolkit/node_modules/lit-html/directive.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive.js
 var t3 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
 var e4 = (t5) => (...e5) => ({ _$litDirective$: t5, values: e5 });
 var i4 = class {
@@ -1288,7 +1288,7 @@ var i4 = class {
   }
 };
 
-// ../../module-toolkit/node_modules/lit-html/directive-helpers.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive-helpers.js
 var { I: t4 } = j;
 var i5 = (o7) => o7;
 var s4 = () => document.createComment("");
@@ -1321,7 +1321,7 @@ var h3 = (o7) => {
   o7._$AR(), o7._$AA.remove();
 };
 
-// ../../module-toolkit/node_modules/lit-html/directives/repeat.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/repeat.js
 var u4 = (e5, s5, t5) => {
   const r6 = /* @__PURE__ */ new Map();
   for (let l3 = s5; l3 <= t5; l3++) r6.set(e5[l3], l3);
@@ -1374,7 +1374,7 @@ var c4 = e4(class extends i4 {
   }
 });
 
-// ../../module-toolkit/node_modules/lit-html/directives/style-map.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/style-map.js
 var n5 = "important";
 var i6 = " !" + n5;
 var o6 = e4(class extends i4 {
@@ -1403,7 +1403,7 @@ var o6 = e4(class extends i4 {
   }
 });
 
-// ../../outfitkit/dist/shared/icons.js
+// node_modules/.pnpm/@erplora+outfitkit@file+..+outfitkit/node_modules/@erplora/outfitkit/dist/shared/icons.js
 var rawAdd = '<svg viewBox="0 0 512 512" width="1.2em" height="1.2em" ><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 112v288m144-144H112"/></svg>';
 var rawAlertCircle = '<svg viewBox="0 0 512 512" width="1.2em" height="1.2em" ><path fill="currentColor" d="M256 48C141.31 48 48 141.31 48 256s93.31 208 208 208s208-93.31 208-208S370.69 48 256 48m0 319.91a20 20 0 1 1 20-20a20 20 0 0 1-20 20m21.72-201.15l-5.74 122a16 16 0 0 1-32 0l-5.74-121.94v-.05a21.74 21.74 0 1 1 43.44 0Z"/></svg>';
 var rawAlertCircleOutline = '<svg viewBox="0 0 512 512" width="1.2em" height="1.2em" ><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192s192-86 192-192Z"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M250.26 166.05L256 288l5.73-121.95a5.74 5.74 0 0 0-5.79-6h0a5.74 5.74 0 0 0-5.68 6"/><path fill="currentColor" d="M256 367.91a20 20 0 1 1 20-20a20 20 0 0 1-20 20"/></svg>';
@@ -1551,7 +1551,7 @@ function okIcon(value) {
   return BY_NAME[value] ?? value;
 }
 
-// ../../outfitkit/dist/ok-data-table.js
+// node_modules/.pnpm/@erplora+outfitkit@file+..+outfitkit/node_modules/@erplora/outfitkit/dist/ok-data-table.js
 var __defProp2 = Object.defineProperty;
 var __decorateClass2 = (decorators, target, key, kind) => {
   var result = void 0;
@@ -2858,7 +2858,7 @@ __decorateClass2([
 ], OkDataTable.prototype, "menuOpen");
 define("ok-data-table", OkDataTable);
 
-// ../../hub/packages/module-sdk/src/index.ts
+// node_modules/.pnpm/@erplora+module-sdk@file+..+hub+packages+module-sdk/node_modules/@erplora/module-sdk/src/index.ts
 function isEmpty(v3) {
   return v3 === null || v3 === void 0 || v3 === "";
 }
@@ -2976,7 +2976,7 @@ function createListController(client, queryName, onChange = () => {
   return new ListController(client, queryName, onChange, opts);
 }
 
-// schedules/locales/es.json
+// modules/schedules/locales/es.json
 var es_default = {
   name: "Horarios",
   navigation: {
@@ -3052,7 +3052,7 @@ var es_default = {
   }
 };
 
-// schedules/locales/en.json
+// modules/schedules/locales/en.json
 var en_default = {
   name: "Schedules",
   navigation: {
@@ -3128,7 +3128,7 @@ var en_default = {
   }
 };
 
-// schedules/ui/components/erp-schedules-hours/erp-schedules-hours.ts
+// modules/schedules/ui/components/erp-schedules-hours/erp-schedules-hours.ts
 var CATALOG = { es: es_default, en: en_default };
 var DAY_KEYS = ["ui.monday", "ui.tuesday", "ui.wednesday", "ui.thursday", "ui.friday", "ui.saturday", "ui.sunday"];
 function erplora() {
@@ -3148,7 +3148,6 @@ var ErpSchedulesHours = class extends i3 {
     };
     this.formError = "";
     this.saving = false;
-    this.tick = 0;
     this.sdDate = "";
     this.sdName = "";
     this.sdClosed = true;
@@ -3166,14 +3165,21 @@ var ErpSchedulesHours = class extends i3 {
   }
   static {
     this.styles = i`
-    :host { display:block; font-family: system-ui, sans-serif; color: var(--ion-text-color, #1c1b18); }
-    header { display:flex; gap:.5rem; align-items:center; margin-bottom:.75rem; }
-    h2 { margin:0; font-size:1.15rem; flex:1; }
+    /* Cadena de altura: sin ella, el modo fill de las tablas no tiene alto que llenar. */
+    :host { display:flex; flex-direction:column; height:100%; min-height:0; font-family: system-ui, sans-serif; color: var(--ion-text-color, #1c1b18); }
+    .page { display:flex; flex-direction:column; min-height:0; flex:1 1 auto; }
+    .pane { display:flex; flex-direction:column; min-height:0; flex:1 1 auto; gap:.5rem; }
+    .pane > ok-data-table { flex:1 1 auto; min-height:0; }
     nav { display:flex; gap:.25rem; margin-bottom:1rem; }
     nav button { border:1px solid var(--ion-border-color,#e7e2d6); background:var(--ok-surface-2, var(--ion-color-step-50, rgba(var(--ion-text-color-rgb, 24, 24, 27), 0.04))); border-radius:8px; padding:.4rem .8rem; cursor:pointer; }
     nav button.active { background:var(--accent,#1c1b18); color:#fff; }
-    .form { display:flex; gap:.75rem; flex-wrap:wrap; align-items:end; margin:.5rem 0 1.25rem; }
-    .form ion-input, .form ion-select { flex:1 1 11rem; min-width:9rem; }
+    /* El alta vive en el panel lateral de la tabla: columna estrecha, no fila que se desborda.
+       Los ajustes (que NO son un alta de fila) siguen fuera y sí se reparten en fila. */
+    .form { display:flex; flex-direction:column; gap:.7rem; }
+    .form ion-button { align-self:flex-end; }
+    .settings { flex-direction:row; flex-wrap:wrap; align-items:end; }
+    .settings ion-input, .settings ion-select { flex:1 1 11rem; min-width:9rem; }
+    h3 { margin:.5rem 0 0; font-size:1rem; }
     .err { color:#d9480f; font-weight:600; }
     label.chk { display:flex; gap:.35rem; align-items:center; }
   `;
@@ -3323,6 +3329,10 @@ var ErpSchedulesHours = class extends i3 {
     } catch {
     }
   }
+  /** Panel lateral de una de las tablas de la vista (cada tabla tiene el suyo). */
+  dataTable(id) {
+    return this.renderRoot.querySelector(`#${id}`);
+  }
   /** Upsert del horario semanal del día seleccionado (schedules.business_hours.set). */
   async saveBusinessHours(ev) {
     ev.preventDefault();
@@ -3337,6 +3347,7 @@ var ErpSchedulesHours = class extends i3 {
         break_start: this.bhBreakStart || null,
         break_end: this.bhBreakEnd || null
       });
+      this.dataTable("tbl-hours")?.close();
       await this.hoursCtrl.load();
     } catch (e5) {
       this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorSaveHours");
@@ -3344,7 +3355,8 @@ var ErpSchedulesHours = class extends i3 {
       this.saving = false;
     }
   }
-  /** Acción de fila "editar": precarga el formulario con el día seleccionado. */
+  /** Acción de fila "editar": el upsert del día es alta Y edición, así que abre el MISMO panel
+   *  del «+», ya relleno con la fila. */
   onHoursAction(ev) {
     if (ev.detail.actionId !== "edit") return;
     const row = ev.detail.row;
@@ -3354,6 +3366,7 @@ var ErpSchedulesHours = class extends i3 {
     this.bhClosed = !!row.is_closed;
     this.bhBreakStart = row.break_start ?? "";
     this.bhBreakEnd = row.break_end ?? "";
+    this.dataTable("tbl-hours")?.open("create");
   }
   async createSpecialDay(ev) {
     ev.preventDefault();
@@ -3373,6 +3386,7 @@ var ErpSchedulesHours = class extends i3 {
       this.sdDate = "";
       this.sdName = "";
       this.sdClosed = true;
+      this.dataTable("tbl-special")?.close();
       await this.specialCtrl.load();
     } catch (e5) {
       this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorCreateSpecialDay");
@@ -3395,6 +3409,7 @@ var ErpSchedulesHours = class extends i3 {
       this.ovStart = "";
       this.ovEnd = "";
       this.ovReason = "";
+      this.dataTable("tbl-override")?.close();
       await this.overrideCtrl.load();
     } catch (e5) {
       this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorCreateOverride");
@@ -3440,52 +3455,60 @@ var ErpSchedulesHours = class extends i3 {
   }
   renderHours() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
-    return b2`<div>
-        <form class="form" @submit=${(e5) => this.saveBusinessHours(e5)}>
-          <ion-select fill="outline" label-placement="floating" label=${t5("ui.fieldDay")} .value=${this.bhDay} @ionChange=${(e5) => this.bhDay = Number(e5.target.value)}>
-            ${DAY_KEYS.map((_2, value) => b2`<ion-select-option .value=${value}>${this.dayLabel(value)}</ion-select-option>`)}
-          </ion-select>
-          <label class="chk">
-            <ion-checkbox ?checked=${this.bhClosed} @ionChange=${(e5) => this.bhClosed = !!e5.target.checked}></ion-checkbox>
-            ${t5("ui.closed")}
-          </label>
-          ${this.bhClosed ? A : b2`
-                <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${this.bhOpen} @ionInput=${(e5) => this.bhOpen = e5.target.value}></ion-input>
-                <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${this.bhClose} @ionInput=${(e5) => this.bhClose = e5.target.value}></ion-input>
-                <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldBreakStart")} type="time" .value=${this.bhBreakStart} @ionInput=${(e5) => this.bhBreakStart = e5.target.value}></ion-input>
-                <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldBreakEnd")} type="time" .value=${this.bhBreakEnd} @ionInput=${(e5) => this.bhBreakEnd = e5.target.value}></ion-input>
-              `}
-          <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t5("ui.saving") : t5("ui.saveDay")}</ion-button>
-        </form>
-        <ok-data-table .serverSide=${true} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? "asc"} .searchable=${true} .actions=${this.hoursActions} @rowAction=${(e5) => this.onHoursAction(e5)} .emptyMessage=${this.hoursCtrl?.loading ? t5("ui.loading") : t5("ui.emptyHours")} @pageChange=${(e5) => this.hoursCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.hoursCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.hoursCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.hoursCtrl.setFilter(e5.detail.col, e5.detail.value)}></ok-data-table>
+    return b2`<div class="pane">
+        <ok-data-table id="tbl-hours" .serverSide=${true} .fill=${true} .addable=${true} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? "asc"} .searchable=${true} .actions=${this.hoursActions} @rowAction=${(e5) => this.onHoursAction(e5)} .emptyMessage=${this.hoursCtrl?.loading ? t5("ui.loading") : t5("ui.emptyHours")} @pageChange=${(e5) => this.hoursCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.hoursCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.hoursCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.hoursCtrl.setFilter(e5.detail.col, e5.detail.value)}>
+          <!-- El upsert del día ES el alta/edición de una fila de esta tabla → su panel. Se proyecta
+               SIEMPRE: si solo se pintara al abrirlo, el «+» abriría un panel vacío. -->
+          <form slot="create" class="form" @submit=${(e5) => this.saveBusinessHours(e5)}>
+            <ion-select fill="outline" label-placement="floating" label=${t5("ui.fieldDay")} .value=${this.bhDay} @ionChange=${(e5) => this.bhDay = Number(e5.target.value)}>
+              ${DAY_KEYS.map((_2, value) => b2`<ion-select-option .value=${value}>${this.dayLabel(value)}</ion-select-option>`)}
+            </ion-select>
+            <label class="chk">
+              <ion-checkbox ?checked=${this.bhClosed} @ionChange=${(e5) => this.bhClosed = !!e5.target.checked}></ion-checkbox>
+              ${t5("ui.closed")}
+            </label>
+            ${this.bhClosed ? A : b2`
+                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${this.bhOpen} @ionInput=${(e5) => this.bhOpen = e5.target.value}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${this.bhClose} @ionInput=${(e5) => this.bhClose = e5.target.value}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldBreakStart")} type="time" .value=${this.bhBreakStart} @ionInput=${(e5) => this.bhBreakStart = e5.target.value}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldBreakEnd")} type="time" .value=${this.bhBreakEnd} @ionInput=${(e5) => this.bhBreakEnd = e5.target.value}></ion-input>
+                `}
+            <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t5("ui.saving") : t5("ui.saveDay")}</ion-button>
+          </form>
+        </ok-data-table>
       </div>`;
   }
   renderSpecialDays() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
-    return b2`<div>
-        <form class="form" @submit=${(e5) => this.createSpecialDay(e5)}>
-          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colDate")} type="date" .value=${this.sdDate} @ionInput=${(e5) => this.sdDate = e5.target.value}></ion-input>
-          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colName")} placeholder=${t5("ui.placeholderName")} .value=${this.sdName} @ionInput=${(e5) => this.sdName = e5.target.value}></ion-input>
-          <ion-select fill="outline" label-placement="floating" label=${t5("ui.colStatus")} .value=${this.sdClosed ? "closed" : "open"} @ionChange=${(e5) => this.sdClosed = e5.target.value === "closed"}>
-            <ion-select-option value="closed">${t5("ui.closed")}</ion-select-option>
-            <ion-select-option value="open">${t5("ui.open")}</ion-select-option>
-          </ion-select>
-          <ion-button type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t5("ui.saving") : t5("ui.addDay")}</ion-button>
-        </form>
-        <ok-data-table .serverSide=${true} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchSpecialDay")} .actions=${this.rowActions} @rowAction=${(e5) => this.onSpecialAction(e5)} .emptyMessage=${this.specialCtrl?.loading ? t5("ui.loading") : t5("ui.emptySpecialDays")} @pageChange=${(e5) => this.specialCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.specialCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.specialCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.specialCtrl.setFilter(e5.detail.col, e5.detail.value)}></ok-data-table>
+    return b2`<div class="pane">
+        <ok-data-table id="tbl-special" .serverSide=${true} .fill=${true} .addable=${true} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchSpecialDay")} .actions=${this.rowActions} @rowAction=${(e5) => this.onSpecialAction(e5)} .emptyMessage=${this.specialCtrl?.loading ? t5("ui.loading") : t5("ui.emptySpecialDays")} @pageChange=${(e5) => this.specialCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.specialCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.specialCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.specialCtrl.setFilter(e5.detail.col, e5.detail.value)}>
+          <form slot="create" class="form" @submit=${(e5) => this.createSpecialDay(e5)}>
+            <ion-input fill="outline" label-placement="floating" label=${t5("ui.colDate")} type="date" .value=${this.sdDate} @ionInput=${(e5) => this.sdDate = e5.target.value}></ion-input>
+            <ion-input fill="outline" label-placement="floating" label=${t5("ui.colName")} placeholder=${t5("ui.placeholderName")} .value=${this.sdName} @ionInput=${(e5) => this.sdName = e5.target.value}></ion-input>
+            <ion-select fill="outline" label-placement="floating" label=${t5("ui.colStatus")} .value=${this.sdClosed ? "closed" : "open"} @ionChange=${(e5) => this.sdClosed = e5.target.value === "closed"}>
+              <ion-select-option value="closed">${t5("ui.closed")}</ion-select-option>
+              <ion-select-option value="open">${t5("ui.open")}</ion-select-option>
+            </ion-select>
+            <ion-button type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t5("ui.saving") : t5("ui.addDay")}</ion-button>
+          </form>
+        </ok-data-table>
+        <!-- Las excepciones son OTRA entidad (otra tabla) → llevan su propio panel de alta. -->
         <h3>${t5("ui.overrides")}</h3>
-        <form class="form" @submit=${(e5) => this.createOverride(e5)}>
-          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colFrom")} type="date" .value=${this.ovStart} @ionInput=${(e5) => this.ovStart = e5.target.value}></ion-input>
-          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colTo")} type="date" .value=${this.ovEnd} @ionInput=${(e5) => this.ovEnd = e5.target.value}></ion-input>
-          <ion-input fill="outline" label-placement="floating" label=${t5("ui.colReason")} .value=${this.ovReason} @ionInput=${(e5) => this.ovReason = e5.target.value}></ion-input>
-          <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t5("ui.saving") : t5("ui.addOverride")}</ion-button>
-        </form>
-        <ok-data-table .serverSide=${true} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchOverride")} .actions=${this.rowActions} @rowAction=${(e5) => this.onOverrideAction(e5)} .emptyMessage=${this.overrideCtrl?.loading ? t5("ui.loading") : t5("ui.emptyOverrides")} @pageChange=${(e5) => this.overrideCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.overrideCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.overrideCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.overrideCtrl.setFilter(e5.detail.col, e5.detail.value)}></ok-data-table>
+        <ok-data-table id="tbl-override" .serverSide=${true} .fill=${true} .addable=${true} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchOverride")} .actions=${this.rowActions} @rowAction=${(e5) => this.onOverrideAction(e5)} .emptyMessage=${this.overrideCtrl?.loading ? t5("ui.loading") : t5("ui.emptyOverrides")} @pageChange=${(e5) => this.overrideCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.overrideCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.overrideCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.overrideCtrl.setFilter(e5.detail.col, e5.detail.value)}>
+          <form slot="create" class="form" @submit=${(e5) => this.createOverride(e5)}>
+            <ion-input fill="outline" label-placement="floating" label=${t5("ui.colFrom")} type="date" .value=${this.ovStart} @ionInput=${(e5) => this.ovStart = e5.target.value}></ion-input>
+            <ion-input fill="outline" label-placement="floating" label=${t5("ui.colTo")} type="date" .value=${this.ovEnd} @ionInput=${(e5) => this.ovEnd = e5.target.value}></ion-input>
+            <ion-input fill="outline" label-placement="floating" label=${t5("ui.colReason")} .value=${this.ovReason} @ionInput=${(e5) => this.ovReason = e5.target.value}></ion-input>
+            <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t5("ui.saving") : t5("ui.addOverride")}</ion-button>
+          </form>
+        </ok-data-table>
       </div>`;
   }
+  // Los ajustes NO son el alta de una fila (son configuración del módulo): su formulario se queda
+  // FUERA de cualquier tabla, a propósito.
   renderSettings() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
-    return b2`<form class="form" @submit=${(e5) => this.saveSettings(e5)}>
+    return b2`<form class="form settings" @submit=${(e5) => this.saveSettings(e5)}>
         <ion-input fill="outline" label-placement="floating" label=${t5("ui.placeholderTimezone")} .value=${this.settings.timezone} @ionInput=${(e5) => this.settings = { ...this.settings, timezone: e5.target.value }}></ion-input>
         <ion-select fill="outline" label-placement="floating" label=${t5("ui.fieldWeekStart")} .value=${this.settings.week_starts_on} @ionChange=${(e5) => this.settings = { ...this.settings, week_starts_on: Number(e5.target.value) }}>
           <ion-select-option .value=${1}>${t5("ui.monday")}</ion-select-option>
@@ -3501,10 +3524,7 @@ var ErpSchedulesHours = class extends i3 {
   }
   render() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
-    return b2`<div>
-        <header>
-          <h2>${t5("ui.title")}</h2>
-        </header>
+    return b2`<div class="page">
         <nav>
           <button class=${this.tab === "hours" ? "active" : ""} @click=${() => this.tab = "hours"}>${t5("ui.tabHours")}</button>
           <button class=${this.tab === "special_days" ? "active" : ""} @click=${() => this.tab = "special_days"}>${t5("ui.tabSpecialDays")}</button>
@@ -3532,9 +3552,6 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "saving", 2);
-__decorateClass([
-  r5()
-], ErpSchedulesHours.prototype, "tick", 2);
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "sdDate", 2);

@@ -67,14 +67,21 @@ function erplora(): ErploraClientLike {
 
 export class ErpSchedulesHours extends LitElement {
   static styles = css`
-    :host { display:block; font-family: system-ui, sans-serif; color: var(--ion-text-color, #1c1b18); }
-    header { display:flex; gap:.5rem; align-items:center; margin-bottom:.75rem; }
-    h2 { margin:0; font-size:1.15rem; flex:1; }
+    /* Cadena de altura: sin ella, el modo fill de las tablas no tiene alto que llenar. */
+    :host { display:flex; flex-direction:column; height:100%; min-height:0; font-family: system-ui, sans-serif; color: var(--ion-text-color, #1c1b18); }
+    .page { display:flex; flex-direction:column; min-height:0; flex:1 1 auto; }
+    .pane { display:flex; flex-direction:column; min-height:0; flex:1 1 auto; gap:.5rem; }
+    .pane > ok-data-table { flex:1 1 auto; min-height:0; }
     nav { display:flex; gap:.25rem; margin-bottom:1rem; }
     nav button { border:1px solid var(--ion-border-color,#e7e2d6); background:var(--ok-surface-2, var(--ion-color-step-50, rgba(var(--ion-text-color-rgb, 24, 24, 27), 0.04))); border-radius:8px; padding:.4rem .8rem; cursor:pointer; }
     nav button.active { background:var(--accent,#1c1b18); color:#fff; }
-    .form { display:flex; gap:.75rem; flex-wrap:wrap; align-items:end; margin:.5rem 0 1.25rem; }
-    .form ion-input, .form ion-select { flex:1 1 11rem; min-width:9rem; }
+    /* El alta vive en el panel lateral de la tabla: columna estrecha, no fila que se desborda.
+       Los ajustes (que NO son un alta de fila) siguen fuera y sí se reparten en fila. */
+    .form { display:flex; flex-direction:column; gap:.7rem; }
+    .form ion-button { align-self:flex-end; }
+    .settings { flex-direction:row; flex-wrap:wrap; align-items:end; }
+    .settings ion-input, .settings ion-select { flex:1 1 11rem; min-width:9rem; }
+    h3 { margin:.5rem 0 0; font-size:1rem; }
     .err { color:#d9480f; font-weight:600; }
     label.chk { display:flex; gap:.35rem; align-items:center; }
   `;
@@ -91,8 +98,6 @@ export class ErpSchedulesHours extends LitElement {
   @state() formError = '';
 
   @state() saving = false;
-
-  @state() tick = 0;
 
   @state() sdDate = '';
 
@@ -288,6 +293,13 @@ export class ErpSchedulesHours extends LitElement {
     }
   }
 
+  /** Panel lateral de una de las tablas de la vista (cada tabla tiene el suyo). */
+  private dataTable(id: string): { open(p?: 'filters' | 'create'): void; close(): void } | null {
+    return this.renderRoot.querySelector(`#${id}`) as
+      | { open(p?: 'filters' | 'create'): void; close(): void }
+      | null;
+  }
+
   /** Upsert del horario semanal del día seleccionado (schedules.business_hours.set). */
   private async saveBusinessHours(ev: Event) {
     ev.preventDefault();
@@ -302,6 +314,7 @@ export class ErpSchedulesHours extends LitElement {
         break_start: this.bhBreakStart || null,
         break_end: this.bhBreakEnd || null,
       });
+      this.dataTable('tbl-hours')?.close();
       await this.hoursCtrl.load();
     } catch (e) {
       // Errores de validación del runtime (invalid_hours / invalid_break / invalid_day).
@@ -311,7 +324,8 @@ export class ErpSchedulesHours extends LitElement {
     }
   }
 
-  /** Acción de fila "editar": precarga el formulario con el día seleccionado. */
+  /** Acción de fila "editar": el upsert del día es alta Y edición, así que abre el MISMO panel
+   *  del «+», ya relleno con la fila. */
   private onHoursAction(ev: CustomEvent<{ actionId: string; row: Record<string, unknown> }>) {
     if (ev.detail.actionId !== 'edit') return;
     const row = ev.detail.row as unknown as BusinessHours;
@@ -321,6 +335,7 @@ export class ErpSchedulesHours extends LitElement {
     this.bhClosed = !!row.is_closed;
     this.bhBreakStart = row.break_start ?? '';
     this.bhBreakEnd = row.break_end ?? '';
+    this.dataTable('tbl-hours')?.open('create');
   }
 
   private async createSpecialDay(ev: Event) {
@@ -341,6 +356,7 @@ export class ErpSchedulesHours extends LitElement {
       this.sdDate = '';
       this.sdName = '';
       this.sdClosed = true;
+      this.dataTable('tbl-special')?.close();
       await this.specialCtrl.load();
     } catch (e) {
       this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorCreateSpecialDay');
@@ -364,6 +380,7 @@ export class ErpSchedulesHours extends LitElement {
       this.ovStart = '';
       this.ovEnd = '';
       this.ovReason = '';
+      this.dataTable('tbl-override')?.close();
       await this.overrideCtrl.load();
     } catch (e) {
       this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorCreateOverride');
@@ -413,56 +430,64 @@ export class ErpSchedulesHours extends LitElement {
 
   private renderHours() {
     const t = (k: string): string => erplora().t(CATALOG, k);
-    return html`<div>
-        <form class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
-          <ion-select fill="outline" label-placement="floating" label=${t('ui.fieldDay')} .value=${this.bhDay} @ionChange=${(e: any) => (this.bhDay = Number(e.target.value))}>
-            ${DAY_KEYS.map((_, value) => html`<ion-select-option .value=${value}>${this.dayLabel(value)}</ion-select-option>`)}
-          </ion-select>
-          <label class="chk">
-            <ion-checkbox ?checked=${this.bhClosed} @ionChange=${(e: any) => (this.bhClosed = !!e.target.checked)}></ion-checkbox>
-            ${t('ui.closed')}
-          </label>
-          ${this.bhClosed
-            ? nothing
-            : html`
-                <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${this.bhOpen} @ionInput=${(e: any) => (this.bhOpen = e.target.value)}></ion-input>
-                <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${this.bhClose} @ionInput=${(e: any) => (this.bhClose = e.target.value)}></ion-input>
-                <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldBreakStart')} type="time" .value=${this.bhBreakStart} @ionInput=${(e: any) => (this.bhBreakStart = e.target.value)}></ion-input>
-                <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldBreakEnd')} type="time" .value=${this.bhBreakEnd} @ionInput=${(e: any) => (this.bhBreakEnd = e.target.value)}></ion-input>
-              `}
-          <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.saveDay')}</ion-button>
-        </form>
-        <ok-data-table .serverSide=${true} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? 'asc'} .searchable=${true} .actions=${this.hoursActions} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} .emptyMessage=${this.hoursCtrl?.loading ? t('ui.loading') : t('ui.emptyHours')} @pageChange=${(e: CustomEvent<number>) => this.hoursCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.hoursCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.hoursCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.hoursCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
+    return html`<div class="pane">
+        <ok-data-table id="tbl-hours" .serverSide=${true} .fill=${true} .addable=${true} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? 'asc'} .searchable=${true} .actions=${this.hoursActions} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} .emptyMessage=${this.hoursCtrl?.loading ? t('ui.loading') : t('ui.emptyHours')} @pageChange=${(e: CustomEvent<number>) => this.hoursCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.hoursCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.hoursCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.hoursCtrl.setFilter(e.detail.col, e.detail.value)}>
+          <!-- El upsert del día ES el alta/edición de una fila de esta tabla → su panel. Se proyecta
+               SIEMPRE: si solo se pintara al abrirlo, el «+» abriría un panel vacío. -->
+          <form slot="create" class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
+            <ion-select fill="outline" label-placement="floating" label=${t('ui.fieldDay')} .value=${this.bhDay} @ionChange=${(e: any) => (this.bhDay = Number(e.target.value))}>
+              ${DAY_KEYS.map((_, value) => html`<ion-select-option .value=${value}>${this.dayLabel(value)}</ion-select-option>`)}
+            </ion-select>
+            <label class="chk">
+              <ion-checkbox ?checked=${this.bhClosed} @ionChange=${(e: any) => (this.bhClosed = !!e.target.checked)}></ion-checkbox>
+              ${t('ui.closed')}
+            </label>
+            ${this.bhClosed
+              ? nothing
+              : html`
+                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${this.bhOpen} @ionInput=${(e: any) => (this.bhOpen = e.target.value)}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${this.bhClose} @ionInput=${(e: any) => (this.bhClose = e.target.value)}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldBreakStart')} type="time" .value=${this.bhBreakStart} @ionInput=${(e: any) => (this.bhBreakStart = e.target.value)}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldBreakEnd')} type="time" .value=${this.bhBreakEnd} @ionInput=${(e: any) => (this.bhBreakEnd = e.target.value)}></ion-input>
+                `}
+            <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.saveDay')}</ion-button>
+          </form>
+        </ok-data-table>
       </div>`;
   }
 
   private renderSpecialDays() {
     const t = (k: string): string => erplora().t(CATALOG, k);
-    return html`<div>
-        <form class="form" @submit=${(e) => this.createSpecialDay(e)}>
-          <ion-input fill="outline" label-placement="floating" label=${t('ui.colDate')} type="date" .value=${this.sdDate} @ionInput=${(e: any) => (this.sdDate = e.target.value)}></ion-input>
-          <ion-input fill="outline" label-placement="floating" label=${t('ui.colName')} placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
-          <ion-select fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.sdClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.sdClosed = e.target.value === 'closed')}>
-            <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
-            <ion-select-option value="open">${t('ui.open')}</ion-select-option>
-          </ion-select>
-          <ion-button type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t('ui.saving') : t('ui.addDay')}</ion-button>
-        </form>
-        <ok-data-table .serverSide=${true} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
+    return html`<div class="pane">
+        <ok-data-table id="tbl-special" .serverSide=${true} .fill=${true} .addable=${true} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
+          <form slot="create" class="form" @submit=${(e: Event) => this.createSpecialDay(e)}>
+            <ion-input fill="outline" label-placement="floating" label=${t('ui.colDate')} type="date" .value=${this.sdDate} @ionInput=${(e: any) => (this.sdDate = e.target.value)}></ion-input>
+            <ion-input fill="outline" label-placement="floating" label=${t('ui.colName')} placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
+            <ion-select fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.sdClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.sdClosed = e.target.value === 'closed')}>
+              <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
+              <ion-select-option value="open">${t('ui.open')}</ion-select-option>
+            </ion-select>
+            <ion-button type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t('ui.saving') : t('ui.addDay')}</ion-button>
+          </form>
+        </ok-data-table>
+        <!-- Las excepciones son OTRA entidad (otra tabla) → llevan su propio panel de alta. -->
         <h3>${t('ui.overrides')}</h3>
-        <form class="form" @submit=${(e) => this.createOverride(e)}>
-          <ion-input fill="outline" label-placement="floating" label=${t('ui.colFrom')} type="date" .value=${this.ovStart} @ionInput=${(e: any) => (this.ovStart = e.target.value)}></ion-input>
-          <ion-input fill="outline" label-placement="floating" label=${t('ui.colTo')} type="date" .value=${this.ovEnd} @ionInput=${(e: any) => (this.ovEnd = e.target.value)}></ion-input>
-          <ion-input fill="outline" label-placement="floating" label=${t('ui.colReason')} .value=${this.ovReason} @ionInput=${(e: any) => (this.ovReason = e.target.value)}></ion-input>
-          <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t('ui.saving') : t('ui.addOverride')}</ion-button>
-        </form>
-        <ok-data-table .serverSide=${true} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}></ok-data-table>
+        <ok-data-table id="tbl-override" .serverSide=${true} .fill=${true} .addable=${true} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
+          <form slot="create" class="form" @submit=${(e: Event) => this.createOverride(e)}>
+            <ion-input fill="outline" label-placement="floating" label=${t('ui.colFrom')} type="date" .value=${this.ovStart} @ionInput=${(e: any) => (this.ovStart = e.target.value)}></ion-input>
+            <ion-input fill="outline" label-placement="floating" label=${t('ui.colTo')} type="date" .value=${this.ovEnd} @ionInput=${(e: any) => (this.ovEnd = e.target.value)}></ion-input>
+            <ion-input fill="outline" label-placement="floating" label=${t('ui.colReason')} .value=${this.ovReason} @ionInput=${(e: any) => (this.ovReason = e.target.value)}></ion-input>
+            <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t('ui.saving') : t('ui.addOverride')}</ion-button>
+          </form>
+        </ok-data-table>
       </div>`;
   }
 
+  // Los ajustes NO son el alta de una fila (son configuración del módulo): su formulario se queda
+  // FUERA de cualquier tabla, a propósito.
   private renderSettings() {
     const t = (k: string): string => erplora().t(CATALOG, k);
-    return html`<form class="form" @submit=${(e) => this.saveSettings(e)}>
+    return html`<form class="form settings" @submit=${(e: Event) => this.saveSettings(e)}>
         <ion-input fill="outline" label-placement="floating" label=${t('ui.placeholderTimezone')} .value=${this.settings.timezone} @ionInput=${(e: any) => (this.settings = { ...this.settings, timezone: e.target.value })}></ion-input>
         <ion-select fill="outline" label-placement="floating" label=${t('ui.fieldWeekStart')} .value=${this.settings.week_starts_on} @ionChange=${(e: any) => (this.settings = { ...this.settings, week_starts_on: Number(e.target.value) })}>
           <ion-select-option .value=${1}>${t('ui.monday')}</ion-select-option>
@@ -479,10 +504,7 @@ export class ErpSchedulesHours extends LitElement {
 
   render() {
     const t = (k: string): string => erplora().t(CATALOG, k);
-    return html`<div>
-        <header>
-          <h2>${t('ui.title')}</h2>
-        </header>
+    return html`<div class="page">
         <nav>
           <button class=${this.tab === 'hours' ? 'active' : ''} @click=${() => (this.tab = 'hours')}>${t('ui.tabHours')}</button>
           <button class=${this.tab === 'special_days' ? 'active' : ''} @click=${() => (this.tab = 'special_days')}>${t('ui.tabSpecialDays')}</button>
