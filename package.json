@@ -1,7 +1,7 @@
 {
   "name": "@erplora/module-schedules",
   "private": true,
-  "version": "2.0.5",
+  "version": "2.0.6",
   "type": "module",
   "description": "Módulo schedules (manifest declarativo + Web Component Lit): horario de negocio semanal, días especiales (festivos/cierres) y overrides temporales por rango de fechas, más configuración por hub. El motor de cálculo \"is_open\" y el alta en lote viven en WASM. Se compila con @erplora/module-cli.",
   "dependencies": {
