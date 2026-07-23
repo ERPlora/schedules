@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { state } from 'lit/decorators.js';
 import { define } from '@erplora/outfitkit/define';
+import '@erplora/outfitkit/ok-inline-feedback';
 import '@erplora/outfitkit/ok-data-table';
 import type { DataTableColumn } from '@erplora/outfitkit';
 import { createListController } from '@erplora/module-sdk';
@@ -73,7 +74,7 @@ export class ErpSchedulesHours extends LitElement {
     .pane { display:flex; flex-direction:column; min-height:0; flex:1 1 auto; gap:.5rem; }
     .pane > ok-data-table { flex:1 1 auto; min-height:0; }
     nav { display:flex; gap:.25rem; margin-bottom:1rem; }
-    nav button { border:1px solid var(--ion-border-color,#e7e2d6); background:var(--ok-surface-2, var(--ion-color-step-50, rgba(var(--ion-text-color-rgb, 24, 24, 27), 0.04))); border-radius:8px; padding:.4rem .8rem; cursor:pointer; }
+    nav button { border:1px solid var(--ion-border-color,#e7e2d6); background:var(--ok-surface-2, var(--ion-color-step-50, rgba(var(--ion-text-color-rgb, 24, 24, 27), 0.04))); border-radius: var(--ok-radius-sm, 8px); padding:.4rem .8rem; cursor:pointer; }
     nav button.active { background:var(--accent,#1c1b18); color:#fff; }
     /* El alta vive en el panel lateral de la tabla: columna estrecha, no fila que se desborda.
        Los ajustes (que NO son un alta de fila) siguen fuera y sí se reparten en fila. */
@@ -512,10 +513,10 @@ export class ErpSchedulesHours extends LitElement {
           <button class=${this.tab === 'special_days' ? 'active' : ''} @click=${() => (this.tab = 'special_days')}>${t('ui.tabSpecialDays')}</button>
           <button class=${this.tab === 'settings' ? 'active' : ''} @click=${() => (this.tab = 'settings')}>${t('ui.tabSettings')}</button>
         </nav>
-        ${this.formError ? html`<p class="err">${this.formError}</p>` : nothing}
-        ${this.hoursCtrl?.error ? html`<p class="err">${this.hoursCtrl.error}</p>` : nothing}
-        ${this.specialCtrl?.error ? html`<p class="err">${this.specialCtrl.error}</p>` : nothing}
-        ${this.overrideCtrl?.error ? html`<p class="err">${this.overrideCtrl.error}</p>` : nothing}
+        ${this.formError ? html`<ok-inline-feedback tone="danger" icon="alert-circle-outline">${this.formError}</ok-inline-feedback>` : nothing}
+        ${this.hoursCtrl?.error ? html`<ok-inline-feedback tone="danger" icon="alert-circle-outline">${this.hoursCtrl.error}</ok-inline-feedback>` : nothing}
+        ${this.specialCtrl?.error ? html`<ok-inline-feedback tone="danger" icon="alert-circle-outline">${this.specialCtrl.error}</ok-inline-feedback>` : nothing}
+        ${this.overrideCtrl?.error ? html`<ok-inline-feedback tone="danger" icon="alert-circle-outline">${this.overrideCtrl.error}</ok-inline-feedback>` : nothing}
         ${this.tab === 'hours' ? this.renderHours() : nothing}
         ${this.tab === 'special_days' ? this.renderSpecialDays() : nothing}
         ${this.tab === 'settings' ? this.renderSettings() : nothing}
