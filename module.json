@@ -1,7 +1,7 @@
 {
   "id": "schedules",
   "name": "Schedules",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "agent": {
     "description": "Manages business opening hours, special days, and schedule overrides: query and update weekly schedules, create exceptions, and check whether the business is currently open.",
     "keywords": [
@@ -58,8 +58,8 @@
     }
   ],
   "migrations": {
-    "sqlite": [
-      "migrations/sqlite/001_init.sql"
+    "postgres": [
+      "migrations/postgres/001_init.sql"
     ]
   },
   "queries": {
