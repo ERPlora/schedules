@@ -5,20 +5,19 @@
 //! devuelve **intenciones** (commands `_`-prefijados del propio módulo) que el host
 //! valida y ejecuta en UNA transacción, más los eventos `schedules.*` a emitir.
 //!
-//! Restricciones del runtime actual (sin lecturas pre-cargadas):
-//! * las filas que el motor `is_open` necesita (special_days / overrides /
-//!   business_hours) viajan EN EL PAYLOAD — el caller las obtiene con las queries
-//!   declarativas públicas del propio módulo (`schedules.*.list`) y las pasa;
+//! Contrato de lecturas autoritativas:
+//! * el Hub precarga special_days / overrides / business_hours desde las `reads`
+//!   requeridas del manifest y las inyecta en `context.reads`; el caller nunca pasa
+//!   filas internas de Schedules;
 //! * `already_exists` en special days se comprueba contra `existing_dates` (lista
 //!   opcional en el payload, que la UI obtiene de `special_days.list`); el índice
 //!   único `uq_schedules_special_day_hub_date` queda como backstop duro;
-//! * el resultado solo-lectura (`is_open` / resumen del bulk) se serializa en el
-//!   campo extra `result` del Output — el host actual lo ignora (devuelve
-//!   `{ok, operations}`); cuando el runtime exponga el canal de resultado de
-//!   handlers (decisión humana pendiente) ya estará emitido aquí.
+//! * el resultado solo-lectura (`is_open` / resumen del bulk) viaja por `Output.result`.
 //!
 //! Horas como TEXT `'HH:MM'` y fechas `'YYYY-MM-DD'` (comparación lexicográfica,
-//! válida por el zero-padding). Errores de negocio = `Err("codigo: detalle")` con
+//! válida por el zero-padding). La lógica pura usa `Err("codigo: detalle")`; el export WASM lo
+//! convierte al error estructurado `Output.error` (`schedules.<codigo>`) para que el Hub conserve
+//! un código estable sin tratar un rechazo de negocio como un trap del sandbox. Códigos:
 //! códigos `invalid_hours` / `invalid_break` / `missing_hours` / `invalid_range` /
 //! `already_exists` / `invalid_day` / `invalid_date` / `missing_name`.
 
@@ -64,7 +63,21 @@ pub fn create_override(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<V
 fn to_fn_result(r: Result<Value, String>) -> FnResult<Json<Value>> {
     match r {
         Ok(out) => Ok(Json(out)),
-        Err(e) => Err(Error::msg(e).into()),
+        Err(error) => {
+            let (slug, detail) = error
+                .split_once(':')
+                .map(|(slug, detail)| (slug.trim(), detail.trim()))
+                .unwrap_or(("invalid_request", error.as_str()));
+            Ok(Json(json!({
+                "operations": [],
+                "events": [],
+                "result": null,
+                "error": {
+                    "code": format!("schedules.{slug}"),
+                    "message": detail
+                }
+            })))
+        }
     }
 }
 
@@ -165,13 +178,13 @@ fn weekday_iso0(date: &str) -> Option<i64> {
     Some((days_from_civil(y, m, d) + 3).rem_euclid(7))
 }
 
-/// Serializa un Output estándar + campo extra `result` (el host actual lo ignora).
+/// Serializa `result` de forma compatible con guests anteriores al campo tipado del SDK.
 fn output_with_result(out: Output, result: Value) -> Value {
-    let mut v = serde_json::to_value(&out).unwrap_or_else(|_| json!({}));
-    if let Value::Object(map) = &mut v {
+    let mut value = serde_json::to_value(&out).unwrap_or_else(|_| json!({}));
+    if let Value::Object(map) = &mut value {
         map.insert("result".into(), result);
     }
-    v
+    value
 }
 
 // ── Validación de horas (WASM-TODO §3) ─────────────────────────────────────
@@ -492,9 +505,26 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
     }
     let fail_open = bool_or(&payload, "fail_open", false);
 
-    let special_days = payload.get("special_days").and_then(|v| v.as_array()).unwrap_or(&empty);
-    let overrides = payload.get("overrides").and_then(|v| v.as_array()).unwrap_or(&empty);
-    let business_hours = payload.get("business_hours").and_then(|v| v.as_array()).unwrap_or(&empty);
+    let empty_reads = Value::Null;
+    let reads = context.get("reads").unwrap_or(&empty_reads);
+    // El camino normal es autoritativo: filas precargadas por el Hub. El fallback al payload se
+    // conserva solo para compatibilidad de tests/hosts antiguos; un Hub nuevo marca las tres reads
+    // `required:true`, así que nunca invoca el guest sin ellas.
+    let special_days = reads
+        .get("schedules.special_days.list")
+        .and_then(|v| v.as_array())
+        .or_else(|| payload.get("special_days").and_then(|v| v.as_array()))
+        .unwrap_or(&empty);
+    let overrides = reads
+        .get("schedules.overrides.list")
+        .and_then(|v| v.as_array())
+        .or_else(|| payload.get("overrides").and_then(|v| v.as_array()))
+        .unwrap_or(&empty);
+    let business_hours = reads
+        .get("schedules.business_hours.list")
+        .and_then(|v| v.as_array())
+        .or_else(|| payload.get("business_hours").and_then(|v| v.as_array()))
+        .unwrap_or(&empty);
 
     let t = current_time.as_str();
     let done = |is_open: bool, reason: String| -> Result<Value, String> {
@@ -567,5 +597,37 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
         done(true, "No hours configured (fail-open)".to_string())
     } else {
         done(false, "No hours configured".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_open_uses_authoritative_reads_instead_of_caller_rows() {
+        let output = is_open_pure(json!({
+            "payload": {
+                "when": "2026-12-25T12:00:00Z",
+                "special_days": [{
+                    "date": "2026-12-25", "name": "Caller says open", "is_closed": 0
+                }]
+            },
+            "context": {
+                "reads": {
+                    "schedules.special_days.list": [{
+                        "date": "2026-12-25", "name": "Navidad", "is_closed": 1,
+                        "recurring_yearly": 0
+                    }],
+                    "schedules.overrides.list": [],
+                    "schedules.business_hours.list": []
+                }
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(output["result"]["is_open"], json!(false));
+        assert_eq!(output["result"]["reason"], json!("Navidad"));
+        assert_eq!(output["operations"], json!([]));
     }
 }

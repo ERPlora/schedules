@@ -299,8 +299,13 @@
         "file": "dist/handler.wasm",
         "function": "is_open"
       },
+      "reads": [
+        { "query": "schedules.special_days.list", "required": true },
+        { "query": "schedules.overrides.list", "required": true },
+        { "query": "schedules.business_hours.list", "required": true }
+      ],
       "ai": {
-        "description": "Checks whether the business is open at a given moment according to the configured schedule (pass the rows from schedules.business_hours.list / special_days.list / overrides.list in the payload)"
+        "description": "Checks whether the business is open at a given moment using the authoritative schedule rows preloaded by the Hub"
       }
     },
     "schedules._set_business_hours": {
