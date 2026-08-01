@@ -60,6 +60,9 @@
   "migrations": {
     "sqlite": [
       "migrations/sqlite/001_init.sql"
+    ],
+    "postgres": [
+      "migrations/postgres/001_init.sql"
     ]
   },
   "queries": {
