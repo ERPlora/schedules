@@ -328,6 +328,17 @@
       ]
     }
   },
+  "events": {
+    "listen": {},
+    "emits": [
+      "schedules.business_hours.updated",
+      "schedules.override.created",
+      "schedules.override.deleted",
+      "schedules.settings.saved",
+      "schedules.special_day.created",
+      "schedules.special_day.deleted"
+    ]
+  },
   "ui": {
     "entry": "dist/schedules.esm.js"
   }
