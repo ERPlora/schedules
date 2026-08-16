@@ -1,5 +1,6 @@
 {
   "name": "Horarios",
+  "description": "Horarios de apertura del negocio, días especiales y excepciones al horario habitual.",
   "navigation": {
     "hours": {
       "label": "Horario"
