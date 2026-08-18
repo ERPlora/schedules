@@ -3,13 +3,13 @@
 > **Estado 2026-06-11:** las piezas **1** (`is_open`, incl. evaluación `recurring_yearly` de la
 > pieza 5), **3** (validación pre-INSERT: `set_business_hours` / `create_special_day` /
 > `create_override`) y **4** (`bulk_create_special_days`) están **implementadas y compiladas**
-> en `handler/src/lib.rs` → `dist/handler.wasm`. Matices vs. el plan original (el runtime no
-> pre-carga lecturas ni devuelve resultados de handler): las filas de `is_open` viajan en el
-> payload (de las queries `schedules.*.list`), `already_exists` se valida contra
-> `existing_dates` del payload (índice único como backstop) y el resultado solo-lectura va en
-> el campo extra `result` del Output (ignorado por el host hasta que el runtime exponga el
-> canal — decisión humana pendiente). Quedan pendientes la pieza **2** (`is_open_at`/`get_slots`)
-> y la **6** (sin trabajo WASM).
+> en `handler/src/lib.rs` → `dist/handler.wasm`. Matices vs. el plan original: las filas de
+> `is_open` viajan en el payload (de las queries `schedules.*.list`); `already_exists` y el
+> solape de overrides se validan contra **reads autoritativas** del runtime (ADR-0069:
+> `special_days.by_date` / `special_days.dates` / `overrides.overlapping`, schedules#7/#2 — el
+> índice único queda de backstop) y el resultado solo-lectura va en el campo extra `result` del
+> Output (ignorado por el host hasta que el runtime exponga el canal). Quedan pendientes la pieza
+> **2** (`is_open_at`/`get_slots`) y la **6** (sin trabajo WASM).
 
 El CRUD plano
 (horario semanal, días especiales, overrides, settings) ya está en SQL declarativo Tier 0

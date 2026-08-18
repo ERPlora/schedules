@@ -22,7 +22,7 @@
 //! Horas como TEXT `'HH:MM'` y fechas `'YYYY-MM-DD'` (comparación lexicográfica,
 //! válida por el zero-padding). Errores de negocio = `Err("codigo: detalle")` con
 //! códigos `invalid_hours` / `invalid_break` / `missing_hours` / `invalid_range` /
-//! `already_exists` / `invalid_day` / `invalid_date` / `missing_name`.
+//! `already_exists` / `invalid_day` / `invalid_date` / `missing_name` / `overlapping`.
 
 use erplora_guest_sdk::{Event, Operation, Output};
 use serde_json::{json, Map, Value};
@@ -131,7 +131,23 @@ fn valid_time(s: &str) -> bool {
     h < 24 && m < 60
 }
 
-/// Valida 'YYYY-MM-DD' (mes 01-12, día 01-31; sin calendario fino — backstop suficiente).
+/// Proleptic Gregorian leap year (4 / 100 / 400 rule).
+fn is_leap_year(y: u32) -> bool {
+    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
+}
+
+/// Days in `month` of `year` (1..=12).
+fn days_in_month(y: u32, m: u32) -> u32 {
+    match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => if is_leap_year(y) { 29 } else { 28 },
+        _ => 0,
+    }
+}
+
+/// Validates 'YYYY-MM-DD' against the real calendar (month 01-12, day within the month,
+/// leap years included — schedules#2: `2026-02-31` used to pass and get persisted).
 fn valid_date(s: &str) -> bool {
     let b = s.as_bytes();
     if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
@@ -140,9 +156,10 @@ fn valid_date(s: &str) -> bool {
     if !b.iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { true } else { c.is_ascii_digit() }) {
         return false;
     }
+    let y: u32 = s[0..4].parse().unwrap_or(0);
     let m: u32 = s[5..7].parse().unwrap_or(0);
     let d: u32 = s[8..10].parse().unwrap_or(0);
-    (1..=12).contains(&m) && (1..=31).contains(&d)
+    (1..=12).contains(&m) && d >= 1 && d <= days_in_month(y, m)
 }
 
 /// Días desde 1970-01-01 (algoritmo civil de Howard Hinnant). Solo para weekday.
@@ -282,21 +299,25 @@ fn existing_dates(payload: &Value) -> Vec<String> {
 }
 
 /// Query pre-loaded by the runtime (`reads` in the manifest, ADR-0069) with the live special
-/// day(s) on `payload.date`. Server-authoritative: the browser cannot forge it.
+/// day(s) on `payload.date` (single create). Server-authoritative: the browser cannot forge it.
 const SPECIAL_DAY_BY_DATE_READ: &str = "schedules.special_days.by_date";
+/// Same, with ALL live special-day dates of the hub (bulk create, schedules#2).
+const SPECIAL_DAY_DATES_READ: &str = "schedules.special_days.dates";
+/// Live overrides whose range intersects `[payload.start_date, payload.end_date]` (schedules#2).
+const OVERRIDES_OVERLAPPING_READ: &str = "schedules.overrides.overlapping";
 
-/// Whether a special day already exists on `date`. Prefers the authoritative read
-/// (`context.reads["schedules.special_days.by_date"]`, present even when empty); only when the
-/// read is absent (old manifest / query failed) it degrades to the client hint `existing_dates`.
-fn special_day_exists(input: &Value, payload: &Value, date: &str) -> bool {
-    let read_rows = input
-        .get("context")
-        .and_then(|c| c.get("reads"))
-        .and_then(|r| r.get(SPECIAL_DAY_BY_DATE_READ))
-        .and_then(|v| v.as_array());
-    match read_rows {
-        Some(rows) => rows.iter().any(|r| str_or(r, "date", "") == date),
-        None => existing_dates(payload).contains(&date.to_string()),
+/// Rows of a pre-loaded read, if the runtime delivered it (present even when empty).
+fn read_rows<'a>(input: &'a Value, name: &str) -> Option<&'a Vec<Value>> {
+    input.get("context").and_then(|c| c.get("reads")).and_then(|r| r.get(name)).and_then(|v| v.as_array())
+}
+
+/// Dates already taken by a live special day. Prefers the authoritative reads (`by_date` for
+/// the single create, `dates` for the bulk); only when neither is present (old manifest / query
+/// failed) it degrades to the client hint `existing_dates`.
+fn taken_special_day_dates(input: &Value, payload: &Value) -> Vec<String> {
+    match read_rows(input, SPECIAL_DAY_BY_DATE_READ).or_else(|| read_rows(input, SPECIAL_DAY_DATES_READ)) {
+        Some(rows) => rows.iter().map(|r| str_or(r, "date", "")).filter(|d| !d.is_empty()).collect(),
+        None => existing_dates(payload),
     }
 }
 
@@ -360,7 +381,7 @@ pub fn set_business_hours_pure(input: Value) -> Result<Value, String> {
 pub fn create_special_day_pure(input: Value) -> Result<Value, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
     let item = validate_special_day(&payload)?;
-    if special_day_exists(&input, &payload, &item.date) {
+    if taken_special_day_dates(&input, &payload).contains(&item.date) {
         return Err(format!("already_exists: ya existe un día especial en la fecha {}", item.date));
     }
     let out = Output::new()
@@ -405,6 +426,24 @@ pub fn create_override_pure(input: Value) -> Result<Value, String> {
     // A closed override never carries hours (no contradictory payloads reach the row).
     let (open_time, close_time) = if is_closed { (None, None) } else { (open_time, close_time) };
 
+    // schedules#2: two live overrides must not cover the same date — `is_open` would pick one by
+    // list order, i.e. non-deterministically for the user. The read is authoritative (ADR-0069);
+    // when absent (old manifest) nothing is checked, as before.
+    if let Some(rows) = read_rows(&input, OVERRIDES_OVERLAPPING_READ) {
+        if let Some(ov) = rows.iter().find(|r| {
+            let s = str_or(r, "start_date", "");
+            let e = str_or(r, "end_date", "");
+            !s.is_empty() && !e.is_empty() && s <= end_date && start_date <= e
+        }) {
+            return Err(format!(
+                "overlapping: the range {start_date}..{end_date} overlaps the override '{}' ({}..{})",
+                str_or(ov, "reason", ""),
+                str_or(ov, "start_date", ""),
+                str_or(ov, "end_date", "")
+            ));
+        }
+    }
+
     let mut p = Map::new();
     p.insert("start_date".into(), json!(start_date));
     p.insert("end_date".into(), json!(end_date));
@@ -441,7 +480,7 @@ pub fn bulk_create_special_days_pure(input: Value) -> Result<Value, String> {
         return Err("missing_items: special_days debe ser una lista no vacía".to_string());
     }
 
-    let existing = existing_dates(&payload);
+    let existing = taken_special_day_dates(&input, &payload);
     let mut seen: Vec<String> = Vec::new();
     let mut out = Output::new();
     let mut errors: Vec<Value> = Vec::new();
@@ -656,6 +695,82 @@ mod tests {
         let out = create_override_pure(input(payload)).expect("ok");
         assert_eq!(out["operations"][0]["params"]["is_closed"], 1);
         assert!(out["operations"][0]["params"]["open_time"].is_null());
+    }
+
+    // ── schedules#2: real calendar dates, inverted intervals, overlaps ──
+
+    #[test]
+    fn valid_date_uses_the_real_calendar_including_leap_years() {
+        assert!(valid_date("2024-02-29"), "2024 is a leap year");
+        assert!(!valid_date("2026-02-29"), "2026 is not a leap year");
+        assert!(!valid_date("2026-02-31"));
+        assert!(!valid_date("2026-04-31"));
+        assert!(!valid_date("2026-13-01"));
+        assert!(!valid_date("2026-00-10"));
+        assert!(!valid_date("2026-01-00"));
+        assert!(!valid_date("2100-02-29"), "century rule: 2100 is not leap");
+        assert!(valid_date("2000-02-29"), "400 rule: 2000 is leap");
+        assert!(valid_date("2026-12-31"));
+    }
+
+    #[test]
+    fn special_day_create_rejects_impossible_calendar_date() {
+        let payload = json!({ "date": "2026-02-31", "name": "Nope", "is_closed": true });
+        assert_eq!(err_code(create_special_day_pure(input(payload))), "invalid_date");
+    }
+
+    #[test]
+    fn bulk_rejects_impossible_dates_per_item_and_keeps_the_valid_ones() {
+        let payload = json!({ "special_days": [
+            { "date": "2026-02-31", "name": "Nope", "is_closed": true },
+            { "date": "2024-02-29", "name": "Leap", "is_closed": true },
+            { "date": "2026-02-29", "name": "Not leap", "is_closed": true },
+        ]});
+        let out = bulk_create_special_days_pure(input(payload)).expect("bulk is fault-tolerant");
+        assert_eq!(out["result"]["created"], 1);
+        assert_eq!(out["result"]["errors"].as_array().unwrap().len(), 2);
+        assert!(out["result"]["errors"][0]["error"].as_str().unwrap().starts_with("invalid_date"));
+    }
+
+    #[test]
+    fn bulk_dedupes_against_authoritative_read_of_existing_dates() {
+        let payload = json!({ "special_days": [
+            { "date": "2026-12-25", "name": "Christmas", "is_closed": true },
+            { "date": "2026-12-26", "name": "Boxing day", "is_closed": true },
+            { "date": "2026-12-26", "name": "Duplicate in batch", "is_closed": true },
+        ]});
+        let reads = json!({ "schedules.special_days.dates": [ { "date": "2026-12-25" } ] });
+        let out = bulk_create_special_days_pure(input_with_reads(payload, reads)).expect("ok");
+        assert_eq!(out["result"]["created"], 1);
+        assert_eq!(out["operations"].as_array().unwrap().len(), 1);
+        assert_eq!(out["result"]["errors"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn override_create_rejects_inverted_range_and_inverted_hours() {
+        let inverted_range = json!({ "start_date": "2026-08-15", "end_date": "2026-08-01", "reason": "x", "is_closed": true });
+        assert_eq!(err_code(create_override_pure(input(inverted_range))), "invalid_range");
+        let inverted_hours = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "x", "is_closed": false, "open_time": "14:00", "close_time": "10:00" });
+        assert_eq!(err_code(create_override_pure(input(inverted_hours))), "invalid_hours");
+        let same_hours = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "x", "is_closed": false, "open_time": "10:00", "close_time": "10:00" });
+        assert_eq!(err_code(create_override_pure(input(same_hours))), "invalid_hours");
+    }
+
+    #[test]
+    fn override_create_rejects_overlap_with_live_override_from_authoritative_read() {
+        let payload = json!({ "start_date": "2026-08-10", "end_date": "2026-08-20", "reason": "Summer", "is_closed": true });
+        let reads = json!({ "schedules.overrides.overlapping": [
+            { "id": "o1", "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "Holidays" }
+        ]});
+        let r = create_override_pure(input_with_reads(payload, reads));
+        assert_eq!(err_code(r), "overlapping");
+    }
+
+    #[test]
+    fn override_create_accepts_when_overlap_read_is_empty() {
+        let payload = json!({ "start_date": "2026-08-10", "end_date": "2026-08-20", "reason": "Summer", "is_closed": true });
+        let reads = json!({ "schedules.overrides.overlapping": [] });
+        assert!(create_override_pure(input_with_reads(payload, reads)).is_ok());
     }
 
     #[test]

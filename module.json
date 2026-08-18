@@ -160,6 +160,10 @@
         "description": "Loads the live special day on a given date, used by the create handler to detect duplicates authoritatively (runtime reads)"
       }
     },
+    "schedules.special_days.dates": {
+      "permission": "schedules.view_schedule",
+      "sql": "queries/special_days_dates.sql"
+    },
     "schedules.overrides.list": {
       "permission": "schedules.view_schedule",
       "sql": "queries/overrides_list.sql",
@@ -200,6 +204,10 @@
       "ai": {
         "description": "Lists one-off schedule overrides for specific dates"
       }
+    },
+    "schedules.overrides.overlapping": {
+      "permission": "schedules.view_schedule",
+      "sql": "queries/overrides_overlapping.sql"
     },
     "schedules.settings.get": {
       "permission": "schedules.view_schedule",
@@ -264,8 +272,17 @@
         "file": "dist/handler.wasm",
         "function": "create_override"
       },
+      "reads": [
+        {
+          "query": "schedules.overrides.overlapping",
+          "params": {
+            "start_date": "payload.start_date",
+            "end_date": "payload.end_date"
+          }
+        }
+      ],
       "ai": {
-        "description": "Creates a one-off schedule override for a date range (the handler validates the range and, when open, requires open_time/close_time; emits schedules.override.created)"
+        "description": "Creates a one-off schedule override for a date range (the handler validates the range, rejects overlaps with live overrides and, when open, requires open_time/close_time; emits schedules.override.created)"
       }
     },
     "schedules.overrides.delete": {
@@ -298,11 +315,15 @@
     },
     "schedules.bulk_create_special_days": {
       "permission": "schedules.add_schedule",
+      "schema": "schemas/bulk_create_special_days.json",
       "handler": {
         "type": "wasm",
         "file": "dist/handler.wasm",
         "function": "bulk_create_special_days"
       },
+      "reads": [
+        "schedules.special_days.dates"
+      ],
       "ai": {
         "description": "Creates multiple special days in a single bulk operation (fault-tolerant; the handler emits one schedules.special_day.created per created day)"
       }
