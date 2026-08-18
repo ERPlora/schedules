@@ -9,9 +9,11 @@
 //! * las filas que el motor `is_open` necesita (special_days / overrides /
 //!   business_hours) viajan EN EL PAYLOAD — el caller las obtiene con las queries
 //!   declarativas públicas del propio módulo (`schedules.*.list`) y las pasa;
-//! * `already_exists` en special days se comprueba contra `existing_dates` (lista
-//!   opcional en el payload, que la UI obtiene de `special_days.list`); el índice
-//!   único `uq_schedules_special_day_hub_date` queda como backstop duro;
+//! * `already_exists` en special days se comprueba contra la read autoritativa
+//!   `context.reads["schedules.special_days.by_date"]` (ADR-0069, la precarga el
+//!   runtime vía `reads` del manifest — schedules#7); solo si la read falta degrada
+//!   al hint del cliente `existing_dates`. El índice único
+//!   `uq_schedules_special_day_hub_date` queda como backstop duro;
 //! * el resultado solo-lectura (`is_open` / resumen del bulk) se serializa en el
 //!   campo extra `result` del Output — el host actual lo ignora (devuelve
 //!   `{ok, operations}`); cuando el runtime exponga el canal de resultado de
@@ -270,13 +272,32 @@ fn special_day_event(it: &SpecialDayItem) -> Event {
     )
 }
 
-/// Fechas ya existentes pasadas por el caller (`existing_dates`, opcional).
+/// Dates already taken by a special day of this hub (client hint `existing_dates`, optional).
 fn existing_dates(payload: &Value) -> Vec<String> {
     payload
         .get("existing_dates")
         .and_then(|v| v.as_array())
         .map(|a| a.iter().map(as_str).filter(|s| !s.is_empty()).collect())
         .unwrap_or_default()
+}
+
+/// Query pre-loaded by the runtime (`reads` in the manifest, ADR-0069) with the live special
+/// day(s) on `payload.date`. Server-authoritative: the browser cannot forge it.
+const SPECIAL_DAY_BY_DATE_READ: &str = "schedules.special_days.by_date";
+
+/// Whether a special day already exists on `date`. Prefers the authoritative read
+/// (`context.reads["schedules.special_days.by_date"]`, present even when empty); only when the
+/// read is absent (old manifest / query failed) it degrades to the client hint `existing_dates`.
+fn special_day_exists(input: &Value, payload: &Value, date: &str) -> bool {
+    let read_rows = input
+        .get("context")
+        .and_then(|c| c.get("reads"))
+        .and_then(|r| r.get(SPECIAL_DAY_BY_DATE_READ))
+        .and_then(|v| v.as_array());
+    match read_rows {
+        Some(rows) => rows.iter().any(|r| str_or(r, "date", "") == date),
+        None => existing_dates(payload).contains(&date.to_string()),
+    }
 }
 
 // ── schedules.business_hours.set (fn set_business_hours) ──────────────────
@@ -339,7 +360,7 @@ pub fn set_business_hours_pure(input: Value) -> Result<Value, String> {
 pub fn create_special_day_pure(input: Value) -> Result<Value, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
     let item = validate_special_day(&payload)?;
-    if existing_dates(&payload).contains(&item.date) {
+    if special_day_exists(&input, &payload, &item.date) {
         return Err(format!("already_exists: ya existe un día especial en la fecha {}", item.date));
     }
     let out = Output::new()
@@ -350,8 +371,9 @@ pub fn create_special_day_pure(input: Value) -> Result<Value, String> {
 
 // ── schedules.overrides.create (fn create_override) ───────────────────────
 
-/// Alta validada de un override de horario (WASM-TODO §3): `end_date >= start_date`
-/// y horas coherentes cuando `is_closed=0` (ambas o ninguna, close > open).
+/// Validated schedule override (WASM-TODO §3): `end_date >= start_date` and, when the
+/// override is open (`is_closed=0`), BOTH hours are required with `close > open`
+/// (schedules#7: an open override without hours used to be read as "open 24h").
 pub fn create_override_pure(input: Value) -> Result<Value, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
 
@@ -374,13 +396,14 @@ pub fn create_override_pure(input: Value) -> Result<Value, String> {
     let close_time = opt_str(&payload, "close_time");
     if !is_closed {
         match (&open_time, &close_time) {
-            (None, None) => {} // abierto con horario regular (sin horas propias)
             (Some(o), Some(c)) => check_hours(o, c)?,
             _ => {
-                return Err("invalid_hours: el override abierto con horas requiere open_time y close_time (o ninguna)".to_string());
+                return Err("missing_hours: an open override (is_closed=0) requires open_time and close_time".to_string());
             }
         }
     }
+    // A closed override never carries hours (no contradictory payloads reach the row).
+    let (open_time, close_time) = if is_closed { (None, None) } else { (open_time, close_time) };
 
     let mut p = Map::new();
     p.insert("start_date".into(), json!(start_date));
@@ -567,5 +590,78 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
         done(true, "No hours configured (fail-open)".to_string())
     } else {
         done(false, "No hours configured".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn input(payload: Value) -> Value {
+        json!({ "payload": payload, "context": { "hub_id": "h1", "now": "2026-08-18T10:00:00Z" } })
+    }
+
+    fn input_with_reads(payload: Value, reads: Value) -> Value {
+        json!({ "payload": payload, "context": { "hub_id": "h1", "now": "2026-08-18T10:00:00Z", "reads": reads } })
+    }
+
+    fn err_code(r: Result<Value, String>) -> String {
+        let e = r.expect_err("expected a business error");
+        e.split(':').next().unwrap_or("").to_string()
+    }
+
+    // ── schedules#7: special day duplicate check is server-authoritative (reads) ──
+
+    #[test]
+    fn special_day_create_rejects_duplicate_from_authoritative_read() {
+        let payload = json!({ "date": "2026-12-25", "name": "Christmas", "is_closed": true });
+        let reads = json!({ "schedules.special_days.by_date": [ { "id": "s1", "date": "2026-12-25" } ] });
+        assert_eq!(err_code(create_special_day_pure(input_with_reads(payload, reads))), "already_exists");
+    }
+
+    #[test]
+    fn special_day_create_accepts_when_read_is_empty_even_if_client_hints_otherwise() {
+        // The client hint (`existing_dates`) is ignored once the authoritative read is present.
+        let payload = json!({ "date": "2026-12-25", "name": "Christmas", "is_closed": true, "existing_dates": ["2026-12-25"] });
+        let reads = json!({ "schedules.special_days.by_date": [] });
+        let out = create_special_day_pure(input_with_reads(payload, reads)).expect("ok");
+        assert_eq!(out["operations"][0]["command"], "schedules._insert_special_day");
+    }
+
+    #[test]
+    fn special_day_create_exact_ui_payload_is_accepted() {
+        // Payload the UI sends after schedules#7: no `existing_dates`, hours when open.
+        let payload = json!({
+            "date": "2026-12-24", "name": "Christmas Eve", "is_closed": false,
+            "open_time": "09:00", "close_time": "14:00", "recurring_yearly": true, "notes": "half day"
+        });
+        let out = create_special_day_pure(input_with_reads(payload, json!({ "schedules.special_days.by_date": [] }))).expect("ok");
+        let params = &out["operations"][0]["params"];
+        assert_eq!(params["open_time"], "09:00");
+        assert_eq!(params["recurring_yearly"], 1);
+        assert_eq!(params["notes"], "half day");
+    }
+
+    // ── schedules#7: an open override needs hours (no silent "open 24h") ──
+
+    #[test]
+    fn override_create_open_without_hours_is_missing_hours() {
+        let payload = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "Summer", "is_closed": false });
+        assert_eq!(err_code(create_override_pure(input(payload))), "missing_hours");
+    }
+
+    #[test]
+    fn override_create_closed_without_hours_is_ok() {
+        let payload = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "Holidays", "is_closed": true });
+        let out = create_override_pure(input(payload)).expect("ok");
+        assert_eq!(out["operations"][0]["params"]["is_closed"], 1);
+        assert!(out["operations"][0]["params"]["open_time"].is_null());
+    }
+
+    #[test]
+    fn override_create_open_with_hours_is_ok() {
+        let payload = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "Summer", "is_closed": false, "open_time": "10:00", "close_time": "14:00" });
+        let out = create_override_pure(input(payload)).expect("ok");
+        assert_eq!(out["operations"][0]["params"]["open_time"], "10:00");
     }
 }

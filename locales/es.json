@@ -70,6 +70,10 @@
     "errorCreateSpecialDay": "No se pudo crear el día especial",
     "errorCreateOverride": "No se pudo crear el override",
     "errorSaveSettings": "No se pudieron guardar los ajustes",
-    "errorDelete": "No se pudo eliminar"
+    "errorDelete": "No se pudo eliminar",
+    "openWithHours": "Abierto (con horario)",
+    "fieldRecurring": "Se repite cada año",
+    "fieldNotes": "Notas",
+    "errorHoursRequired": "Indica la hora de apertura y cierre, o márcalo como cerrado"
   }
 }

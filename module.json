@@ -153,6 +153,13 @@
         "description": "Lists special days with exceptional opening hours or closures"
       }
     },
+    "schedules.special_days.by_date": {
+      "permission": "schedules.view_schedule",
+      "sql": "queries/special_days_by_date.sql",
+      "ai": {
+        "description": "Loads the live special day on a given date, used by the create handler to detect duplicates authoritatively (runtime reads)"
+      }
+    },
     "schedules.overrides.list": {
       "permission": "schedules.view_schedule",
       "sql": "queries/overrides_list.sql",
@@ -223,6 +230,14 @@
         "file": "dist/handler.wasm",
         "function": "create_special_day"
       },
+      "reads": [
+        {
+          "query": "schedules.special_days.by_date",
+          "params": {
+            "date": "payload.date"
+          }
+        }
+      ],
       "ai": {
         "description": "Creates a special day with exceptional opening hours or a closure (the handler validates hours and emits schedules.special_day.created)"
       }
@@ -250,7 +265,7 @@
         "function": "create_override"
       },
       "ai": {
-        "description": "Creates a one-off schedule override for a specific date (the handler validates the date range and hours, and emits schedules.override.created)"
+        "description": "Creates a one-off schedule override for a date range (the handler validates the range and, when open, requires open_time/close_time; emits schedules.override.created)"
       }
     },
     "schedules.overrides.delete": {
