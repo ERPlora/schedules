@@ -9,7 +9,7 @@ var __decorateClass = (decorators, target, key, kind) => {
   return result;
 };
 
-// module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
+// ../../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
 var ElementInternalsShim = class ElementInternals {
   get shadowRoot() {
     return this.__host.__shadowRoot;
@@ -88,7 +88,7 @@ var ElementInternalsShim = class ElementInternals {
   }
 };
 
-// module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/events.js
+// ../../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/events.js
 var __classPrivateFieldSet = function(receiver, state, value, kind, f3) {
   if (kind === "m") throw new TypeError("Private method is not writable");
   if (kind === "a" && !f3) throw new TypeError("Private accessor was defined without a setter");
@@ -246,7 +246,7 @@ Object.defineProperties(CustomEventShim.prototype, {
 var EventShimWithRealType = EventShim;
 var CustomEventShimWithRealType = CustomEventShim;
 
-// module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/css.js
+// ../../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/css.js
 var _a2;
 var CSSRuleShim = (_a2 = class CSSRule {
   constructor() {
@@ -277,7 +277,7 @@ var CSSRuleShim = (_a2 = class CSSRule {
   }
 }, _a2.STYLE_RULE = 1, _a2.CHARSET_RULE = 2, _a2.IMPORT_RULE = 3, _a2.MEDIA_RULE = 4, _a2.FONT_FACE_RULE = 5, _a2.PAGE_RULE = 6, _a2.NAMESPACE_RULE = 10, _a2.KEYFRAMES_RULE = 7, _a2.KEYFRAME_RULE = 8, _a2.SUPPORTS_RULE = 12, _a2.COUNTER_STYLE_RULE = 11, _a2.FONT_FEATURE_VALUES_RULE = 14, _a2.MARGIN_RULE = 9, _a2);
 
-// module-toolkit/node_modules/@lit-labs/ssr-dom-shim/index.js
+// ../../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/index.js
 globalThis.Event ??= EventShimWithRealType;
 globalThis.CustomEvent ??= CustomEventShimWithRealType;
 var constructionToken = Symbol();
@@ -674,7 +674,7 @@ var CustomElementRegistryShimWithRealType = CustomElementRegistry;
 var customElements2 = new CustomElementRegistryShimWithRealType();
 var windowShim = new WindowShim(constructionToken);
 
-// module-toolkit/node_modules/@lit/reactive-element/node/css-tag.js
+// ../../module-toolkit/node_modules/@lit/reactive-element/node/css-tag.js
 var t = globalThis;
 var e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
 var s = Symbol();
@@ -719,7 +719,7 @@ var c = e || void 0 === t.CSSStyleSheet ? (t5) => t5 : (t5) => t5 instanceof CSS
   return r(e5);
 })(t5) : t5;
 
-// module-toolkit/node_modules/@lit/reactive-element/node/reactive-element.js
+// ../../module-toolkit/node_modules/@lit/reactive-element/node/reactive-element.js
 var { is: h, defineProperty: r2, getOwnPropertyDescriptor: o2, getOwnPropertyNames: n2, getOwnPropertySymbols: a, getPrototypeOf: c2 } = Object;
 var l = globalThis;
 l.customElements ??= customElements2;
@@ -942,7 +942,7 @@ var g = class extends (globalThis.HTMLElement ?? HTMLElementShimWithRealType) {
 };
 g.elementStyles = [], g.shadowRootOptions = { mode: "open" }, g[f("elementProperties")] = /* @__PURE__ */ new Map(), g[f("finalized")] = /* @__PURE__ */ new Map(), u?.({ ReactiveElement: g }), (l.reactiveElementVersions ??= []).push("2.1.2");
 
-// modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/lit-html.js
+// ../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/lit-html.js
 var t2 = globalThis;
 var i2 = (t5) => t5;
 var s2 = t2.trustedTypes;
@@ -1197,7 +1197,7 @@ var D = (t5, i7, s5) => {
   return h4._$AI(t5), h4;
 };
 
-// modules-workspace/node_modules/.pnpm/lit-element@4.2.2/node_modules/lit-element/lit-element.js
+// ../node_modules/.pnpm/lit-element@4.2.2/node_modules/lit-element/lit-element.js
 var s3 = globalThis;
 var i3 = class extends g {
   constructor() {
@@ -1226,7 +1226,7 @@ var o4 = s3.litElementPolyfillSupport;
 o4?.({ LitElement: i3 });
 (s3.litElementVersions ??= []).push("4.2.2");
 
-// module-toolkit/node_modules/@lit/reactive-element/node/decorators/property.js
+// ../../module-toolkit/node_modules/@lit/reactive-element/node/decorators/property.js
 var o5 = { attribute: true, type: String, converter: b, reflect: false, hasChanged: m };
 var r4 = (t5 = o5, e5, r6) => {
   const { kind: n6, metadata: i7 } = r6;
@@ -1256,19 +1256,19 @@ function n4(t5) {
   })(t5, e5, o7);
 }
 
-// module-toolkit/node_modules/@lit/reactive-element/node/decorators/state.js
+// ../../module-toolkit/node_modules/@lit/reactive-element/node/decorators/state.js
 function r5(r6) {
   return n4({ ...r6, state: true, attribute: false });
 }
 
-// outfitkit/dist/define.js
+// ../../outfitkit/dist/define.js
 function define(tag, ctor) {
   if (typeof customElements !== "undefined" && !customElements.get(tag)) {
     customElements.define(tag, ctor);
   }
 }
 
-// modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive.js
+// ../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive.js
 var t3 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
 var e4 = (t5) => (...e5) => ({ _$litDirective$: t5, values: e5 });
 var i4 = class {
@@ -1288,7 +1288,7 @@ var i4 = class {
   }
 };
 
-// modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive-helpers.js
+// ../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive-helpers.js
 var { I: t4 } = j;
 var i5 = (o7) => o7;
 var s4 = () => document.createComment("");
@@ -1321,7 +1321,7 @@ var h3 = (o7) => {
   o7._$AR(), o7._$AA.remove();
 };
 
-// modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/repeat.js
+// ../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/repeat.js
 var u4 = (e5, s5, t5) => {
   const r6 = /* @__PURE__ */ new Map();
   for (let l3 = s5; l3 <= t5; l3++) r6.set(e5[l3], l3);
@@ -1374,7 +1374,7 @@ var c4 = e4(class extends i4 {
   }
 });
 
-// modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/style-map.js
+// ../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/style-map.js
 var n5 = "important";
 var i6 = " !" + n5;
 var o6 = e4(class extends i4 {
@@ -1403,7 +1403,7 @@ var o6 = e4(class extends i4 {
   }
 });
 
-// outfitkit/dist/shared/icons.js
+// ../../outfitkit/dist/shared/icons.js
 var rawAdd = '<svg viewBox="0 0 512 512" width="1.2em" height="1.2em" ><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 112v288m144-144H112"/></svg>';
 var rawAlertCircle = '<svg viewBox="0 0 512 512" width="1.2em" height="1.2em" ><path fill="currentColor" d="M256 48C141.31 48 48 141.31 48 256s93.31 208 208 208s208-93.31 208-208S370.69 48 256 48m0 319.91a20 20 0 1 1 20-20a20 20 0 0 1-20 20m21.72-201.15l-5.74 122a16 16 0 0 1-32 0l-5.74-121.94v-.05a21.74 21.74 0 1 1 43.44 0Z"/></svg>';
 var rawAlertCircleOutline = '<svg viewBox="0 0 512 512" width="1.2em" height="1.2em" ><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192s192-86 192-192Z"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M250.26 166.05L256 288l5.73-121.95a5.74 5.74 0 0 0-5.79-6h0a5.74 5.74 0 0 0-5.68 6"/><path fill="currentColor" d="M256 367.91a20 20 0 1 1 20-20a20 20 0 0 1-20 20"/></svg>';
@@ -1551,7 +1551,7 @@ function okIcon(value) {
   return BY_NAME[value] ?? value;
 }
 
-// outfitkit/dist/ok-data-table.js
+// ../../outfitkit/dist/ok-data-table.js
 var CSV_BOM = "\uFEFF";
 function decodeCsvBuffer(buf) {
   let text;
@@ -2979,7 +2979,7 @@ __decorateClass2([
 var OkDataTable = _OkDataTable;
 define("ok-data-table", OkDataTable);
 
-// hub/packages/module-sdk/src/index.ts
+// ../../hub/packages/module-sdk/src/index.ts
 function isEmpty(v3) {
   return v3 === null || v3 === void 0 || v3 === "";
 }
@@ -3097,9 +3097,10 @@ function createListController(client, queryName, onChange = () => {
   return new ListController(client, queryName, onChange, opts);
 }
 
-// .worktrees/module-66-schedules/locales/es.json
+// schedules/locales/es.json
 var es_default = {
   name: "Horarios",
+  description: "Horarios de apertura del negocio, d\xEDas especiales y excepciones al horario habitual.",
   navigation: {
     hours: {
       label: "Horario"
@@ -3169,11 +3170,15 @@ var es_default = {
     errorCreateSpecialDay: "No se pudo crear el d\xEDa especial",
     errorCreateOverride: "No se pudo crear el override",
     errorSaveSettings: "No se pudieron guardar los ajustes",
-    errorDelete: "No se pudo eliminar"
+    errorDelete: "No se pudo eliminar",
+    openWithHours: "Abierto (con horario)",
+    fieldRecurring: "Se repite cada a\xF1o",
+    fieldNotes: "Notas",
+    errorHoursRequired: "Indica la hora de apertura y cierre, o m\xE1rcalo como cerrado"
   }
 };
 
-// .worktrees/module-66-schedules/locales/en.json
+// schedules/locales/en.json
 var en_default = {
   name: "Schedules",
   navigation: {
@@ -3245,11 +3250,15 @@ var en_default = {
     errorCreateSpecialDay: "Could not create the special day",
     errorCreateOverride: "Could not create the override",
     errorSaveSettings: "Could not save the settings",
-    errorDelete: "Could not delete"
+    errorDelete: "Could not delete",
+    openWithHours: "Open (with hours)",
+    fieldRecurring: "Repeats every year",
+    fieldNotes: "Notes",
+    errorHoursRequired: "Enter opening and closing times, or mark it as closed"
   }
 };
 
-// .worktrees/module-66-schedules/ui/components/erp-schedules-hours/erp-schedules-hours.ts
+// schedules/ui/components/erp-schedules-hours/erp-schedules-hours.ts
 var CATALOG = { es: es_default, en: en_default };
 var DAY_KEYS = ["ui.monday", "ui.tuesday", "ui.wednesday", "ui.thursday", "ui.friday", "ui.saturday", "ui.sunday"];
 function erplora() {
@@ -3272,6 +3281,10 @@ var ErpSchedulesHours = class extends i3 {
     this.sdDate = "";
     this.sdName = "";
     this.sdClosed = true;
+    this.sdOpen = "";
+    this.sdClose = "";
+    this.sdRecurring = false;
+    this.sdNotes = "";
     this.bhDay = 0;
     this.bhOpen = "09:00";
     this.bhClose = "18:00";
@@ -3281,6 +3294,9 @@ var ErpSchedulesHours = class extends i3 {
     this.ovStart = "";
     this.ovEnd = "";
     this.ovReason = "";
+    this.ovClosed = true;
+    this.ovOpen = "";
+    this.ovClose = "";
     // ADR-0055: re-render al cambiar el idioma activo (los textos van por getters/`t()`).
     this.onLocaleChange = () => this.requestUpdate();
   }
@@ -3489,9 +3505,16 @@ var ErpSchedulesHours = class extends i3 {
     this.bhBreakEnd = row.break_end ?? "";
     this.dataTable("tbl-hours")?.open("create");
   }
+  /** Special day (schedules#7): the payload is exactly what `schemas/special_day_create.json`
+   *  accepts. Open days carry both hours (the handler requires them); the duplicate check is an
+   *  authoritative runtime read (`reads` in the manifest), NOT a client-supplied list. */
   async createSpecialDay(ev) {
     ev.preventDefault();
     if (!this.sdDate || !this.sdName.trim()) return;
+    if (!this.sdClosed && (!this.sdOpen || !this.sdClose)) {
+      this.formError = erplora().t(CATALOG, "ui.errorHoursRequired");
+      return;
+    }
     this.saving = true;
     this.formError = "";
     try {
@@ -3499,14 +3522,18 @@ var ErpSchedulesHours = class extends i3 {
         date: this.sdDate,
         name: this.sdName.trim(),
         is_closed: this.sdClosed,
-        recurring_yearly: false,
-        notes: "",
-        // El handler valida already_exists contra las fechas ya cargadas (error de negocio).
-        existing_dates: (this.specialCtrl?.rows ?? []).map((r6) => r6.date)
+        open_time: this.sdClosed ? null : this.sdOpen,
+        close_time: this.sdClosed ? null : this.sdClose,
+        recurring_yearly: this.sdRecurring,
+        notes: this.sdNotes.trim()
       });
       this.sdDate = "";
       this.sdName = "";
       this.sdClosed = true;
+      this.sdOpen = "";
+      this.sdClose = "";
+      this.sdRecurring = false;
+      this.sdNotes = "";
       this.dataTable("tbl-special")?.close();
       await this.specialCtrl.load();
     } catch (e5) {
@@ -3515,9 +3542,15 @@ var ErpSchedulesHours = class extends i3 {
       this.saving = false;
     }
   }
+  /** Override (schedules#7): explicit Closed/Open control. An open override always carries both
+   *  hours — there is no silent default that would read as "open 24h". */
   async createOverride(ev) {
     ev.preventDefault();
     if (!this.ovStart || !this.ovEnd || !this.ovReason.trim()) return;
+    if (!this.ovClosed && (!this.ovOpen || !this.ovClose)) {
+      this.formError = erplora().t(CATALOG, "ui.errorHoursRequired");
+      return;
+    }
     this.saving = true;
     this.formError = "";
     try {
@@ -3525,11 +3558,16 @@ var ErpSchedulesHours = class extends i3 {
         start_date: this.ovStart,
         end_date: this.ovEnd,
         reason: this.ovReason.trim(),
-        is_closed: false
+        is_closed: this.ovClosed,
+        open_time: this.ovClosed ? null : this.ovOpen,
+        close_time: this.ovClosed ? null : this.ovClose
       });
       this.ovStart = "";
       this.ovEnd = "";
       this.ovReason = "";
+      this.ovClosed = true;
+      this.ovOpen = "";
+      this.ovClose = "";
       this.dataTable("tbl-override")?.close();
       await this.overrideCtrl.load();
     } catch (e5) {
@@ -3608,8 +3646,17 @@ var ErpSchedulesHours = class extends i3 {
             <ion-input fill="outline" label-placement="floating" label=${t5("ui.colName")} placeholder=${t5("ui.placeholderName")} .value=${this.sdName} @ionInput=${(e5) => this.sdName = e5.target.value}></ion-input>
             <ion-select fill="outline" label-placement="floating" label=${t5("ui.colStatus")} .value=${this.sdClosed ? "closed" : "open"} @ionChange=${(e5) => this.sdClosed = e5.target.value === "closed"}>
               <ion-select-option value="closed">${t5("ui.closed")}</ion-select-option>
-              <ion-select-option value="open">${t5("ui.open")}</ion-select-option>
+              <ion-select-option value="open">${t5("ui.openWithHours")}</ion-select-option>
             </ion-select>
+            ${this.sdClosed ? A : b2`
+                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${this.sdOpen} @ionInput=${(e5) => this.sdOpen = e5.target.value}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${this.sdClose} @ionInput=${(e5) => this.sdClose = e5.target.value}></ion-input>
+                `}
+            <label class="chk">
+              <ion-checkbox ?checked=${this.sdRecurring} @ionChange=${(e5) => this.sdRecurring = !!e5.target.checked}></ion-checkbox>
+              ${t5("ui.fieldRecurring")}
+            </label>
+            <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldNotes")} .value=${this.sdNotes} @ionInput=${(e5) => this.sdNotes = e5.target.value}></ion-input>
             <ion-button type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t5("ui.saving") : t5("ui.addDay")}</ion-button>
           </form>
         </ok-data-table>
@@ -3620,6 +3667,14 @@ var ErpSchedulesHours = class extends i3 {
             <ion-input fill="outline" label-placement="floating" label=${t5("ui.colFrom")} type="date" .value=${this.ovStart} @ionInput=${(e5) => this.ovStart = e5.target.value}></ion-input>
             <ion-input fill="outline" label-placement="floating" label=${t5("ui.colTo")} type="date" .value=${this.ovEnd} @ionInput=${(e5) => this.ovEnd = e5.target.value}></ion-input>
             <ion-input fill="outline" label-placement="floating" label=${t5("ui.colReason")} .value=${this.ovReason} @ionInput=${(e5) => this.ovReason = e5.target.value}></ion-input>
+            <ion-select fill="outline" label-placement="floating" label=${t5("ui.colStatus")} .value=${this.ovClosed ? "closed" : "open"} @ionChange=${(e5) => this.ovClosed = e5.target.value === "closed"}>
+              <ion-select-option value="closed">${t5("ui.closed")}</ion-select-option>
+              <ion-select-option value="open">${t5("ui.openWithHours")}</ion-select-option>
+            </ion-select>
+            ${this.ovClosed ? A : b2`
+                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${this.ovOpen} @ionInput=${(e5) => this.ovOpen = e5.target.value}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${this.ovClose} @ionInput=${(e5) => this.ovClose = e5.target.value}></ion-input>
+                `}
             <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t5("ui.saving") : t5("ui.addOverride")}</ion-button>
           </form>
         </ok-data-table>
@@ -3684,6 +3739,18 @@ __decorateClass([
 ], ErpSchedulesHours.prototype, "sdClosed", 2);
 __decorateClass([
   r5()
+], ErpSchedulesHours.prototype, "sdOpen", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "sdClose", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "sdRecurring", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "sdNotes", 2);
+__decorateClass([
+  r5()
 ], ErpSchedulesHours.prototype, "bhDay", 2);
 __decorateClass([
   r5()
@@ -3709,6 +3776,15 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "ovReason", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "ovClosed", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "ovOpen", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "ovClose", 2);
 define("erp-schedules-hours", ErpSchedulesHours);
 export {
   ErpSchedulesHours

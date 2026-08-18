@@ -105,6 +105,14 @@ export class ErpSchedulesHours extends LitElement {
 
   @state() sdClosed = true;
 
+  @state() sdOpen = '';
+
+  @state() sdClose = '';
+
+  @state() sdRecurring = false;
+
+  @state() sdNotes = '';
+
   @state() bhDay = 0;
 
   @state() bhOpen = '09:00';
@@ -122,6 +130,12 @@ export class ErpSchedulesHours extends LitElement {
   @state() ovEnd = '';
 
   @state() ovReason = '';
+
+  @state() ovClosed = true;
+
+  @state() ovOpen = '';
+
+  @state() ovClose = '';
 
   private hoursCtrl!: ListController<BusinessHours>;
 
@@ -340,9 +354,16 @@ export class ErpSchedulesHours extends LitElement {
     this.dataTable('tbl-hours')?.open('create');
   }
 
+  /** Special day (schedules#7): the payload is exactly what `schemas/special_day_create.json`
+   *  accepts. Open days carry both hours (the handler requires them); the duplicate check is an
+   *  authoritative runtime read (`reads` in the manifest), NOT a client-supplied list. */
   private async createSpecialDay(ev: Event) {
     ev.preventDefault();
     if (!this.sdDate || !this.sdName.trim()) return;
+    if (!this.sdClosed && (!this.sdOpen || !this.sdClose)) {
+      this.formError = erplora().t(CATALOG, 'ui.errorHoursRequired');
+      return;
+    }
     this.saving = true;
     this.formError = '';
     try {
@@ -350,14 +371,18 @@ export class ErpSchedulesHours extends LitElement {
         date: this.sdDate,
         name: this.sdName.trim(),
         is_closed: this.sdClosed,
-        recurring_yearly: false,
-        notes: '',
-        // El handler valida already_exists contra las fechas ya cargadas (error de negocio).
-        existing_dates: (this.specialCtrl?.rows ?? []).map((r) => r.date),
+        open_time: this.sdClosed ? null : this.sdOpen,
+        close_time: this.sdClosed ? null : this.sdClose,
+        recurring_yearly: this.sdRecurring,
+        notes: this.sdNotes.trim(),
       });
       this.sdDate = '';
       this.sdName = '';
       this.sdClosed = true;
+      this.sdOpen = '';
+      this.sdClose = '';
+      this.sdRecurring = false;
+      this.sdNotes = '';
       this.dataTable('tbl-special')?.close();
       await this.specialCtrl.load();
     } catch (e) {
@@ -367,9 +392,15 @@ export class ErpSchedulesHours extends LitElement {
     }
   }
 
+  /** Override (schedules#7): explicit Closed/Open control. An open override always carries both
+   *  hours — there is no silent default that would read as "open 24h". */
   private async createOverride(ev: Event) {
     ev.preventDefault();
     if (!this.ovStart || !this.ovEnd || !this.ovReason.trim()) return;
+    if (!this.ovClosed && (!this.ovOpen || !this.ovClose)) {
+      this.formError = erplora().t(CATALOG, 'ui.errorHoursRequired');
+      return;
+    }
     this.saving = true;
     this.formError = '';
     try {
@@ -377,11 +408,16 @@ export class ErpSchedulesHours extends LitElement {
         start_date: this.ovStart,
         end_date: this.ovEnd,
         reason: this.ovReason.trim(),
-        is_closed: false,
+        is_closed: this.ovClosed,
+        open_time: this.ovClosed ? null : this.ovOpen,
+        close_time: this.ovClosed ? null : this.ovClose,
       });
       this.ovStart = '';
       this.ovEnd = '';
       this.ovReason = '';
+      this.ovClosed = true;
+      this.ovOpen = '';
+      this.ovClose = '';
       this.dataTable('tbl-override')?.close();
       await this.overrideCtrl.load();
     } catch (e) {
@@ -467,8 +503,19 @@ export class ErpSchedulesHours extends LitElement {
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colName')} placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
             <ion-select fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.sdClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.sdClosed = e.target.value === 'closed')}>
               <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
-              <ion-select-option value="open">${t('ui.open')}</ion-select-option>
+              <ion-select-option value="open">${t('ui.openWithHours')}</ion-select-option>
             </ion-select>
+            ${this.sdClosed
+              ? nothing
+              : html`
+                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${this.sdOpen} @ionInput=${(e: any) => (this.sdOpen = e.target.value)}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${this.sdClose} @ionInput=${(e: any) => (this.sdClose = e.target.value)}></ion-input>
+                `}
+            <label class="chk">
+              <ion-checkbox ?checked=${this.sdRecurring} @ionChange=${(e: any) => (this.sdRecurring = !!e.target.checked)}></ion-checkbox>
+              ${t('ui.fieldRecurring')}
+            </label>
+            <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldNotes')} .value=${this.sdNotes} @ionInput=${(e: any) => (this.sdNotes = e.target.value)}></ion-input>
             <ion-button type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t('ui.saving') : t('ui.addDay')}</ion-button>
           </form>
         </ok-data-table>
@@ -479,6 +526,16 @@ export class ErpSchedulesHours extends LitElement {
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colFrom')} type="date" .value=${this.ovStart} @ionInput=${(e: any) => (this.ovStart = e.target.value)}></ion-input>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colTo')} type="date" .value=${this.ovEnd} @ionInput=${(e: any) => (this.ovEnd = e.target.value)}></ion-input>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colReason')} .value=${this.ovReason} @ionInput=${(e: any) => (this.ovReason = e.target.value)}></ion-input>
+            <ion-select fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.ovClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.ovClosed = e.target.value === 'closed')}>
+              <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
+              <ion-select-option value="open">${t('ui.openWithHours')}</ion-select-option>
+            </ion-select>
+            ${this.ovClosed
+              ? nothing
+              : html`
+                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${this.ovOpen} @ionInput=${(e: any) => (this.ovOpen = e.target.value)}></ion-input>
+                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${this.ovClose} @ionInput=${(e: any) => (this.ovClose = e.target.value)}></ion-input>
+                `}
             <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t('ui.saving') : t('ui.addOverride')}</ion-button>
           </form>
         </ok-data-table>

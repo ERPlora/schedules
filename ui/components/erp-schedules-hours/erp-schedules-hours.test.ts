@@ -129,6 +129,117 @@ describe('pestaña «Días especiales»: cada tabla lleva su propia alta dentro'
   });
 });
 
+// schedules#7: the payloads the forms send must match the schema + handler contract.
+describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato acepta', () => {
+  type SpecialDayForm = HTMLElement & {
+    sdDate: string; sdName: string; sdClosed: boolean; sdOpen: string; sdClose: string;
+    sdRecurring: boolean; sdNotes: string; formError: string;
+    createSpecialDay: (e: Event) => Promise<void>;
+  };
+  type OverrideForm = HTMLElement & {
+    ovStart: string; ovEnd: string; ovReason: string; ovClosed: boolean; ovOpen: string; ovClose: string; formError: string;
+    createOverride: (e: Event) => Promise<void>;
+  };
+
+  it('día especial cerrado: sin `existing_dates` (la lectura autoritativa la hace el runtime) y sin horas', async () => {
+    const wc = (await montar('special_days')) as unknown as SpecialDayForm;
+    wc.sdDate = '2026-12-25';
+    wc.sdName = 'Navidad';
+    wc.sdClosed = true;
+    wc.sdRecurring = true;
+    wc.sdNotes = 'Cerrado todo el día';
+    await wc.createSpecialDay(new Event('submit'));
+    const p = comandos.find((c) => c.name === 'schedules.special_days.create')!.payload;
+    expect(p).not.toHaveProperty('existing_dates');
+    expect(p.is_closed).toBe(true);
+    expect(p.recurring_yearly).toBe(true);
+    expect(p.notes).toBe('Cerrado todo el día');
+    expect(p.open_time ?? null).toBeNull();
+    expect(p.close_time ?? null).toBeNull();
+  });
+
+  it('día especial abierto: manda open_time/close_time (el handler los exige)', async () => {
+    const wc = (await montar('special_days')) as unknown as SpecialDayForm;
+    wc.sdDate = '2026-12-24';
+    wc.sdName = 'Nochebuena';
+    wc.sdClosed = false;
+    wc.sdOpen = '09:00';
+    wc.sdClose = '14:00';
+    await wc.createSpecialDay(new Event('submit'));
+    const p = comandos.find((c) => c.name === 'schedules.special_days.create')!.payload;
+    expect(p.is_closed).toBe(false);
+    expect(p.open_time).toBe('09:00');
+    expect(p.close_time).toBe('14:00');
+  });
+
+  it('día especial abierto SIN horas: no se manda nada y se explica el error', async () => {
+    const wc = (await montar('special_days')) as unknown as SpecialDayForm;
+    wc.sdDate = '2026-12-24';
+    wc.sdName = 'Nochebuena';
+    wc.sdClosed = false;
+    wc.sdOpen = '';
+    wc.sdClose = '';
+    await wc.createSpecialDay(new Event('submit'));
+    expect(comandos.find((c) => c.name === 'schedules.special_days.create')).toBeUndefined();
+    expect(wc.formError).toBe('ui.errorHoursRequired');
+  });
+
+  it('el formulario de día especial pinta el selector Cerrado/Abierto y, si abierto, las horas', async () => {
+    const el = await montar('special_days');
+    const wc = el as unknown as SpecialDayForm & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+    const form = wc.shadowRoot.querySelector('#tbl-special form[slot="create"]')!;
+    expect(form.querySelector('ion-input[type="time"]'), 'cerrado por defecto: sin horas').toBeNull();
+    expect(form.querySelector('ion-checkbox'), 'falta el control de recurrencia anual').toBeTruthy();
+    wc.sdClosed = false;
+    await wc.updateComplete;
+    expect(form.querySelectorAll('ion-input[type="time"]').length, 'abierto: apertura y cierre').toBe(2);
+  });
+
+  it('override cerrado: manda is_closed:true sin horas', async () => {
+    const wc = (await montar('special_days')) as unknown as OverrideForm;
+    wc.ovStart = '2026-08-01';
+    wc.ovEnd = '2026-08-15';
+    wc.ovReason = 'Vacaciones';
+    wc.ovClosed = true;
+    await wc.createOverride(new Event('submit'));
+    const p = comandos.find((c) => c.name === 'schedules.overrides.create')!.payload;
+    expect(p.is_closed).toBe(true);
+    expect(p.open_time ?? null).toBeNull();
+    expect(p.close_time ?? null).toBeNull();
+  });
+
+  it('override abierto: manda las horas; sin ellas no se manda nada (nunca «abierto 24 h» por defecto)', async () => {
+    const wc = (await montar('special_days')) as unknown as OverrideForm;
+    wc.ovStart = '2026-08-01';
+    wc.ovEnd = '2026-08-15';
+    wc.ovReason = 'Horario de verano';
+    wc.ovClosed = false;
+    wc.ovOpen = '';
+    wc.ovClose = '';
+    await wc.createOverride(new Event('submit'));
+    expect(comandos.find((c) => c.name === 'schedules.overrides.create')).toBeUndefined();
+    expect(wc.formError).toBe('ui.errorHoursRequired');
+
+    wc.ovOpen = '10:00';
+    wc.ovClose = '14:00';
+    await wc.createOverride(new Event('submit'));
+    const p = comandos.find((c) => c.name === 'schedules.overrides.create')!.payload;
+    expect(p.is_closed).toBe(false);
+    expect(p.open_time).toBe('10:00');
+    expect(p.close_time).toBe('14:00');
+  });
+
+  it('el formulario de override pinta el selector Cerrado/Abierto y, si abierto, las horas', async () => {
+    const el = await montar('special_days');
+    const wc = el as unknown as OverrideForm & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+    const form = wc.shadowRoot.querySelector('#tbl-override form[slot="create"]')!;
+    expect(form.querySelector('ion-select'), 'falta el control Cerrado/Abierto').toBeTruthy();
+    wc.ovClosed = false;
+    await wc.updateComplete;
+    expect(form.querySelectorAll('ion-input[type="time"]').length, 'abierto: apertura y cierre').toBe(2);
+  });
+});
+
 describe('pestaña «Ajustes»: NO es el alta de una fila → su formulario se queda fuera', () => {
   it('los ajustes no viven en el panel de ninguna tabla', async () => {
     const el = await montar('settings');
