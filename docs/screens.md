@@ -10,20 +10,22 @@ override asks for confirmation first.
 
 ## Hours — the weekly opening hours
 
-One row per weekday (`schedules.business_hours.list`, 50 rows per page). Requires
-`schedules.view_schedule`.
+The seven weekdays are always listed, each with its opening **intervals**
+(`schedules.business_hours.list`, one row per interval). Requires `schedules.view_schedule`.
 
-- **Sort and filter** by weekday, opening time, closing time, closed flag, or the break times.
+A day reads as `10:00–14:00 · 17:00–20:00` (split shift), `Open 24 hours`, `Closed` or `Not set`.
 
 ### Set the hours of a day
 
-1. Pick the **day of the week** (0 = Monday … 6 = Sunday).
-2. Either mark it **closed**, or set the **opening** and **closing** times as `HH:MM`.
-3. Optionally set a **break** — both a start and an end.
-4. Save.
+1. Use the row action **edit** on the day (there is no "add": the seven days already exist).
+2. Either mark it **closed**, tick **Open 24 hours**, or fill one line per **interval** — opening
+   and closing time as `HH:MM`. **+ Add interval** appends a line, the ✕ removes one. A closing time
+   earlier than the opening one runs past midnight (`22:00–02:00`).
+3. Save.
 
-Saving a day that already exists **replaces** it; there is one row per weekday and no duplicates are
-possible. The row action "edit" preloads the form with the current values.
+Saving a day **replaces** its intervals. Intervals must not overlap (also through midnight) and
+they are stored sorted. The old "break" is now simply the gap between two intervals; rows created
+before this change are split into two intervals automatically.
 
 Requires `schedules.change_schedule`. Validation happens before anything is written — see
 [limits.md](limits.md) for the codes.

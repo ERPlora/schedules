@@ -18,7 +18,9 @@ Validation happens **before** anything is written, and the error comes back as a
 | Error | What happened | What to do |
 |---|---|---|
 | `invalid_hours` | The closing time is not after the opening time | Fix the times |
-| `invalid_break` | The break is not inside the opening interval | Put the break within the day, both ends or neither |
+| `invalid_break` | (legacy payload) The break is not inside the opening interval | Send `intervals[]` instead: a break is the gap between two intervals |
+| `overlapping` | Two intervals of the same day overlap (also through midnight), or two live overrides cover the same date | Fix the interval bounds / the override range |
+| `missing_hours` | An open day, special day or override was sent without hours | Send at least one complete interval or mark it closed |
 | `invalid_day` | The weekday is not 0–6 | Use 0 = Monday … 6 = Sunday |
 | `missing_hours` | Marked open but without opening and closing times | Give both, or mark it closed |
 | `missing_name` | A special day with no name | Name it |

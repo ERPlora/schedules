@@ -31,6 +31,7 @@ beforeEach(() => {
       name === 'schedules.settings.get'
         ? { timezone: 'Europe/Madrid', week_starts_on: 1, slot_duration: 30, auto_close_enabled: 0 }
         : [],
+    queryAll: async (name: string) => FILAS[name] ?? [],
     queryPage: async (name: string) => ({ rows: FILAS[name] ?? [], total: (FILAS[name] ?? []).length }),
     command: async (name: string, payload: Record<string, unknown>) => {
       comandos.push({ name, payload });
@@ -66,9 +67,11 @@ const formulariosSueltos = (el: HTMLElement & { shadowRoot: ShadowRoot }) =>
   [...el.shadowRoot.querySelectorAll('form')].filter((f) => !f.closest('ok-data-table'));
 
 describe('pestaña «Horario»: el día se edita DENTRO de la tabla', () => {
-  it('la tabla declara `addable` y `fill`', async () => {
+  // schedules#8: the seven weekdays are always listed and EDITED (Google Business Profile, Square,
+  // Fresha) — there is no eighth day to add, so the hours table has no «+». See intervals.test.ts.
+  it('la tabla NO declara `addable` (los 7 días son fijos, se editan) y sí `fill`', async () => {
     const el = await montar('hours');
-    expect(tablas(el)[0]?.addable, 'sin `addable` no hay «+» en la barra de la tabla').toBe(true);
+    expect(tablas(el)[0]?.addable).toBe(false);
     expect(tablas(el)[0]?.fill).toBe(true);
   });
 
@@ -82,16 +85,16 @@ describe('pestaña «Horario»: el día se edita DENTRO de la tabla', () => {
 
   it('guardar el día sigue mandando schedules.business_hours.set', async () => {
     const el = await montar('hours');
-    const wc = el as unknown as { bhDay: number; bhOpen: string; bhClose: string; saveBusinessHours: (e: Event) => Promise<void> };
+    // schedules#8: the payload carries `intervals[]` (split shifts), not one open/close pair.
+    const wc = el as unknown as { bhDay: number; bhIntervals: { open_time: string; close_time: string }[]; saveBusinessHours: (e: Event) => Promise<void> };
     wc.bhDay = 2;
-    wc.bhOpen = '10:00';
-    wc.bhClose = '20:00';
+    wc.bhIntervals = [{ open_time: '10:00', close_time: '20:00' }];
     await wc.saveBusinessHours(new Event('submit'));
 
     const cmd = comandos.find((c) => c.name === 'schedules.business_hours.set');
     expect(cmd, 'no se mandó el upsert del día').toBeTruthy();
     expect(cmd!.payload.day_of_week).toBe(2);
-    expect(cmd!.payload.open_time).toBe('10:00');
+    expect(cmd!.payload.intervals).toEqual([{ open_time: '10:00', close_time: '20:00' }]);
   });
 });
 

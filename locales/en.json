@@ -77,6 +77,12 @@
     "specialDays": "Special days",
     "deleteConfirmTitle": "Delete",
     "deleteConfirmMessage": "«{name}» will be deleted. This cannot be undone.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "colHours": "Hours",
+    "open24h": "Open 24 hours",
+    "notSet": "Not set",
+    "addInterval": "+ Add interval",
+    "removeInterval": "Remove interval",
+    "intervalsHint": "Split shifts: one line per interval (10:00–14:00 and 17:00–20:00). A closing time earlier than the opening one runs past midnight (22:00–02:00)."
   }
 }

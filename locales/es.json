@@ -78,6 +78,12 @@
     "specialDays": "Días especiales",
     "deleteConfirmTitle": "Eliminar",
     "deleteConfirmMessage": "Se eliminará «{name}». No se puede deshacer.",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "colHours": "Horario",
+    "open24h": "Abierto 24 horas",
+    "notSet": "Sin definir",
+    "addInterval": "+ Añadir tramo",
+    "removeInterval": "Quitar tramo",
+    "intervalsHint": "Jornada partida: una línea por tramo (10:00–14:00 y 17:00–20:00). Un cierre anterior a la apertura pasa de medianoche (22:00–02:00)."
   }
 }

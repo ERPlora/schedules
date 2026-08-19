@@ -27,6 +27,7 @@ beforeEach(() => {
   commands.length = 0;
   (globalThis as Record<string, unknown>).erplora = {
     query: async (name: string) => (name === 'schedules.settings.get' ? { timezone: 'Europe/Madrid', week_starts_on: 1, slot_duration: 30, auto_close_enabled: 0 } : []),
+    queryAll: async (name: string) => ROWS[name] ?? [],
     queryPage: async (name: string) => ({ rows: ROWS[name] ?? [], total: (ROWS[name] ?? []).length }),
     command: async (name: string, payload: Record<string, unknown>) => {
       commands.push({ name, payload });

@@ -9,12 +9,28 @@ The things people get wrong on their first day.
 1. **Special day for that exact date.** If none, a **yearly recurring** special day whose month and
    day match.
 2. **Override** whose date range covers the day.
-3. **Business hours** for that weekday, taking the break into account.
+3. **Business hours** for that weekday — open if the moment falls in **any** of its intervals
+   (a split shift is two intervals; `22:00–02:00` runs past midnight into the next day;
+   `00:00–00:00` is open 24 hours).
 4. **Nothing configured** — the answer falls back to the `fail_open` flag.
+
+The verdict says **which rule won**: `source` (`special_day` / `override` / `business_hours` /
+`none`) and `rule_id`. Precedence, spelled out: **exact-date special day > yearly recurring special
+day > override range > weekly intervals > nothing**.
 
 A special day **beats an override**, and an override **beats the weekly hours**. That is the whole
 design: a bank holiday must win over a summer timetable, which must win over "Tuesdays we open at
 nine".
+
+## A weekday has 0..N intervals, not one pair plus a break
+
+A bar that opens `10–14` and `17–20` has **two intervals** on that day, not "one day with a break".
+Each interval is a row; saving a day replaces all its rows. Intervals must not overlap. A closed
+day is a single closed row; a day with no rows is *not set* (the engine treats it as unknown, and
+`fail_open` decides).
+
+Special days and overrides still carry **one** open/close pair (or closed). A dated exception with
+several intervals is a follow-up, not something to fake with two special days on the same date.
 
 ## A special day is a date; an override is a range
 
