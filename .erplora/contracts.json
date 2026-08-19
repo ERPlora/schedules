@@ -4,6 +4,7 @@
   "consumes": {
     "queries": [
       "schedules.business_hours.list",
+      "schedules.exception_intervals.list",
       "schedules.overrides.list",
       "schedules.settings.get",
       "schedules.special_days.list"

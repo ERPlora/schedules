@@ -42,7 +42,9 @@ name.
 ### Create a special day
 
 1. Give it a **date** and a **name** — both required.
-2. Mark it **closed** (the default), or set opening and closing times for that day.
+2. Mark it **closed** (the default), or fill one line per **interval** — the same editor as the
+   weekly hours: **+ Add interval** appends a line, the ✕ removes one. A holiday that opens
+   `10:00–13:00` and `17:00–19:00` is one special day with two intervals.
 3. Tick **recurring yearly** if it falls on the same month and day every year — Christmas Day, for
    instance.
 4. Optionally add notes.
@@ -70,7 +72,9 @@ A temporary change of hours over a **date range** — summer hours, a refurbishm
 ### Create an override
 
 1. Set the **start date** and the **end date**. The end cannot be before the start.
-2. Either mark the period **closed**, or set the opening and closing times that apply during it.
+2. Either mark the period **closed**, or fill one line per **interval** that applies during it —
+   same editor, same rules as the weekly hours (no overlaps, `close` before `open` runs past
+   midnight, `00:00–00:00` is 24 hours).
 3. Add the reason.
 
 Requires `schedules.add_schedule`. Deleting one requires `schedules.delete_schedule`.

@@ -61,7 +61,8 @@
   "migrations": {
     "postgres": [
       "migrations/postgres/001_init.sql",
-      "migrations/postgres/002_business_hours_intervals.sql"
+      "migrations/postgres/002_business_hours_intervals.sql",
+      "migrations/postgres/003_exception_intervals.sql"
     ]
   },
   "queries": {
@@ -105,6 +106,37 @@
       },
       "ai": {
         "description": "Lists the business opening intervals per day of the week (several rows per day = split shifts; close_time < open_time = crosses midnight; 00:00–00:00 = open 24 hours; is_closed = 1 closes the day)"
+      }
+    },
+    "schedules.exception_intervals.list": {
+      "permission": "schedules.view_schedule",
+      "sql": "queries/exception_intervals_list.sql",
+      "list": {
+        "sort": [
+          "id",
+          "exception_kind",
+          "exception_id",
+          "position",
+          "open_time",
+          "close_time"
+        ],
+        "default_sort": "position",
+        "default_dir": "asc",
+        "filters": {
+          "exception_kind": {
+            "op": "eq"
+          },
+          "exception_id": {
+            "op": "eq"
+          },
+          "position": {
+            "op": "eq"
+          }
+        },
+        "page_size": 200
+      },
+      "ai": {
+        "description": "Lists the opening intervals of the exceptions (special days and overrides): several rows for one exception_id = split shift; close_time < open_time = crosses midnight; 00:00-00:00 = open 24 hours. An exception with no row here still carries its own open_time/close_time pair"
       }
     },
     "schedules.special_days.list": {
@@ -249,13 +281,14 @@
         }
       ],
       "ai": {
-        "description": "Creates a special day with exceptional opening hours or a closure (the handler validates hours and emits schedules.special_day.created)"
+        "description": "Creates a special day with exceptional opening hours or a closure. An open day takes intervals[] (split shifts, overnight when close < open, 00:00-00:00 for 24 h) or the single open_time/close_time pair; the handler validates them, rejects overlaps and emits schedules.special_day.created"
       }
     },
     "schedules.special_days.delete": {
       "permission": "schedules.delete_schedule",
       "transaction": true,
       "sql": [
+        "commands/special_day_intervals_delete.sql",
         "commands/special_day_delete.sql"
       ],
       "schema": "schemas/special_day_delete.json",
@@ -263,7 +296,7 @@
         "schedules.special_day.deleted"
       ],
       "ai": {
-        "description": "Deletes a previously registered special day (destructive)"
+        "description": "Deletes a previously registered special day and its opening intervals (destructive)"
       }
     },
     "schedules.overrides.create": {
@@ -284,13 +317,14 @@
         }
       ],
       "ai": {
-        "description": "Creates a one-off schedule override for a date range (the handler validates the range, rejects overlaps with live overrides and, when open, requires open_time/close_time; emits schedules.override.created)"
+        "description": "Creates a one-off schedule override for a date range. An open override takes intervals[] (split shifts, overnight when close < open, 00:00-00:00 for 24 h) or the single open_time/close_time pair — never nothing; the handler validates the range, rejects overlaps with live overrides and between intervals, and emits schedules.override.created"
       }
     },
     "schedules.overrides.delete": {
       "permission": "schedules.delete_schedule",
       "transaction": true,
       "sql": [
+        "commands/override_intervals_delete.sql",
         "commands/override_delete.sql"
       ],
       "schema": "schemas/override_delete.json",
@@ -298,7 +332,7 @@
         "schedules.override.deleted"
       ],
       "ai": {
-        "description": "Deletes an existing schedule override (destructive)"
+        "description": "Deletes an existing schedule override and its opening intervals (destructive)"
       }
     },
     "schedules.settings.save": {
@@ -338,7 +372,7 @@
         "function": "is_open"
       },
       "ai": {
-        "description": "Checks whether the business is open at a given moment. Precedence: exact-date special day > yearly recurring special day > override range > weekly intervals > nothing (fail_open decides). The result says which rule won (source + rule_id). Pass the rows from schedules.business_hours.list / special_days.list / overrides.list in the payload"
+        "description": "Checks whether the business is open at a given moment. Precedence: exact-date special day > yearly recurring special day > override range > weekly intervals > nothing (fail_open decides). The result says which rule won (source + rule_id). Pass the rows from schedules.business_hours.list / special_days.list / overrides.list / exception_intervals.list in the payload"
       }
     },
     "schedules._insert_special_day": {
@@ -357,6 +391,12 @@
       "permission": "schedules.add_schedule",
       "sql": [
         "commands/override_create.sql"
+      ]
+    },
+    "schedules._insert_exception_interval": {
+      "permission": "schedules.add_schedule",
+      "sql": [
+        "commands/_insert_exception_interval.sql"
       ]
     },
     "schedules._clear_business_hours_day": {

@@ -10,6 +10,9 @@
   we be open at 18:30 next Thursday" or to generate a list of open slots.
 - **No holiday calendar is seeded.** Every special day is entered by you.
 - **Nothing acts on the auto-close setting.** It is stored, not enforced.
+- **An overnight interval of an exception stops at midnight.** `22:00–02:00` on a special day is
+  honoured on that date until 24:00; the small hours of the following day are answered by the
+  following day's rules. The weekly hours DO reach into the next morning.
 
 ## Errors you will actually see
 
@@ -19,7 +22,7 @@ Validation happens **before** anything is written, and the error comes back as a
 |---|---|---|
 | `invalid_hours` | The closing time is not after the opening time | Fix the times |
 | `invalid_break` | (legacy payload) The break is not inside the opening interval | Send `intervals[]` instead: a break is the gap between two intervals |
-| `overlapping` | Two intervals of the same day overlap (also through midnight), or two live overrides cover the same date | Fix the interval bounds / the override range |
+| `overlapping` | Two intervals of the same day — or of the same special day / override — overlap (also through midnight), or two live overrides cover the same date | Fix the interval bounds / the override range |
 | `missing_hours` | An open day, special day or override was sent without hours | Send at least one complete interval or mark it closed |
 | `invalid_day` | The weekday is not 0–6 | Use 0 = Monday … 6 = Sunday |
 | `missing_hours` | Marked open but without opening and closing times | Give both, or mark it closed |
@@ -36,7 +39,8 @@ Validation happens **before** anything is written, and the error comes back as a
 | Date | `YYYY-MM-DD` text |
 | Day of week | 0 = Monday … 6 = Sunday |
 | Special day per date | one per hub |
-| Business hours row per weekday | one per hub |
+| Business hours rows per weekday | one per interval (max 12) |
+| Intervals per exception | 0..12 (a closed exception has none) |
 | Settings row | one per hub |
 
 ## Caps and sizes
