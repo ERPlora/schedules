@@ -14,10 +14,11 @@
 //!   runtime vía `reads` del manifest — schedules#7); solo si la read falta degrada
 //!   al hint del cliente `existing_dates`. El índice único
 //!   `uq_schedules_special_day_hub_date` queda como backstop duro;
-//! * el resultado solo-lectura (`is_open` / resumen del bulk) se serializa en el
-//!   campo extra `result` del Output — el host actual lo ignora (devuelve
-//!   `{ok, operations}`); cuando el runtime exponga el canal de resultado de
-//!   handlers (decisión humana pendiente) ya estará emitido aquí.
+//! * el resultado solo-lectura (`is_open` / resumen del bulk) viaja por el **canal
+//!   `result` del Output** (hub#70): no es una operación ni un evento, no se
+//!   persiste y el host lo devuelve al llamante tal cual (con tope de tamaño). Es
+//!   la única vía por la que un veredicto es AUTORITATIVO — calcularlo en el
+//!   cliente sobre filas que el propio cliente aporta lo haría falsificable.
 //!
 //! Horas como TEXT `'HH:MM'` y fechas `'YYYY-MM-DD'` (comparación lexicográfica,
 //! válida por el zero-padding). Errores de negocio = `Err("codigo: detalle")` con
@@ -184,13 +185,9 @@ fn weekday_iso0(date: &str) -> Option<i64> {
     Some((days_from_civil(y, m, d) + 3).rem_euclid(7))
 }
 
-/// Serializa un Output estándar + campo extra `result` (el host actual lo ignora).
+/// Serializa un Output con su veredicto en el canal `result` del contrato (hub#70).
 fn output_with_result(out: Output, result: Value) -> Value {
-    let mut v = serde_json::to_value(&out).unwrap_or_else(|_| json!({}));
-    if let Value::Object(map) = &mut v {
-        map.insert("result".into(), result);
-    }
-    v
+    serde_json::to_value(out.with_result(result)).unwrap_or_else(|_| json!({}))
 }
 
 // ── Validación de horas (WASM-TODO §3) ─────────────────────────────────────
@@ -733,7 +730,7 @@ pub fn bulk_create_special_days_pure(input: Value) -> Result<Value, String> {
 /// SpecialDay (fecha exacta o `recurring_yearly` por MM-DD) → ScheduleOverride
 /// (rango que cubre hoy) → BusinessHours (día de la semana, con descanso) →
 /// sin configuración (`fail_open` decide). Solo-lectura: no emite intenciones;
-/// el resultado va en el campo extra `result` del Output.
+/// el veredicto va por el canal `result` del Output (hub#70).
 pub fn is_open_pure(input: Value) -> Result<Value, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
     let context = input.get("context").cloned().unwrap_or(Value::Null);
@@ -1399,6 +1396,60 @@ mod tests {
                 { "id": "i2", "exception_kind": "override", "exception_id": "sd", "position": 0, "open_time": "17:00", "close_time": "19:00" } ] });
         assert_eq!(open_with_exceptions("2026-12-24T11:00", extra.clone())["is_open"], true);
         assert_eq!(open_with_exceptions("2026-12-24T18:00", extra)["is_open"], false);
+    }
+
+    // ── schedules#10: the answer travels in the host's result channel, and DST is a non-event ──
+
+    #[test]
+    fn the_is_open_verdict_travels_in_the_official_result_channel() {
+        // hub#70 gave handlers a `result` field; the host reads `Output.result` and caps its size.
+        // Serialising a hand-made `{"result": …}` next to the Output would look identical HERE and
+        // still be wrong on the wire, so the check is: what the handler returns must deserialise
+        // back into an `Output` carrying the verdict.
+        let payload = json!({ "when": "2026-08-17T11:00",
+            "business_hours": [ { "id": "a", "day_of_week": 0, "open_time": "10:00", "close_time": "14:00", "is_closed": 0 } ] });
+        let raw = is_open_pure(input(payload)).expect("ok");
+        let out: Output = serde_json::from_value(raw).expect("the host deserialises the Output");
+        let result = out.result.expect("the verdict is a result, not an operation");
+        assert_eq!(result["is_open"], true);
+        assert_eq!(result["source"], "business_hours");
+        assert_eq!(result["rule_id"], "a");
+        assert!(out.operations.is_empty(), "a read-only handler writes nothing");
+        assert!(out.events.is_empty(), "and emits nothing");
+    }
+
+    #[test]
+    fn the_bulk_summary_travels_in_the_result_channel_too() {
+        let payload = json!({ "special_days": [
+            { "date": "2026-02-31", "name": "Impossible", "is_closed": true },
+            { "date": "2026-03-01", "name": "Fine", "is_closed": true } ]});
+        let raw = bulk_create_special_days_pure(input(payload)).expect("the bulk is fault-tolerant");
+        let out: Output = serde_json::from_value(raw).expect("the host deserialises the Output");
+        let result = out.result.expect("the partial summary is the point of the bulk");
+        assert_eq!(result["created"], 1);
+        assert_eq!(result["errors"].as_array().unwrap().len(), 1);
+        assert_eq!(out.operations.len(), 1, "only the valid item is written");
+    }
+
+    #[test]
+    fn daylight_saving_does_not_move_the_opening_hours() {
+        // Hours are WALL-CLOCK text ('HH:MM'), never instants, so the last Sunday of March (Europe
+        // skips 02:00→03:00) and of October (01:00 happens twice) change nothing: a shop that
+        // opens at 10:00 opens at 10:00 on both. This is a property of the model — the test is
+        // here so nobody "fixes" it into UTC arithmetic and silently shifts every schedule by an
+        // hour twice a year.
+        let bh = json!([ { "id": "a", "day_of_week": 6, "open_time": "10:00", "close_time": "20:00", "is_closed": 0 } ]);
+        // 2026-03-29 and 2026-10-25 are both Sundays (dow 6) and both DST switch days in Europe.
+        for day in ["2026-03-29", "2026-10-25"] {
+            assert_eq!(open_at(&format!("{day}T09:59"), bh.clone())["is_open"], false, "{day}");
+            assert_eq!(open_at(&format!("{day}T10:00"), bh.clone())["is_open"], true, "{day}");
+            assert_eq!(open_at(&format!("{day}T19:59"), bh.clone())["is_open"], true, "{day}");
+            assert_eq!(open_at(&format!("{day}T20:00"), bh.clone())["is_open"], false, "{day}");
+        }
+        // And the hour that is skipped (02:00–03:00 in March) is simply outside the schedule.
+        let night = json!([ { "id": "n", "day_of_week": 6, "open_time": "01:00", "close_time": "04:00", "is_closed": 0 } ]);
+        assert_eq!(open_at("2026-03-29T02:30", night.clone())["is_open"], true, "a skipped wall-clock hour still reads as open");
+        assert_eq!(open_at("2026-10-25T02:30", night)["is_open"], true, "a repeated one too");
     }
 
     #[test]

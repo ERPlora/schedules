@@ -202,6 +202,9 @@
       "permission": "schedules.view_schedule",
       "sql": "queries/overrides_list.sql",
       "list": {
+        "search": [
+          "reason"
+        ],
         "sort": [
           "id",
           "start_date",
