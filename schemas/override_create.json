@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "schedules.overrides.create",
+  "description": "Creates a schedule override for a date range. An open override carries 0..N `intervals` (schedules#23: split shift, overnight when close < open, 00:00–00:00 for 24 h); the legacy single open_time/close_time pair is still accepted and becomes the one interval 0.",
   "type": "object",
   "additionalProperties": false,
   "required": ["start_date", "end_date", "reason"],
@@ -10,6 +11,19 @@
     "reason": { "type": "string", "minLength": 1, "maxLength": 200 },
     "open_time": { "type": ["string", "null"], "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "default": null },
     "close_time": { "type": ["string", "null"], "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "default": null },
+    "intervals": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["open_time", "close_time"],
+        "properties": {
+          "open_time": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+          "close_time": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+        }
+      }
+    },
     "is_closed": { "type": "boolean", "default": false }
   }
 }

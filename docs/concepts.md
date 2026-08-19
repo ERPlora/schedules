@@ -29,8 +29,21 @@ Each interval is a row; saving a day replaces all its rows. Intervals must not o
 day is a single closed row; a day with no rows is *not set* (the engine treats it as unknown, and
 `fail_open` decides).
 
-Special days and overrides still carry **one** open/close pair (or closed). A dated exception with
-several intervals is a follow-up, not something to fake with two special days on the same date.
+## An exception has 0..N intervals too
+
+The same holds for a **special day** and for an **override**: a holiday that opens `10–13` and
+`17–19` is ONE exception with two intervals, never two special days on the same date (that is
+rejected anyway — one special day per date). The rules are the ones above: order does not matter,
+intervals must not overlap (through midnight either), `close < open` runs past midnight and
+`00:00–00:00` is open 24 hours. Marking the exception **closed** drops its intervals.
+
+An exception written before this existed — and every day created by the bulk — carries no interval
+of its own, only the `open_time`/`close_time` pair on its own row. That pair keeps deciding for it,
+so nothing changed for the businesses that were already running.
+
+One boundary worth knowing: an overnight interval on an exception (`22:00–02:00` on New Year's Eve)
+is honoured **on the exception's own date, until midnight**. The small hours that follow belong to
+the next date and are answered by that date's rules.
 
 ## A special day is a date; an override is a range
 

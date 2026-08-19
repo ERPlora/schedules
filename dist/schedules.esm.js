@@ -3509,6 +3509,10 @@ function foldWeek(rows) {
     return { day_of_week: day, is_closed: closed ? 1 : 0, configured: mine.length ? 1 : 0, intervals };
   });
 }
+function intervalsOf(rows, kind, id) {
+  return rows.filter((r6) => r6.exception_kind === kind && String(r6.exception_id) === String(id)).sort((a3, b3) => Number(a3.position ?? 0) - Number(b3.position ?? 0)).map((r6) => ({ open_time: r6.open_time, close_time: r6.close_time }));
+}
+var blankIntervals = () => [{ open_time: "", close_time: "" }];
 var TABS = ["hours", "special_days", "settings"];
 function resolveNavId(pathname) {
   const clean = pathname.split(/[?#]/)[0].replace(/\/+$/, "");
@@ -3537,8 +3541,7 @@ var ErpSchedulesHours = class extends i3 {
     this.sdDate = "";
     this.sdName = "";
     this.sdClosed = true;
-    this.sdOpen = "";
-    this.sdClose = "";
+    this.sdIntervals = blankIntervals();
     this.sdRecurring = false;
     this.sdNotes = "";
     this.bhDay = 0;
@@ -3549,8 +3552,8 @@ var ErpSchedulesHours = class extends i3 {
     this.ovEnd = "";
     this.ovReason = "";
     this.ovClosed = true;
-    this.ovOpen = "";
-    this.ovClose = "";
+    this.ovIntervals = blankIntervals();
+    this.exceptionIntervals = [];
     // ADR-0055: re-render al cambiar el idioma activo (los textos van por getters/`t()`).
     this.onLocaleChange = () => this.requestUpdate();
   }
@@ -3618,6 +3621,16 @@ var ErpSchedulesHours = class extends i3 {
       }
     ];
   }
+  /** What an exception's hours column shows (schedules#23): every interval, «Closed», «Open 24
+   *  hours», or — for a row with no interval of its own — its legacy open/close pair. */
+  formatExceptionHours(kind, r6) {
+    const t5 = (k2) => erplora().t(CATALOG, k2);
+    if (Number(r6.is_closed)) return t5("ui.closed");
+    const intervals = intervalsOf(this.exceptionIntervals, kind, String(r6.id));
+    if (!intervals.length) return `${r6.open_time ?? ""}\u2013${r6.close_time ?? ""}`;
+    if (intervals.length === 1 && intervals[0].open_time === "00:00" && intervals[0].close_time === "00:00") return t5("ui.open24h");
+    return intervals.map((i7) => `${i7.open_time}\u2013${i7.close_time}`).join(" \xB7 ");
+  }
   get specialColumns() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
     return [
@@ -3630,7 +3643,7 @@ var ErpSchedulesHours = class extends i3 {
         filterable: true,
         filterType: "select",
         options: this.closedOptions,
-        format: (r6) => r6.is_closed ? t5("ui.closed") : `${r6.open_time ?? ""}\u2013${r6.close_time ?? ""}`
+        format: (r6) => this.formatExceptionHours("special_day", r6)
       },
       {
         key: "recurring_yearly",
@@ -3656,7 +3669,7 @@ var ErpSchedulesHours = class extends i3 {
         filterable: true,
         filterType: "select",
         options: this.closedOptions,
-        format: (r6) => r6.is_closed ? t5("ui.closed") : `${r6.open_time ?? ""}\u2013${r6.close_time ?? ""}`
+        format: (r6) => this.formatExceptionHours("override", r6)
       }
     ];
   }
@@ -3686,6 +3699,7 @@ var ErpSchedulesHours = class extends i3 {
     });
     await Promise.all([
       this.loadHours(),
+      this.loadExceptionIntervals(),
       this.specialCtrl.load(),
       this.overrideCtrl.load(),
       this.loadSettings()
@@ -3711,10 +3725,21 @@ var ErpSchedulesHours = class extends i3 {
   async reloadAll() {
     await Promise.all([
       this.loadHours(),
+      this.loadExceptionIntervals(),
       this.specialCtrl.load(),
       this.overrideCtrl.load(),
       this.loadSettings()
     ]);
+  }
+  /** Every interval row of the hub's exceptions (schedules#23): the two tables fold them by
+   *  exception, the same way the weekly table folds `business_hours.list` by day. */
+  async loadExceptionIntervals() {
+    try {
+      const rows = await erplora().queryAll("schedules.exception_intervals.list", { sort: "position", dir: "asc" });
+      this.exceptionIntervals = Array.isArray(rows) ? rows : [];
+    } catch {
+      this.exceptionIntervals = [];
+    }
   }
   // Every interval row of the week (never a page: the table folds them by day).
   async loadHours() {
@@ -3737,6 +3762,28 @@ var ErpSchedulesHours = class extends i3 {
   }
   updateInterval(index, patch) {
     this.bhIntervals = this.bhIntervals.map((it, i7) => i7 === index ? { ...it, ...patch } : it);
+  }
+  // The exceptions get the SAME editor as the weekly hours (schedules#23) — one list of intervals
+  // per form, each with its own state so the two panels never step on each other.
+  addSpecialDayInterval() {
+    this.sdIntervals = [...this.sdIntervals, { open_time: "", close_time: "" }];
+  }
+  removeSpecialDayInterval(index) {
+    this.sdIntervals = this.sdIntervals.filter((_2, i7) => i7 !== index);
+  }
+  addOverrideInterval() {
+    this.ovIntervals = [...this.ovIntervals, { open_time: "", close_time: "" }];
+  }
+  removeOverrideInterval(index) {
+    this.ovIntervals = this.ovIntervals.filter((_2, i7) => i7 !== index);
+  }
+  /** The `intervals[]` an exception form sends, or `null` when a line is half filled — an
+   *  incomplete interval is a mistake, never «open all day». A closed exception sends `[]`. */
+  exceptionPayloadIntervals(closed, intervals) {
+    if (closed) return [];
+    const clean = intervals.map((i7) => ({ open_time: i7.open_time, close_time: i7.close_time }));
+    if (!clean.length || clean.some((i7) => !i7.open_time || !i7.close_time)) return null;
+    return clean;
   }
   async loadSettings() {
     try {
@@ -3792,7 +3839,8 @@ var ErpSchedulesHours = class extends i3 {
   async createSpecialDay(ev) {
     ev.preventDefault();
     if (!this.sdDate || !this.sdName.trim()) return;
-    if (!this.sdClosed && (!this.sdOpen || !this.sdClose)) {
+    const intervals = this.exceptionPayloadIntervals(this.sdClosed, this.sdIntervals);
+    if (!intervals) {
       this.formError = erplora().t(CATALOG, "ui.errorHoursRequired");
       return;
     }
@@ -3803,20 +3851,22 @@ var ErpSchedulesHours = class extends i3 {
         date: this.sdDate,
         name: this.sdName.trim(),
         is_closed: this.sdClosed,
-        open_time: this.sdClosed ? null : this.sdOpen,
-        close_time: this.sdClosed ? null : this.sdClose,
+        // The pair keeps travelling as the FIRST interval: a hub that has not run migration 003
+        // yet still writes a usable row, and nothing that reads the pair breaks.
+        open_time: intervals.length ? intervals[0].open_time : null,
+        close_time: intervals.length ? intervals[0].close_time : null,
+        intervals,
         recurring_yearly: this.sdRecurring,
         notes: this.sdNotes.trim()
       });
       this.sdDate = "";
       this.sdName = "";
       this.sdClosed = true;
-      this.sdOpen = "";
-      this.sdClose = "";
+      this.sdIntervals = blankIntervals();
       this.sdRecurring = false;
       this.sdNotes = "";
       this.dataTable("tbl-special")?.close();
-      await this.specialCtrl.load();
+      await Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e5) {
       this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorCreateSpecialDay");
     } finally {
@@ -3828,7 +3878,8 @@ var ErpSchedulesHours = class extends i3 {
   async createOverride(ev) {
     ev.preventDefault();
     if (!this.ovStart || !this.ovEnd || !this.ovReason.trim()) return;
-    if (!this.ovClosed && (!this.ovOpen || !this.ovClose)) {
+    const intervals = this.exceptionPayloadIntervals(this.ovClosed, this.ovIntervals);
+    if (!intervals) {
       this.formError = erplora().t(CATALOG, "ui.errorHoursRequired");
       return;
     }
@@ -3840,17 +3891,17 @@ var ErpSchedulesHours = class extends i3 {
         end_date: this.ovEnd,
         reason: this.ovReason.trim(),
         is_closed: this.ovClosed,
-        open_time: this.ovClosed ? null : this.ovOpen,
-        close_time: this.ovClosed ? null : this.ovClose
+        open_time: intervals.length ? intervals[0].open_time : null,
+        close_time: intervals.length ? intervals[0].close_time : null,
+        intervals
       });
       this.ovStart = "";
       this.ovEnd = "";
       this.ovReason = "";
       this.ovClosed = true;
-      this.ovOpen = "";
-      this.ovClose = "";
+      this.ovIntervals = blankIntervals();
       this.dataTable("tbl-override")?.close();
-      await this.overrideCtrl.load();
+      await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e5) {
       this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorCreateOverride");
     } finally {
@@ -3894,10 +3945,10 @@ var ErpSchedulesHours = class extends i3 {
     try {
       if (pending.kind === "special_day") {
         await erplora().command("schedules.special_days.delete", { special_day_id: pending.id });
-        await this.specialCtrl.load();
+        await Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()]);
       } else {
         await erplora().command("schedules.overrides.delete", { override_id: pending.id });
-        await this.overrideCtrl.load();
+        await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
       }
     } catch (e5) {
       this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorDelete");
@@ -3907,6 +3958,23 @@ var ErpSchedulesHours = class extends i3 {
   // clipping (schedules#6); desktop keeps the table.
   get defaultView() {
     return window.innerWidth <= 834 ? "cards" : "table";
+  }
+  /** THE interval editor — one open · close · ✕ line per interval plus «+ add interval». The
+   *  weekly day (schedules#8) and the two exception forms (schedules#23) share it, so the three
+   *  screens behave identically: 44 px touch targets, one hand, no keyboard. */
+  renderIntervalEditor(intervals, update, add, remove) {
+    const t5 = (k2) => erplora().t(CATALOG, k2);
+    return b2`
+      ${intervals.map(
+      (it, i7) => b2`<div class="interval">
+          <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${it.open_time} @ionInput=${(e5) => update(i7, { open_time: e5.target.value })}></ion-input>
+          <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${it.close_time} @ionInput=${(e5) => update(i7, { close_time: e5.target.value })}></ion-input>
+          <ion-button fill="clear" size="small" color="medium" data-action="remove-interval" aria-label=${t5("ui.removeInterval")} ?disabled=${intervals.length <= 1} @click=${() => remove(i7)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
+        </div>`
+    )}
+      <ion-button fill="outline" size="small" data-action="add-interval" @click=${() => add()}>${t5("ui.addInterval")}</ion-button>
+      <p class="hint">${t5("ui.intervalsHint")}</p>
+    `;
   }
   renderHours() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
@@ -3929,17 +3997,12 @@ var ErpSchedulesHours = class extends i3 {
                     <ion-checkbox ?checked=${isAllDay} @ionChange=${(e5) => e5.target.checked ? this.setAllDay() : this.bhIntervals = [{ open_time: "09:00", close_time: "18:00" }]}></ion-checkbox>
                     ${t5("ui.open24h")}
                   </label>
-                  ${isAllDay ? A : b2`
-                        ${this.bhIntervals.map(
-      (it, i7) => b2`<div class="interval">
-                            <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${it.open_time} @ionInput=${(e5) => this.updateInterval(i7, { open_time: e5.target.value })}></ion-input>
-                            <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${it.close_time} @ionInput=${(e5) => this.updateInterval(i7, { close_time: e5.target.value })}></ion-input>
-                            <ion-button fill="clear" size="small" color="medium" data-action="remove-interval" aria-label=${t5("ui.removeInterval")} ?disabled=${this.bhIntervals.length <= 1} @click=${() => this.removeInterval(i7)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
-                          </div>`
+                  ${isAllDay ? A : this.renderIntervalEditor(
+      this.bhIntervals,
+      (i7, patch) => this.updateInterval(i7, patch),
+      () => this.addInterval(),
+      (i7) => this.removeInterval(i7)
     )}
-                        <ion-button fill="outline" size="small" data-action="add-interval" @click=${() => this.addInterval()}>${t5("ui.addInterval")}</ion-button>
-                        <p class="hint">${t5("ui.intervalsHint")}</p>
-                      `}
                 `}
             <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t5("ui.saving") : t5("ui.saveDay")}</ion-button>
           </form>
@@ -3959,10 +4022,12 @@ var ErpSchedulesHours = class extends i3 {
               <ion-select-option value="closed">${t5("ui.closed")}</ion-select-option>
               <ion-select-option value="open">${t5("ui.openWithHours")}</ion-select-option>
             </ion-select>
-            ${this.sdClosed ? A : b2`
-                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${this.sdOpen} @ionInput=${(e5) => this.sdOpen = e5.target.value}></ion-input>
-                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${this.sdClose} @ionInput=${(e5) => this.sdClose = e5.target.value}></ion-input>
-                `}
+            ${this.sdClosed ? A : this.renderIntervalEditor(
+      this.sdIntervals,
+      (i7, patch) => this.sdIntervals = this.sdIntervals.map((it, n6) => n6 === i7 ? { ...it, ...patch } : it),
+      () => this.addSpecialDayInterval(),
+      (i7) => this.removeSpecialDayInterval(i7)
+    )}
             <label class="chk">
               <ion-checkbox ?checked=${this.sdRecurring} @ionChange=${(e5) => this.sdRecurring = !!e5.target.checked}></ion-checkbox>
               ${t5("ui.fieldRecurring")}
@@ -3982,10 +4047,12 @@ var ErpSchedulesHours = class extends i3 {
               <ion-select-option value="closed">${t5("ui.closed")}</ion-select-option>
               <ion-select-option value="open">${t5("ui.openWithHours")}</ion-select-option>
             </ion-select>
-            ${this.ovClosed ? A : b2`
-                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${this.ovOpen} @ionInput=${(e5) => this.ovOpen = e5.target.value}></ion-input>
-                  <ion-input fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${this.ovClose} @ionInput=${(e5) => this.ovClose = e5.target.value}></ion-input>
-                `}
+            ${this.ovClosed ? A : this.renderIntervalEditor(
+      this.ovIntervals,
+      (i7, patch) => this.ovIntervals = this.ovIntervals.map((it, n6) => n6 === i7 ? { ...it, ...patch } : it),
+      () => this.addOverrideInterval(),
+      (i7) => this.removeOverrideInterval(i7)
+    )}
             <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t5("ui.saving") : t5("ui.addOverride")}</ion-button>
           </form>
         </ok-data-table>
@@ -4056,10 +4123,7 @@ __decorateClass([
 ], ErpSchedulesHours.prototype, "sdClosed", 2);
 __decorateClass([
   r5()
-], ErpSchedulesHours.prototype, "sdOpen", 2);
-__decorateClass([
-  r5()
-], ErpSchedulesHours.prototype, "sdClose", 2);
+], ErpSchedulesHours.prototype, "sdIntervals", 2);
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "sdRecurring", 2);
@@ -4092,13 +4156,14 @@ __decorateClass([
 ], ErpSchedulesHours.prototype, "ovClosed", 2);
 __decorateClass([
   r5()
-], ErpSchedulesHours.prototype, "ovOpen", 2);
+], ErpSchedulesHours.prototype, "ovIntervals", 2);
 __decorateClass([
   r5()
-], ErpSchedulesHours.prototype, "ovClose", 2);
+], ErpSchedulesHours.prototype, "exceptionIntervals", 2);
 define("erp-schedules-hours", ErpSchedulesHours);
 export {
   ErpSchedulesHours,
   foldWeek,
+  intervalsOf,
   resolveNavId
 };

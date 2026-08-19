@@ -135,12 +135,13 @@ describe('pestaña «Días especiales»: cada tabla lleva su propia alta dentro'
 // schedules#7: the payloads the forms send must match the schema + handler contract.
 describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato acepta', () => {
   type SpecialDayForm = HTMLElement & {
-    sdDate: string; sdName: string; sdClosed: boolean; sdOpen: string; sdClose: string;
+    sdDate: string; sdName: string; sdClosed: boolean; sdIntervals: { open_time: string; close_time: string }[];
     sdRecurring: boolean; sdNotes: string; formError: string;
     createSpecialDay: (e: Event) => Promise<void>;
   };
   type OverrideForm = HTMLElement & {
-    ovStart: string; ovEnd: string; ovReason: string; ovClosed: boolean; ovOpen: string; ovClose: string; formError: string;
+    ovStart: string; ovEnd: string; ovReason: string; ovClosed: boolean;
+    ovIntervals: { open_time: string; close_time: string }[]; formError: string;
     createOverride: (e: Event) => Promise<void>;
   };
 
@@ -166,8 +167,7 @@ describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato ace
     wc.sdDate = '2026-12-24';
     wc.sdName = 'Nochebuena';
     wc.sdClosed = false;
-    wc.sdOpen = '09:00';
-    wc.sdClose = '14:00';
+    wc.sdIntervals = [{ open_time: '09:00', close_time: '14:00' }];
     await wc.createSpecialDay(new Event('submit'));
     const p = comandos.find((c) => c.name === 'schedules.special_days.create')!.payload;
     expect(p.is_closed).toBe(false);
@@ -180,8 +180,7 @@ describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato ace
     wc.sdDate = '2026-12-24';
     wc.sdName = 'Nochebuena';
     wc.sdClosed = false;
-    wc.sdOpen = '';
-    wc.sdClose = '';
+    wc.sdIntervals = [{ open_time: '', close_time: '' }];
     await wc.createSpecialDay(new Event('submit'));
     expect(comandos.find((c) => c.name === 'schedules.special_days.create')).toBeUndefined();
     expect(wc.formError).toBe('ui.errorHoursRequired');
@@ -217,14 +216,12 @@ describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato ace
     wc.ovEnd = '2026-08-15';
     wc.ovReason = 'Horario de verano';
     wc.ovClosed = false;
-    wc.ovOpen = '';
-    wc.ovClose = '';
+    wc.ovIntervals = [{ open_time: '', close_time: '' }];
     await wc.createOverride(new Event('submit'));
     expect(comandos.find((c) => c.name === 'schedules.overrides.create')).toBeUndefined();
     expect(wc.formError).toBe('ui.errorHoursRequired');
 
-    wc.ovOpen = '10:00';
-    wc.ovClose = '14:00';
+    wc.ovIntervals = [{ open_time: '10:00', close_time: '14:00' }];
     await wc.createOverride(new Event('submit'));
     const p = comandos.find((c) => c.name === 'schedules.overrides.create')!.payload;
     expect(p.is_closed).toBe(false);

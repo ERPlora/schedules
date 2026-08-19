@@ -96,6 +96,29 @@ interface ScheduleOverride {
   is_closed: number;
 }
 
+// One opening interval of an EXCEPTION (schedules#23). Several rows with the same `exception_id`
+// = split shift; an exception with NO row here still carries its own open_time/close_time pair
+// (rows written before migration 003 and the days created by the bulk).
+interface ExceptionInterval {
+  id: string;
+  exception_kind: 'special_day' | 'override';
+  exception_id: string;
+  position?: number;
+  open_time: string;
+  close_time: string;
+}
+
+/** The intervals of one exception, in `position` order (schedules#23). */
+export function intervalsOf(rows: ExceptionInterval[], kind: string, id: string): Interval[] {
+  return rows
+    .filter((r) => r.exception_kind === kind && String(r.exception_id) === String(id))
+    .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))
+    .map((r) => ({ open_time: r.open_time, close_time: r.close_time }));
+}
+
+/** A fresh, empty interval editor: one blank line (the market never opens with zero). */
+const blankIntervals = (): Interval[] => [{ open_time: '', close_time: '' }];
+
 type Tab = 'hours' | 'special_days' | 'settings';
 
 const TABS: readonly Tab[] = ['hours', 'special_days', 'settings'];
@@ -164,9 +187,8 @@ export class ErpSchedulesHours extends LitElement {
 
   @state() sdClosed = true;
 
-  @state() sdOpen = '';
-
-  @state() sdClose = '';
+  // The special day's intervals being edited (schedules#23): same control as the weekly editor.
+  @state() sdIntervals: Interval[] = blankIntervals();
 
   @state() sdRecurring = false;
 
@@ -190,9 +212,11 @@ export class ErpSchedulesHours extends LitElement {
 
   @state() ovClosed = true;
 
-  @state() ovOpen = '';
+  // The override's intervals being edited (schedules#23), independent of the special day's.
+  @state() ovIntervals: Interval[] = blankIntervals();
 
-  @state() ovClose = '';
+  // Every live interval row of the hub's exceptions; the two tables fold them by exception.
+  @state() private exceptionIntervals: ExceptionInterval[] = [];
 
   private specialCtrl!: ListController<SpecialDay>;
 
@@ -248,6 +272,17 @@ export class ErpSchedulesHours extends LitElement {
     ];
   }
 
+  /** What an exception's hours column shows (schedules#23): every interval, «Closed», «Open 24
+   *  hours», or — for a row with no interval of its own — its legacy open/close pair. */
+  private formatExceptionHours(kind: 'special_day' | 'override', r: Record<string, unknown>): string {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    if (Number(r.is_closed)) return t('ui.closed');
+    const intervals = intervalsOf(this.exceptionIntervals, kind, String(r.id));
+    if (!intervals.length) return `${r.open_time ?? ''}–${r.close_time ?? ''}`;
+    if (intervals.length === 1 && intervals[0].open_time === '00:00' && intervals[0].close_time === '00:00') return t('ui.open24h');
+    return intervals.map((i) => `${i.open_time}–${i.close_time}`).join(' · ');
+  }
+
   private get specialColumns(): DataTableColumn[] {
     const t = (k: string): string => erplora().t(CATALOG, k);
     return [
@@ -260,7 +295,7 @@ export class ErpSchedulesHours extends LitElement {
         filterable: true,
         filterType: 'select',
         options: this.closedOptions,
-        format: (r) => ((r.is_closed as number) ? t('ui.closed') : `${r.open_time ?? ''}–${r.close_time ?? ''}`),
+        format: (r) => this.formatExceptionHours('special_day', r),
       },
       {
         key: 'recurring_yearly',
@@ -287,7 +322,7 @@ export class ErpSchedulesHours extends LitElement {
         filterable: true,
         filterType: 'select',
         options: this.closedOptions,
-        format: (r) => ((r.is_closed as number) ? t('ui.closed') : `${r.open_time ?? ''}–${r.close_time ?? ''}`),
+        format: (r) => this.formatExceptionHours('override', r),
       },
     ];
   }
@@ -323,6 +358,7 @@ export class ErpSchedulesHours extends LitElement {
     });
     await Promise.all([
       this.loadHours(),
+      this.loadExceptionIntervals(),
       this.specialCtrl.load(),
       this.overrideCtrl.load(),
       this.loadSettings(),
@@ -353,10 +389,23 @@ export class ErpSchedulesHours extends LitElement {
   private async reloadAll() {
     await Promise.all([
       this.loadHours(),
+      this.loadExceptionIntervals(),
       this.specialCtrl.load(),
       this.overrideCtrl.load(),
       this.loadSettings(),
     ]);
+  }
+
+  /** Every interval row of the hub's exceptions (schedules#23): the two tables fold them by
+   *  exception, the same way the weekly table folds `business_hours.list` by day. */
+  private async loadExceptionIntervals() {
+    try {
+      const rows = await erplora().queryAll<ExceptionInterval>('schedules.exception_intervals.list', { sort: 'position', dir: 'asc' });
+      this.exceptionIntervals = Array.isArray(rows) ? rows : [];
+    } catch {
+      /* an old hub without migration 003: the pair on each exception still decides */
+      this.exceptionIntervals = [];
+    }
   }
 
   // Every interval row of the week (never a page: the table folds them by day).
@@ -384,6 +433,33 @@ export class ErpSchedulesHours extends LitElement {
 
   private updateInterval(index: number, patch: Partial<Interval>) {
     this.bhIntervals = this.bhIntervals.map((it, i) => (i === index ? { ...it, ...patch } : it));
+  }
+
+  // The exceptions get the SAME editor as the weekly hours (schedules#23) — one list of intervals
+  // per form, each with its own state so the two panels never step on each other.
+  addSpecialDayInterval() {
+    this.sdIntervals = [...this.sdIntervals, { open_time: '', close_time: '' }];
+  }
+
+  removeSpecialDayInterval(index: number) {
+    this.sdIntervals = this.sdIntervals.filter((_, i) => i !== index);
+  }
+
+  addOverrideInterval() {
+    this.ovIntervals = [...this.ovIntervals, { open_time: '', close_time: '' }];
+  }
+
+  removeOverrideInterval(index: number) {
+    this.ovIntervals = this.ovIntervals.filter((_, i) => i !== index);
+  }
+
+  /** The `intervals[]` an exception form sends, or `null` when a line is half filled — an
+   *  incomplete interval is a mistake, never «open all day». A closed exception sends `[]`. */
+  private exceptionPayloadIntervals(closed: boolean, intervals: Interval[]): Interval[] | null {
+    if (closed) return [];
+    const clean = intervals.map((i) => ({ open_time: i.open_time, close_time: i.close_time }));
+    if (!clean.length || clean.some((i) => !i.open_time || !i.close_time)) return null;
+    return clean;
   }
 
   private async loadSettings() {
@@ -448,7 +524,8 @@ export class ErpSchedulesHours extends LitElement {
   private async createSpecialDay(ev: Event) {
     ev.preventDefault();
     if (!this.sdDate || !this.sdName.trim()) return;
-    if (!this.sdClosed && (!this.sdOpen || !this.sdClose)) {
+    const intervals = this.exceptionPayloadIntervals(this.sdClosed, this.sdIntervals);
+    if (!intervals) {
       this.formError = erplora().t(CATALOG, 'ui.errorHoursRequired');
       return;
     }
@@ -459,20 +536,22 @@ export class ErpSchedulesHours extends LitElement {
         date: this.sdDate,
         name: this.sdName.trim(),
         is_closed: this.sdClosed,
-        open_time: this.sdClosed ? null : this.sdOpen,
-        close_time: this.sdClosed ? null : this.sdClose,
+        // The pair keeps travelling as the FIRST interval: a hub that has not run migration 003
+        // yet still writes a usable row, and nothing that reads the pair breaks.
+        open_time: intervals.length ? intervals[0].open_time : null,
+        close_time: intervals.length ? intervals[0].close_time : null,
+        intervals,
         recurring_yearly: this.sdRecurring,
         notes: this.sdNotes.trim(),
       });
       this.sdDate = '';
       this.sdName = '';
       this.sdClosed = true;
-      this.sdOpen = '';
-      this.sdClose = '';
+      this.sdIntervals = blankIntervals();
       this.sdRecurring = false;
       this.sdNotes = '';
       this.dataTable('tbl-special')?.close();
-      await this.specialCtrl.load();
+      await Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e) {
       this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorCreateSpecialDay');
     } finally {
@@ -485,7 +564,8 @@ export class ErpSchedulesHours extends LitElement {
   private async createOverride(ev: Event) {
     ev.preventDefault();
     if (!this.ovStart || !this.ovEnd || !this.ovReason.trim()) return;
-    if (!this.ovClosed && (!this.ovOpen || !this.ovClose)) {
+    const intervals = this.exceptionPayloadIntervals(this.ovClosed, this.ovIntervals);
+    if (!intervals) {
       this.formError = erplora().t(CATALOG, 'ui.errorHoursRequired');
       return;
     }
@@ -497,17 +577,17 @@ export class ErpSchedulesHours extends LitElement {
         end_date: this.ovEnd,
         reason: this.ovReason.trim(),
         is_closed: this.ovClosed,
-        open_time: this.ovClosed ? null : this.ovOpen,
-        close_time: this.ovClosed ? null : this.ovClose,
+        open_time: intervals.length ? intervals[0].open_time : null,
+        close_time: intervals.length ? intervals[0].close_time : null,
+        intervals,
       });
       this.ovStart = '';
       this.ovEnd = '';
       this.ovReason = '';
       this.ovClosed = true;
-      this.ovOpen = '';
-      this.ovClose = '';
+      this.ovIntervals = blankIntervals();
       this.dataTable('tbl-override')?.close();
-      await this.overrideCtrl.load();
+      await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e) {
       this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorCreateOverride');
     } finally {
@@ -555,10 +635,10 @@ export class ErpSchedulesHours extends LitElement {
     try {
       if (pending.kind === 'special_day') {
         await erplora().command('schedules.special_days.delete', { special_day_id: pending.id });
-        await this.specialCtrl.load();
+        await Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()]);
       } else {
         await erplora().command('schedules.overrides.delete', { override_id: pending.id });
-        await this.overrideCtrl.load();
+        await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
       }
     } catch (e) {
       this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorDelete');
@@ -569,6 +649,29 @@ export class ErpSchedulesHours extends LitElement {
   // clipping (schedules#6); desktop keeps the table.
   private get defaultView(): 'cards' | 'table' {
     return window.innerWidth <= 834 ? 'cards' : 'table';
+  }
+
+  /** THE interval editor — one open · close · ✕ line per interval plus «+ add interval». The
+   *  weekly day (schedules#8) and the two exception forms (schedules#23) share it, so the three
+   *  screens behave identically: 44 px touch targets, one hand, no keyboard. */
+  private renderIntervalEditor(
+    intervals: Interval[],
+    update: (index: number, patch: Partial<Interval>) => void,
+    add: () => void,
+    remove: (index: number) => void,
+  ) {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    return html`
+      ${intervals.map(
+        (it, i) => html`<div class="interval">
+          <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${it.open_time} @ionInput=${(e: any) => update(i, { open_time: e.target.value })}></ion-input>
+          <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${it.close_time} @ionInput=${(e: any) => update(i, { close_time: e.target.value })}></ion-input>
+          <ion-button fill="clear" size="small" color="medium" data-action="remove-interval" aria-label=${t('ui.removeInterval')} ?disabled=${intervals.length <= 1} @click=${() => remove(i)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
+        </div>`,
+      )}
+      <ion-button fill="outline" size="small" data-action="add-interval" @click=${() => add()}>${t('ui.addInterval')}</ion-button>
+      <p class="hint">${t('ui.intervalsHint')}</p>
+    `;
   }
 
   private renderHours() {
@@ -596,17 +699,12 @@ export class ErpSchedulesHours extends LitElement {
                   </label>
                   ${isAllDay
                     ? nothing
-                    : html`
-                        ${this.bhIntervals.map(
-                          (it, i) => html`<div class="interval">
-                            <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${it.open_time} @ionInput=${(e: any) => this.updateInterval(i, { open_time: e.target.value })}></ion-input>
-                            <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${it.close_time} @ionInput=${(e: any) => this.updateInterval(i, { close_time: e.target.value })}></ion-input>
-                            <ion-button fill="clear" size="small" color="medium" data-action="remove-interval" aria-label=${t('ui.removeInterval')} ?disabled=${this.bhIntervals.length <= 1} @click=${() => this.removeInterval(i)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
-                          </div>`,
-                        )}
-                        <ion-button fill="outline" size="small" data-action="add-interval" @click=${() => this.addInterval()}>${t('ui.addInterval')}</ion-button>
-                        <p class="hint">${t('ui.intervalsHint')}</p>
-                      `}
+                    : this.renderIntervalEditor(
+                        this.bhIntervals,
+                        (i, patch) => this.updateInterval(i, patch),
+                        () => this.addInterval(),
+                        (i) => this.removeInterval(i),
+                      )}
                 `}
             <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.saveDay')}</ion-button>
           </form>
@@ -629,10 +727,12 @@ export class ErpSchedulesHours extends LitElement {
             </ion-select>
             ${this.sdClosed
               ? nothing
-              : html`
-                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${this.sdOpen} @ionInput=${(e: any) => (this.sdOpen = e.target.value)}></ion-input>
-                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${this.sdClose} @ionInput=${(e: any) => (this.sdClose = e.target.value)}></ion-input>
-                `}
+              : this.renderIntervalEditor(
+                  this.sdIntervals,
+                  (i, patch) => (this.sdIntervals = this.sdIntervals.map((it, n) => (n === i ? { ...it, ...patch } : it))),
+                  () => this.addSpecialDayInterval(),
+                  (i) => this.removeSpecialDayInterval(i),
+                )}
             <label class="chk">
               <ion-checkbox ?checked=${this.sdRecurring} @ionChange=${(e: any) => (this.sdRecurring = !!e.target.checked)}></ion-checkbox>
               ${t('ui.fieldRecurring')}
@@ -654,10 +754,12 @@ export class ErpSchedulesHours extends LitElement {
             </ion-select>
             ${this.ovClosed
               ? nothing
-              : html`
-                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${this.ovOpen} @ionInput=${(e: any) => (this.ovOpen = e.target.value)}></ion-input>
-                  <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${this.ovClose} @ionInput=${(e: any) => (this.ovClose = e.target.value)}></ion-input>
-                `}
+              : this.renderIntervalEditor(
+                  this.ovIntervals,
+                  (i, patch) => (this.ovIntervals = this.ovIntervals.map((it, n) => (n === i ? { ...it, ...patch } : it))),
+                  () => this.addOverrideInterval(),
+                  (i) => this.removeOverrideInterval(i),
+                )}
             <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t('ui.saving') : t('ui.addOverride')}</ion-button>
           </form>
         </ok-data-table>
