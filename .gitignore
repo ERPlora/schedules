@@ -3,3 +3,6 @@ node_modules/
 .DS_Store
 handler/target/
 build/
+
+# Python bytecode of the test batteries (tests/*.py).
+__pycache__/
