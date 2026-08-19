@@ -323,54 +323,164 @@ fn taken_special_day_dates(input: &Value, payload: &Value) -> Vec<String> {
 
 // ── schedules.business_hours.set (fn set_business_hours) ──────────────────
 
-/// Upsert validado del horario de un día de la semana (WASM-TODO §3).
-pub fn set_business_hours_pure(input: Value) -> Result<Value, String> {
-    let payload = input.get("payload").cloned().unwrap_or(Value::Null);
+/// One opening interval of a weekday. `close < open` means the interval crosses midnight
+/// (22:00–02:00); `00:00–00:00` means «open 24 hours» (schedules#8, as Google Business
+/// Profile represents them). Any other zero-length interval is invalid.
+#[derive(Clone, Debug, PartialEq)]
+struct Interval {
+    open: String,
+    close: String,
+}
 
-    let dow = as_i64(payload.get("day_of_week").unwrap_or(&Value::Null), -1);
-    if !(0..=6).contains(&dow) {
-        return Err(format!("invalid_day: day_of_week debe estar entre 0 (lunes) y 6 (domingo), llegó {dow}"));
+impl Interval {
+    fn is_all_day(&self) -> bool {
+        self.open == "00:00" && self.close == "00:00"
     }
-    let is_closed = bool_or(&payload, "is_closed", false);
-    // Defaults del JSON Schema (el runtime no aplica defaults de schema).
-    let open_time = opt_str(&payload, "open_time").unwrap_or_else(|| "09:00".to_string());
-    let close_time = opt_str(&payload, "close_time").unwrap_or_else(|| "18:00".to_string());
-    let break_start = opt_str(&payload, "break_start");
-    let break_end = opt_str(&payload, "break_end");
+    fn is_overnight(&self) -> bool {
+        !self.is_all_day() && self.close < self.open
+    }
+    /// Minutes since 00:00 of the interval's own day: `[start, end)`; an overnight `end` runs
+    /// past 1440 into the next day.
+    fn span(&self) -> (i64, i64) {
+        let start = minutes(&self.open);
+        if self.is_all_day() {
+            return (0, 1440);
+        }
+        let end = minutes(&self.close);
+        (start, if end <= start { end + 1440 } else { end })
+    }
+}
 
-    if !is_closed {
-        check_hours(&open_time, &close_time)?;
-        match (&break_start, &break_end) {
-            (None, None) => {}
-            (Some(bs), Some(be)) => check_break(&open_time, &close_time, bs, be)?,
-            _ => {
-                return Err("invalid_break: el descanso requiere break_start y break_end (o ninguno)".to_string());
+fn minutes(t: &str) -> i64 {
+    let h: i64 = t[0..2].parse().unwrap_or(0);
+    let m: i64 = t[3..5].parse().unwrap_or(0);
+    h * 60 + m
+}
+
+fn check_interval(it: &Interval) -> Result<(), String> {
+    if !valid_time(&it.open) || !valid_time(&it.close) {
+        return Err(format!("invalid_hours: invalid time format (open='{}', close='{}', expected HH:MM)", it.open, it.close));
+    }
+    if it.open == it.close && !it.is_all_day() {
+        return Err(format!("invalid_hours: an interval cannot be empty ({}–{}); use 00:00–00:00 for open 24 hours", it.open, it.close));
+    }
+    Ok(())
+}
+
+/// The intervals of a weekday from the payload (schedules#8). Accepts the new `intervals[]`
+/// and, for old callers, the legacy `open_time`/`close_time` + optional break, which becomes
+/// one or two intervals ([open,break_start] + [break_end,close]). Validated, sorted, and
+/// checked for overlaps (through midnight too).
+fn intervals_from_payload(payload: &Value) -> Result<Vec<Interval>, String> {
+    let mut items: Vec<Interval> = Vec::new();
+    match payload.get("intervals").and_then(|v| v.as_array()) {
+        Some(arr) => {
+            for it in arr {
+                items.push(Interval { open: str_or(it, "open_time", ""), close: str_or(it, "close_time", "") });
+            }
+        }
+        None => {
+            // Legacy shape. Defaults of the JSON Schema (the runtime does not apply them).
+            let open = opt_str(payload, "open_time").unwrap_or_else(|| "09:00".to_string());
+            let close = opt_str(payload, "close_time").unwrap_or_else(|| "18:00".to_string());
+            let bs = opt_str(payload, "break_start");
+            let be = opt_str(payload, "break_end");
+            check_hours(&open, &close)?;
+            match (bs, be) {
+                (None, None) => items.push(Interval { open, close }),
+                (Some(bs), Some(be)) => {
+                    check_break(&open, &close, &bs, &be)?;
+                    items.push(Interval { open, close: bs });
+                    items.push(Interval { open: be, close });
+                }
+                _ => return Err("invalid_break: a break needs both break_start and break_end (or neither)".to_string()),
             }
         }
     }
+    for it in &items {
+        check_interval(it)?;
+    }
+    items.sort_by(|a, b| a.span().0.cmp(&b.span().0));
+    // Overlaps: consecutive spans on the same day; and an overnight tail wraps into the first
+    // interval of the (same weekday's) morning — a 22:00–02:00 next to a 01:00 start is a clash.
+    for w in items.windows(2) {
+        let (a, b) = (&w[0], &w[1]);
+        if b.span().0 < a.span().1 {
+            return Err(format!("overlapping: intervals {}–{} and {}–{} overlap", a.open, a.close, b.open, b.close));
+        }
+    }
+    if items.len() > 1 {
+        let last = items.last().unwrap();
+        let first = items.first().unwrap();
+        if last.span().1 > 1440 && (last.span().1 - 1440) > first.span().0 {
+            return Err(format!("overlapping: the overnight interval {}–{} runs into {}–{}", last.open, last.close, first.open, first.close));
+        }
+    }
+    Ok(items)
+}
 
-    let mut p = Map::new();
-    p.insert("day_of_week".into(), json!(dow));
-    p.insert("open_time".into(), json!(open_time));
-    p.insert("close_time".into(), json!(close_time));
-    p.insert("is_closed".into(), json!(is_closed as i64));
-    // Si el día queda cerrado, el descanso no aplica.
-    let (bs, be) = if is_closed { (None, None) } else { (break_start, break_end) };
-    p.insert("break_start".into(), bs.map(Value::String).unwrap_or(Value::Null));
-    p.insert("break_end".into(), be.map(Value::String).unwrap_or(Value::Null));
+/// Replaces the weekday's intervals (schedules#8): one `_clear_business_hours_day` for the day
+/// plus one `_insert_business_hours` per interval (or a single closed row). Ids come from
+/// `context.new_ids` — the host is the only authority of ids.
+pub fn set_business_hours_pure(input: Value) -> Result<Value, String> {
+    let payload = input.get("payload").cloned().unwrap_or(Value::Null);
+    let new_ids: Vec<Value> = input
+        .get("context")
+        .and_then(|c| c.get("new_ids"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
 
-    let out = Output::new()
-        .with_operation(Operation::sql("schedules._set_business_hours", p))
-        .with_event(Event::new(
-            "schedules.business_hours.updated",
-            json!({
-                "sender": "schedules",
-                "day_of_week": dow,
-                "open_time": open_time,
-                "close_time": close_time,
-                "is_closed": is_closed as i64,
-            }),
-        ));
+    let dow = as_i64(payload.get("day_of_week").unwrap_or(&Value::Null), -1);
+    if !(0..=6).contains(&dow) {
+        return Err(format!("invalid_day: day_of_week must be between 0 (Monday) and 6 (Sunday), got {dow}"));
+    }
+    let is_closed = bool_or(&payload, "is_closed", false);
+    let intervals = if is_closed { Vec::new() } else { intervals_from_payload(&payload)? };
+    if !is_closed && intervals.is_empty() {
+        return Err("missing_hours: an open day needs at least one interval (open_time/close_time)".to_string());
+    }
+
+    let mut clear = Map::new();
+    clear.insert("day_of_week".into(), json!(dow));
+    let mut out = Output::new().with_operation(Operation::sql("schedules._clear_business_hours_day", clear));
+
+    let row = |id: Value, position: usize, open: &str, close: &str, closed: bool| -> Map<String, Value> {
+        let mut p = Map::new();
+        p.insert("id".into(), id);
+        p.insert("day_of_week".into(), json!(dow));
+        p.insert("position".into(), json!(position as i64));
+        p.insert("open_time".into(), json!(open));
+        p.insert("close_time".into(), json!(close));
+        p.insert("is_closed".into(), json!(closed as i64));
+        // Legacy columns stay NULL: the break is now the gap between two intervals.
+        p.insert("break_start".into(), Value::Null);
+        p.insert("break_end".into(), Value::Null);
+        p
+    };
+    if is_closed {
+        let id = new_ids.first().cloned().ok_or_else(|| "missing_id: no id available".to_string())?;
+        out = out.with_operation(Operation::sql("schedules._insert_business_hours", row(id, 0, "00:00", "00:00", true)));
+    } else {
+        for (i, it) in intervals.iter().enumerate() {
+            let id = new_ids.get(i).cloned().ok_or_else(|| "missing_id: too many intervals for one day".to_string())?;
+            out = out.with_operation(Operation::sql("schedules._insert_business_hours", row(id, i, &it.open, &it.close, false)));
+        }
+    }
+
+    let event_intervals: Vec<Value> = intervals.iter().map(|i| json!({ "open_time": i.open, "close_time": i.close })).collect();
+    let out = out.with_event(Event::new(
+        "schedules.business_hours.updated",
+        json!({
+            "sender": "schedules",
+            "day_of_week": dow,
+            "is_closed": is_closed as i64,
+            "intervals": event_intervals,
+            // Legacy fields (first/last bound) for listeners that still read them.
+            "open_time": intervals.first().map(|i| i.open.clone()).unwrap_or_default(),
+            "close_time": intervals.last().map(|i| i.close.clone()).unwrap_or_default(),
+        }),
+    ));
     serde_json::to_value(&out).map_err(|e| e.to_string())
 }
 
@@ -519,19 +629,6 @@ pub fn bulk_create_special_days_pure(input: Value) -> Result<Value, String> {
 
 // ── schedules.is_open (fn is_open, solo-lectura) ───────────────────────────
 
-/// Decide si está abierto en `[open, close)` aplicando el descanso `[bs, be)`.
-fn open_in_window(t: &str, open: &str, close: &str, bs: Option<&str>, be: Option<&str>) -> bool {
-    if t < open || t >= close {
-        return false;
-    }
-    if let (Some(bs), Some(be)) = (bs, be) {
-        if t >= bs && t < be {
-            return false;
-        }
-    }
-    true
-}
-
 /// Motor "¿está abierto ahora?" (WASM-TODO §1). Precedencia estricta:
 /// SpecialDay (fecha exacta o `recurring_yearly` por MM-DD) → ScheduleOverride
 /// (rango que cubre hoy) → BusinessHours (día de la semana, con descanso) →
@@ -559,12 +656,16 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
     let business_hours = payload.get("business_hours").and_then(|v| v.as_array()).unwrap_or(&empty);
 
     let t = current_time.as_str();
-    let done = |is_open: bool, reason: String| -> Result<Value, String> {
+    // The verdict says WHICH rule won (schedules#8): `source` ∈ special_day | override |
+    // business_hours | none, and `rule_id` = the row that decided (when there is one).
+    let done = |is_open: bool, reason: String, source: &str, rule_id: Value| -> Result<Value, String> {
         Ok(output_with_result(
             Output::new(),
-            json!({ "is_open": is_open, "reason": reason, "today": today, "current_time": current_time }),
+            json!({ "is_open": is_open, "reason": reason, "today": today, "current_time": current_time,
+                    "source": source, "rule_id": rule_id }),
         ))
     };
+    let id_of = |r: &Value| -> Value { r.get("id").cloned().unwrap_or(Value::Null) };
 
     // 1) SpecialDay: fecha exacta tiene prioridad sobre recurrente (MM-DD).
     let exact = special_days.iter().find(|r| str_or(r, "date", "") == today);
@@ -574,13 +675,14 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
     });
     if let Some(sd) = exact.or(recurring) {
         let name = str_or(sd, "name", "Special day");
+        let id = id_of(sd);
         if bool_or(sd, "is_closed", true) {
-            return done(false, name);
+            return done(false, name, "special_day", id);
         }
         return match (opt_str(sd, "open_time"), opt_str(sd, "close_time")) {
-            (Some(o), Some(c)) => done(t >= o.as_str() && t < c.as_str(), name),
+            (Some(o), Some(c)) => done(t >= o.as_str() && t < c.as_str(), name, "special_day", id),
             // SpecialDay abierto sin horas = abierto todo el día.
-            _ => done(true, name),
+            _ => done(true, name, "special_day", id),
         };
     }
 
@@ -591,44 +693,73 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
         !s.is_empty() && !e.is_empty() && s.as_str() <= today.as_str() && today.as_str() <= e.as_str()
     }) {
         let reason = str_or(ov, "reason", "Schedule override");
+        let id = id_of(ov);
         if bool_or(ov, "is_closed", false) {
-            return done(false, reason);
+            return done(false, reason, "override", id);
         }
         return match (opt_str(ov, "open_time"), opt_str(ov, "close_time")) {
-            (Some(o), Some(c)) => done(t >= o.as_str() && t < c.as_str(), reason),
-            _ => done(true, reason),
+            (Some(o), Some(c)) => done(t >= o.as_str() && t < c.as_str(), reason, "override", id),
+            _ => done(true, reason, "override", id),
         };
     }
 
-    // 3) BusinessHours del día de la semana (ISO 0=Monday), con descanso.
-    let dow = weekday_iso0(&today).ok_or_else(|| format!("invalid_date: fecha inválida '{today}'"))?;
-    if let Some(bh) = business_hours
-        .iter()
-        .find(|r| as_i64(r.get("day_of_week").unwrap_or(&Value::Null), -1) == dow)
-    {
-        if bool_or(bh, "is_closed", false) {
-            return done(false, "Closed today".to_string());
+    // 3) Weekly hours: EVERY row of the weekday is an interval (schedules#8) — split shifts are
+    //    several rows; a row with `is_closed` closes the day; legacy rows may still carry a break.
+    //    An overnight interval of YESTERDAY (22:00–02:00) reaches into this morning.
+    let dow = weekday_iso0(&today).ok_or_else(|| format!("invalid_date: invalid date '{today}'"))?;
+    let rows_for = |d: i64| -> Vec<&Value> {
+        business_hours.iter().filter(|r| as_i64(r.get("day_of_week").unwrap_or(&Value::Null), -1) == d).collect()
+    };
+    let todays = rows_for(dow);
+    let now_min = minutes(t);
+    let interval_of = |r: &Value| Interval { open: str_or(r, "open_time", "00:00"), close: str_or(r, "close_time", "00:00") };
+    // Yesterday's overnight interval (22:00–02:00) that still covers this moment, if any.
+    let overnight_from_yesterday = || -> Option<&Value> {
+        rows_for((dow + 6) % 7).into_iter().find(|r| {
+            let it = interval_of(r);
+            !bool_or(r, "is_closed", false) && it.is_overnight() && now_min < it.span().1 - 1440
+        })
+    };
+    if !todays.is_empty() {
+        if let Some(closed) = todays.iter().find(|r| bool_or(r, "is_closed", false)) {
+            // Even on a closed day, yesterday's overnight tail may still be open.
+            if let Some(y) = overnight_from_yesterday() {
+                return done(true, format!("Open (overnight from {})", str_or(y, "open_time", "")), "business_hours", id_of(y));
+            }
+            return done(false, "Closed today".to_string(), "business_hours", id_of(closed));
         }
-        let open = str_or(bh, "open_time", "00:00");
-        let close = str_or(bh, "close_time", "00:00");
-        let bs = opt_str(bh, "break_start");
-        let be = opt_str(bh, "break_end");
-        let is_open = open_in_window(t, &open, &close, bs.as_deref(), be.as_deref());
-        let reason = if is_open {
-            format!("Open ({open}–{close})")
-        } else if bs.as_deref().is_some_and(|b| t >= b) && be.as_deref().is_some_and(|b| t < b) {
-            "On break".to_string()
-        } else {
-            format!("Outside business hours ({open}–{close})")
-        };
-        return done(is_open, reason);
+        let mut described: Vec<String> = Vec::new();
+        for r in &todays {
+            let it = interval_of(r);
+            let (start, end) = it.span();
+            let bs = opt_str(r, "break_start");
+            let be = opt_str(r, "break_end");
+            let in_span = it.is_all_day() || (now_min >= start && now_min < end);
+            let on_break = matches!((&bs, &be), (Some(bs), Some(be)) if t >= bs.as_str() && t < be.as_str());
+            if in_span && !on_break {
+                return done(true, format!("Open ({}–{})", it.open, it.close), "business_hours", id_of(r));
+            }
+            if in_span && on_break {
+                return done(false, "On break".to_string(), "business_hours", id_of(r));
+            }
+            described.push(format!("{}–{}", it.open, it.close));
+        }
+        if let Some(y) = overnight_from_yesterday() {
+            return done(true, format!("Open (overnight from {})", str_or(y, "open_time", "")), "business_hours", id_of(y));
+        }
+        let first = todays[0];
+        return done(false, format!("Outside business hours ({})", described.join(", ")), "business_hours", id_of(first));
+    }
+    // No rows today: yesterday's overnight interval may still cover this moment.
+    if let Some(y) = overnight_from_yesterday() {
+        return done(true, format!("Open (overnight from {})", str_or(y, "open_time", "")), "business_hours", id_of(y));
     }
 
     // 4) Sin configuración para hoy: fail-open (contrato cross-módulo) o fail-closed (dashboard).
     if fail_open {
-        done(true, "No hours configured (fail-open)".to_string())
+        done(true, "No hours configured (fail-open)".to_string(), "none", Value::Null)
     } else {
-        done(false, "No hours configured".to_string())
+        done(false, "No hours configured".to_string(), "none", Value::Null)
     }
 }
 
@@ -778,5 +909,149 @@ mod tests {
         let payload = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "Summer", "is_closed": false, "open_time": "10:00", "close_time": "14:00" });
         let out = create_override_pure(input(payload)).expect("ok");
         assert_eq!(out["operations"][0]["params"]["open_time"], "10:00");
+    }
+
+    // ── schedules#8: several intervals per weekday, overnight, 24 h, and an explained verdict ──
+
+    fn ctx_with_ids(payload: Value) -> Value {
+        json!({ "payload": payload, "context": { "hub_id": "h1", "now": "2026-08-18T10:00:00Z",
+            "new_ids": ["n1", "n2", "n3", "n4"] } })
+    }
+
+    #[test]
+    fn set_hours_with_two_intervals_clears_the_day_and_inserts_one_row_per_interval() {
+        let payload = json!({ "day_of_week": 0, "intervals": [
+            { "open_time": "10:00", "close_time": "14:00" },
+            { "open_time": "17:00", "close_time": "20:00" } ] });
+        let out = set_business_hours_pure(ctx_with_ids(payload)).expect("ok");
+        let ops = out["operations"].as_array().unwrap();
+        assert_eq!(ops[0]["command"], "schedules._clear_business_hours_day");
+        assert_eq!(ops[0]["params"]["day_of_week"], 0);
+        assert_eq!(ops.len(), 3);
+        assert_eq!(ops[1]["command"], "schedules._insert_business_hours");
+        assert_eq!(ops[1]["params"]["id"], "n1");
+        assert_eq!(ops[1]["params"]["position"], 0);
+        assert_eq!(ops[1]["params"]["open_time"], "10:00");
+        assert_eq!(ops[1]["params"]["close_time"], "14:00");
+        assert_eq!(ops[1]["params"]["is_closed"], 0);
+        assert_eq!(ops[2]["params"]["id"], "n2");
+        assert_eq!(ops[2]["params"]["position"], 1);
+        assert_eq!(ops[2]["params"]["open_time"], "17:00");
+        assert_eq!(out["events"][0]["name"], "schedules.business_hours.updated");
+        assert_eq!(out["events"][0]["payload"]["intervals"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn set_hours_intervals_are_sorted_and_overlaps_are_rejected() {
+        let unsorted = json!({ "day_of_week": 1, "intervals": [
+            { "open_time": "17:00", "close_time": "20:00" },
+            { "open_time": "10:00", "close_time": "14:00" } ] });
+        let out = set_business_hours_pure(ctx_with_ids(unsorted)).expect("ok");
+        assert_eq!(out["operations"][1]["params"]["open_time"], "10:00");
+        assert_eq!(out["operations"][2]["params"]["open_time"], "17:00");
+
+        let overlap = json!({ "day_of_week": 1, "intervals": [
+            { "open_time": "10:00", "close_time": "14:00" },
+            { "open_time": "13:00", "close_time": "20:00" } ] });
+        assert_eq!(err_code(set_business_hours_pure(ctx_with_ids(overlap))), "overlapping");
+    }
+
+    #[test]
+    fn set_hours_overnight_and_24h_intervals_are_representable() {
+        // 22:00–02:00 crosses midnight: close < open is the overnight representation.
+        let night = json!({ "day_of_week": 4, "intervals": [ { "open_time": "22:00", "close_time": "02:00" } ] });
+        let out = set_business_hours_pure(ctx_with_ids(night)).expect("overnight must be accepted");
+        assert_eq!(out["operations"][1]["params"]["close_time"], "02:00");
+        // 00:00–00:00 is «open 24 hours».
+        let all_day = json!({ "day_of_week": 5, "intervals": [ { "open_time": "00:00", "close_time": "00:00" } ] });
+        set_business_hours_pure(ctx_with_ids(all_day)).expect("24h must be accepted");
+        // Any other zero-length interval is still an error.
+        let zero = json!({ "day_of_week": 5, "intervals": [ { "open_time": "10:00", "close_time": "10:00" } ] });
+        assert_eq!(err_code(set_business_hours_pure(ctx_with_ids(zero))), "invalid_hours");
+        // An overnight interval followed by a morning one overlaps through midnight → still overlapping.
+        let wrap = json!({ "day_of_week": 4, "intervals": [
+            { "open_time": "22:00", "close_time": "02:00" }, { "open_time": "23:00", "close_time": "23:30" } ] });
+        assert_eq!(err_code(set_business_hours_pure(ctx_with_ids(wrap))), "overlapping");
+    }
+
+    #[test]
+    fn set_hours_legacy_open_close_break_payload_becomes_intervals() {
+        let legacy = json!({ "day_of_week": 2, "open_time": "09:00", "close_time": "18:00",
+            "break_start": "13:00", "break_end": "15:00" });
+        let out = set_business_hours_pure(ctx_with_ids(legacy)).expect("ok");
+        let ops = out["operations"].as_array().unwrap();
+        assert_eq!(ops.len(), 3);
+        assert_eq!((ops[1]["params"]["open_time"].as_str().unwrap(), ops[1]["params"]["close_time"].as_str().unwrap()), ("09:00", "13:00"));
+        assert_eq!((ops[2]["params"]["open_time"].as_str().unwrap(), ops[2]["params"]["close_time"].as_str().unwrap()), ("15:00", "18:00"));
+    }
+
+    #[test]
+    fn set_hours_closed_day_writes_a_single_closed_row_and_no_intervals() {
+        let payload = json!({ "day_of_week": 6, "is_closed": true, "intervals": [ { "open_time": "10:00", "close_time": "14:00" } ] });
+        let out = set_business_hours_pure(ctx_with_ids(payload)).expect("ok");
+        let ops = out["operations"].as_array().unwrap();
+        assert_eq!(ops.len(), 2);
+        assert_eq!(ops[1]["params"]["is_closed"], 1);
+        // An open day with no interval is a mistake, not «open all day».
+        let empty = json!({ "day_of_week": 6, "is_closed": false, "intervals": [] });
+        assert_eq!(err_code(set_business_hours_pure(ctx_with_ids(empty))), "missing_hours");
+    }
+
+    fn open_at(when: &str, business_hours: Value) -> Value {
+        let payload = json!({ "when": when, "business_hours": business_hours });
+        is_open_pure(input(payload)).expect("ok")["result"].clone()
+    }
+
+    #[test]
+    fn is_open_walks_every_interval_of_the_weekday() {
+        // 2026-08-17 is a Monday (dow 0). Split shift 10–14 / 17–20 as two rows.
+        let bh = json!([
+            { "id": "a", "day_of_week": 0, "open_time": "10:00", "close_time": "14:00", "is_closed": 0 },
+            { "id": "b", "day_of_week": 0, "open_time": "17:00", "close_time": "20:00", "is_closed": 0 } ]);
+        assert_eq!(open_at("2026-08-17T11:00", bh.clone())["is_open"], true);
+        assert_eq!(open_at("2026-08-17T15:00", bh.clone())["is_open"], false);
+        let evening = open_at("2026-08-17T18:00", bh.clone());
+        assert_eq!(evening["is_open"], true);
+        assert_eq!(evening["source"], "business_hours");
+        assert_eq!(evening["rule_id"], "b");
+        assert_eq!(open_at("2026-08-17T15:00", bh)["source"], "business_hours");
+    }
+
+    #[test]
+    fn is_open_overnight_interval_reaches_into_the_next_day_and_24h_is_always_open() {
+        // Thursday (dow 3) 22:00–02:00: 2026-08-20 is a Thursday, 2026-08-21 a Friday.
+        let bh = json!([ { "id": "n", "day_of_week": 3, "open_time": "22:00", "close_time": "02:00", "is_closed": 0 } ]);
+        assert_eq!(open_at("2026-08-20T23:00", bh.clone())["is_open"], true);
+        let after_midnight = open_at("2026-08-21T01:00", bh.clone());
+        assert_eq!(after_midnight["is_open"], true);
+        assert_eq!(after_midnight["rule_id"], "n");
+        assert_eq!(open_at("2026-08-21T03:00", bh.clone())["is_open"], false);
+        assert_eq!(open_at("2026-08-20T21:00", bh)["is_open"], false);
+
+        let all_day = json!([ { "id": "d", "day_of_week": 3, "open_time": "00:00", "close_time": "00:00", "is_closed": 0 } ]);
+        assert_eq!(open_at("2026-08-20T00:00", all_day.clone())["is_open"], true);
+        assert_eq!(open_at("2026-08-20T23:59", all_day)["is_open"], true);
+    }
+
+    #[test]
+    fn is_open_reports_which_rule_won_special_day_over_override_over_weekly() {
+        let payload = json!({ "when": "2026-12-25T11:00",
+            "special_days": [ { "id": "sd", "date": "2026-12-25", "name": "Christmas", "is_closed": 1 } ],
+            "overrides": [ { "id": "ov", "start_date": "2026-12-20", "end_date": "2026-12-31", "reason": "Winter", "is_closed": 0, "open_time": "10:00", "close_time": "14:00" } ],
+            "business_hours": [ { "id": "bh", "day_of_week": 4, "open_time": "09:00", "close_time": "18:00", "is_closed": 0 } ] });
+        let r = is_open_pure(input(payload)).expect("ok")["result"].clone();
+        assert_eq!(r["is_open"], false);
+        assert_eq!(r["source"], "special_day");
+        assert_eq!(r["rule_id"], "sd");
+
+        let payload = json!({ "when": "2026-12-26T11:00",
+            "overrides": [ { "id": "ov", "start_date": "2026-12-20", "end_date": "2026-12-31", "reason": "Winter", "is_closed": 0, "open_time": "10:00", "close_time": "14:00" } ],
+            "business_hours": [ { "id": "bh", "day_of_week": 5, "open_time": "09:00", "close_time": "18:00", "is_closed": 0 } ] });
+        let r = is_open_pure(input(payload)).expect("ok")["result"].clone();
+        assert_eq!(r["source"], "override");
+        assert_eq!(r["rule_id"], "ov");
+
+        let r = is_open_pure(input(json!({ "when": "2026-12-26T11:00" }))).expect("ok")["result"].clone();
+        assert_eq!(r["source"], "none");
     }
 }

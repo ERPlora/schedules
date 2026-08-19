@@ -50,7 +50,7 @@ Precedence, highest first:
 1. **Special day** for that exact date — and if none, a **yearly recurring** special day matching the
    month and day.
 2. **Override** whose range covers that date.
-3. **Business hours** for that weekday, including its break.
+3. **Business hours** for that weekday — any of its intervals (split shifts, overnight, 24 h).
 4. **Nothing configured** — the answer depends on the `fail_open` flag the caller passes.
 
 A special day beats everything. That is the point of it.
