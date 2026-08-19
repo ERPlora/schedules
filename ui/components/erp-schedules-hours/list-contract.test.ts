@@ -154,9 +154,57 @@ describe('sorting, filtering and searching travel to the SERVER', () => {
   });
 });
 
-// The SINGLETON shape is deliberately NOT asserted here. `schedules.settings.get` is a plain SQL
-// query, so the runtime answers `[row]` and `loadSettings()` assigns it as if it were the object —
-// that is the bug of schedules#9 (blocked on the core owning the hub timezone, hub#1022), and
-// pinning today's behaviour in a test would make it harder to fix, not easier. It is written down
-// here so it is not mistaken for something nobody noticed.
-describe.todo('settings.get returns [row]: unwrapped safely — schedules#9');
+// The SINGLETON shape, which the rest of this file could not check: `schedules.settings.get` is a
+// plain SQL query, so the runtime answers a ROW ARRAY — `[row]` — never the bare object. The screen
+// used to assign that array straight into `this.settings`, so every control on the settings tab
+// (week start, slot duration, auto-close) rendered EMPTY while the server had the values: the bug
+// of schedules#9. The tests mocked a bare object, which is exactly why nothing caught it.
+//
+// Retiring `timezone` from this screen is the OTHER half of schedules#9 and stays blocked on
+// hub#1022 (the core owns the business zone since hub#731 and has no door to it yet), so it is not
+// asserted here — this is only about reading the answer the runtime really sends.
+describe('settings.get answers [row]: the screen unwraps it safely — schedules#9', () => {
+  const STORED = { timezone: 'Europe/Madrid', week_starts_on: 6, slot_duration: 45, auto_close_enabled: 1 };
+
+  const mountWithSettings = async (answer: unknown) => {
+    (globalThis as Record<string, unknown>).erplora = {
+      ...((globalThis as Record<string, { erplora: object }>).erplora as object),
+      query: async (name: string) => (name === 'schedules.settings.get' ? answer : null),
+    };
+    return mount('/m/schedules/settings');
+  };
+
+  const settingsOf = (el: Wc) =>
+    (el as unknown as { settings: Record<string, unknown> }).settings;
+
+  it('a one-row array is unwrapped into the object the form reads', async () => {
+    const el = await mountWithSettings([STORED]);
+    expect(settingsOf(el), 'the row inside the array is what the form must show').toMatchObject(STORED);
+  });
+
+  it('a bare object still works — the shape is not asserted, it is normalised', async () => {
+    const el = await mountWithSettings(STORED);
+    expect(settingsOf(el)).toMatchObject(STORED);
+  });
+
+  it('an empty answer leaves the defaults, it does not blank the form', async () => {
+    const el = await mountWithSettings([]);
+    const s = settingsOf(el);
+    expect(s.slot_duration, 'no stored row is not a reason to show an empty control').toBe(30);
+    expect(s.week_starts_on).toBe(1);
+  });
+
+  it('a corrupt answer is ignored instead of poisoning the form', async () => {
+    for (const answer of [null, 'nope', [null], [42]]) {
+      const el = await mountWithSettings(answer);
+      expect(settingsOf(el).slot_duration, `answer ${JSON.stringify(answer)}`).toBe(30);
+    }
+  });
+
+  it('the settings tab renders its controls with the stored values, not empty ones', async () => {
+    const el = await mountWithSettings([STORED]);
+    const input = el.shadowRoot.querySelector('ion-input[type="number"]') as HTMLElement & { value: unknown };
+    expect(input, 'the settings tab must be the one rendered').toBeTruthy();
+    expect(input.value, 'the control shows what the server stored').toBe(45);
+  });
+});
