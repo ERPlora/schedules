@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { state } from 'lit/decorators.js';
 import { define } from '@erplora/outfitkit/define';
 import '@erplora/outfitkit/ok-data-table';
+import '@erplora/outfitkit/ok-inline-feedback';
 import type { DataTableColumn } from '@erplora/outfitkit';
 import { createListController } from '@erplora/module-sdk';
 import type { ListController, ListClient, ListParams, ListPage } from '@erplora/module-sdk';
@@ -57,6 +58,19 @@ const DAY_KEYS = ['ui.monday', 'ui.tuesday', 'ui.wednesday', 'ui.thursday', 'ui.
 
 type Tab = 'hours' | 'special_days' | 'settings';
 
+const TABS: readonly Tab[] = ['hours', 'special_days', 'settings'];
+
+// schedules#6 — the SECTION comes from the route (ADR-0022): the shell owns the tabbar and mounts
+// this component at `/m/schedules/<navId>` for each of the three navigation entries, remounting on
+// every change (deep links, back/forward included). Unknown or missing navId → `hours` (the shell
+// canonicalises the URL to the first tab too).
+export function resolveNavId(pathname: string): Tab {
+  const clean = pathname.split(/[?#]/)[0].replace(/\/+$/, '');
+  const m = /^\/m\/schedules\/([a-z_]+)$/.exec(clean);
+  const id = m?.[1] as Tab | undefined;
+  return id && TABS.includes(id) ? id : 'hours';
+}
+
 function erplora(): ErploraClientLike {
   const c = (globalThis as { erplora?: ErploraClientLike }).erplora;
   if (!c) throw new Error('erplora SDK no inicializado por el shell');
@@ -72,9 +86,6 @@ export class ErpSchedulesHours extends LitElement {
     .page { display:flex; flex-direction:column; min-height:0; flex:1 1 auto; }
     .pane { display:flex; flex-direction:column; min-height:0; flex:1 1 auto; gap:.5rem; }
     .pane > ok-data-table { flex:1 1 auto; min-height:0; }
-    nav { display:flex; gap:.25rem; margin-bottom:1rem; }
-    nav button { border:1px solid var(--ion-border-color,#e7e2d6); background:var(--ok-surface-2, var(--ion-color-step-50, rgba(var(--ion-text-color-rgb, 24, 24, 27), 0.04))); border-radius:8px; padding:.4rem .8rem; cursor:pointer; }
-    nav button.active { background:var(--accent,#1c1b18); color:#fff; }
     /* El alta vive en el panel lateral de la tabla: columna estrecha, no fila que se desborda.
        Los ajustes (que NO son un alta de fila) siguen fuera y sí se reparten en fila. */
     .form { display:flex; flex-direction:column; gap:.7rem; }
@@ -82,11 +93,14 @@ export class ErpSchedulesHours extends LitElement {
     .settings { flex-direction:row; flex-wrap:wrap; align-items:end; }
     .settings ion-input, .settings ion-select { flex:1 1 11rem; min-width:9rem; }
     h3 { margin:.5rem 0 0; font-size:1rem; }
-    .err { color:#d9480f; font-weight:600; }
     label.chk { display:flex; gap:.35rem; align-items:center; }
   `;
 
+  // Section of the view. Set from the route on connect (schedules#6); the shell paints the tabbar.
   @state() tab: Tab = 'hours';
+
+  // Pending destructive action (special day / override): confirmed through an ion-alert first.
+  @state() private pendingDelete: { kind: 'special_day' | 'override'; id: string; label: string } | null = null;
 
   @state() settings: { timezone: string; week_starts_on: number; slot_duration: number; auto_close_enabled: number } = {
     timezone: 'Europe/Madrid',
@@ -245,6 +259,7 @@ export class ErpSchedulesHours extends LitElement {
   // sola vez tras el primer render, considera firstUpdated() en su lugar.
   async connectedCallback() {
     super.connectedCallback();
+    this.tab = resolveNavId(window.location.pathname);
     window.addEventListener('erplora:locale-changed', this.onLocaleChange);
     const rerender = () => this.requestUpdate();
     this.hoursCtrl = createListController<BusinessHours>(erplora(), 'schedules.business_hours.list', rerender, {
@@ -446,30 +461,47 @@ export class ErpSchedulesHours extends LitElement {
     }
   }
 
-  private async onSpecialAction(ev: CustomEvent<{ actionId: string; row: Record<string, unknown> }>) {
+  // Destructive actions ask first (schedules#6): the row is parked and the ion-alert decides.
+  private onSpecialAction(ev: CustomEvent<{ actionId: string; row: Record<string, unknown> }>) {
     if (ev.detail.actionId !== 'delete') return;
+    const row = ev.detail.row;
+    this.pendingDelete = { kind: 'special_day', id: String(row.id), label: String(row.name ?? row.date ?? '') };
+  }
+
+  private onOverrideAction(ev: CustomEvent<{ actionId: string; row: Record<string, unknown> }>) {
+    if (ev.detail.actionId !== 'delete') return;
+    const row = ev.detail.row;
+    this.pendingDelete = { kind: 'override', id: String(row.id), label: String(row.reason ?? row.start_date ?? '') };
+  }
+
+  private async onDeleteDismiss(ev: CustomEvent<{ role?: string }>) {
+    const pending = this.pendingDelete;
+    this.pendingDelete = null;
+    if (ev.detail?.role !== 'confirm' || !pending) return;
+    this.formError = '';
     try {
-      await erplora().command('schedules.special_days.delete', { special_day_id: ev.detail.row.id });
-      await this.specialCtrl.load();
+      if (pending.kind === 'special_day') {
+        await erplora().command('schedules.special_days.delete', { special_day_id: pending.id });
+        await this.specialCtrl.load();
+      } else {
+        await erplora().command('schedules.overrides.delete', { override_id: pending.id });
+        await this.overrideCtrl.load();
+      }
     } catch (e) {
       this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorDelete');
     }
   }
 
-  private async onOverrideAction(ev: CustomEvent<{ actionId: string; row: Record<string, unknown> }>) {
-    if (ev.detail.actionId !== 'delete') return;
-    try {
-      await erplora().command('schedules.overrides.delete', { override_id: ev.detail.row.id });
-      await this.overrideCtrl.load();
-    } catch (e) {
-      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorDelete');
-    }
+  // ≤834 px opens in cards: status, effective hours and the row actions stay visible without
+  // clipping (schedules#6); desktop keeps the table.
+  private get defaultView(): 'cards' | 'table' {
+    return window.innerWidth <= 834 ? 'cards' : 'table';
   }
 
   private renderHours() {
     const t = (k: string): string => erplora().t(CATALOG, k);
     return html`<div class="pane">
-        <ok-data-table id="tbl-hours" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? 'asc'} .searchable=${true} .actions=${this.hoursActions} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} .emptyMessage=${this.hoursCtrl?.loading ? t('ui.loading') : t('ui.emptyHours')} @pageChange=${(e: CustomEvent<number>) => this.hoursCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.hoursCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.hoursCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.hoursCtrl.setFilter(e.detail.col, e.detail.value)}>
+        <ok-data-table id="tbl-hours" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.hoursCtrl?.rows ?? []} .total=${this.hoursCtrl?.total ?? 0} .page=${this.hoursCtrl?.state.page ?? 0} .pageSize=${this.hoursCtrl?.state.pageSize ?? 50} .sort=${this.hoursCtrl?.state.sort} .sortDir=${this.hoursCtrl?.state.dir ?? 'asc'} .searchable=${true} .actions=${this.hoursActions} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} .emptyMessage=${this.hoursCtrl?.loading ? t('ui.loading') : t('ui.emptyHours')} @pageChange=${(e: CustomEvent<number>) => this.hoursCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.hoursCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.hoursCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.hoursCtrl.setFilter(e.detail.col, e.detail.value)}>
           <!-- El upsert del día ES el alta/edición de una fila de esta tabla → su panel. Se proyecta
                SIEMPRE: si solo se pintara al abrirlo, el «+» abriría un panel vacío. -->
           <form slot="create" class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
@@ -497,7 +529,9 @@ export class ErpSchedulesHours extends LitElement {
   private renderSpecialDays() {
     const t = (k: string): string => erplora().t(CATALOG, k);
     return html`<div class="pane">
-        <ok-data-table id="tbl-special" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .cardTitle=${(row: Record<string, unknown>) => String(row.name ?? row.date ?? '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
+        <!-- Two collections, two tables, each labelled (schedules#6): a dated exception vs a range. -->
+        <h3>${t('ui.specialDays')}</h3>
+        <ok-data-table id="tbl-special" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.name ?? row.date ?? '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form slot="create" class="form" @submit=${(e: Event) => this.createSpecialDay(e)}>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colDate')} type="date" .value=${this.sdDate} @ionInput=${(e: any) => (this.sdDate = e.target.value)}></ion-input>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colName')} placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
@@ -521,7 +555,7 @@ export class ErpSchedulesHours extends LitElement {
         </ok-data-table>
         <!-- Las excepciones son OTRA entidad (otra tabla) → llevan su propio panel de alta. -->
         <h3>${t('ui.overrides')}</h3>
-        <ok-data-table id="tbl-override" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .cardTitle=${(row: Record<string, unknown>) => String(row.reason ?? row.start_date ?? '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
+        <ok-data-table id="tbl-override" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.reason ?? row.start_date ?? '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form slot="create" class="form" @submit=${(e: Event) => this.createOverride(e)}>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colFrom')} type="date" .value=${this.ovStart} @ionInput=${(e: any) => (this.ovStart = e.target.value)}></ion-input>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colTo')} type="date" .value=${this.ovEnd} @ionInput=${(e: any) => (this.ovEnd = e.target.value)}></ion-input>
@@ -563,19 +597,23 @@ export class ErpSchedulesHours extends LitElement {
 
   render() {
     const t = (k: string): string => erplora().t(CATALOG, k);
+    // No internal nav (schedules#6): the shell's tabbar + route are the only navigation (ADR-0022).
+    const errors = [this.formError, this.hoursCtrl?.error, this.specialCtrl?.error, this.overrideCtrl?.error].filter(Boolean);
     return html`<div class="page">
-        <nav>
-          <button class=${this.tab === 'hours' ? 'active' : ''} @click=${() => (this.tab = 'hours')}>${t('ui.tabHours')}</button>
-          <button class=${this.tab === 'special_days' ? 'active' : ''} @click=${() => (this.tab = 'special_days')}>${t('ui.tabSpecialDays')}</button>
-          <button class=${this.tab === 'settings' ? 'active' : ''} @click=${() => (this.tab = 'settings')}>${t('ui.tabSettings')}</button>
-        </nav>
-        ${this.formError ? html`<p class="err">${this.formError}</p>` : nothing}
-        ${this.hoursCtrl?.error ? html`<p class="err">${this.hoursCtrl.error}</p>` : nothing}
-        ${this.specialCtrl?.error ? html`<p class="err">${this.specialCtrl.error}</p>` : nothing}
-        ${this.overrideCtrl?.error ? html`<p class="err">${this.overrideCtrl.error}</p>` : nothing}
+        ${errors.map((e) => html`<ok-inline-feedback tone="danger" icon="alert-circle-outline">${e}</ok-inline-feedback>`)}
         ${this.tab === 'hours' ? this.renderHours() : nothing}
         ${this.tab === 'special_days' ? this.renderSpecialDays() : nothing}
         ${this.tab === 'settings' ? this.renderSettings() : nothing}
+        <ion-alert
+          .isOpen=${this.pendingDelete !== null}
+          header=${t('ui.deleteConfirmTitle')}
+          message=${erplora().t(CATALOG, 'ui.deleteConfirmMessage', { name: this.pendingDelete?.label ?? '' })}
+          .buttons=${[
+            { text: t('ui.cancel'), role: 'cancel' },
+            { text: t('ui.actionDelete'), role: 'confirm', cssClass: 'alert-button-danger' },
+          ]}
+          @ionAlertDidDismiss=${(e: CustomEvent<{ role?: string }>) => this.onDeleteDismiss(e)}
+        ></ion-alert>
       </div>`;
   }
 }
