@@ -73,6 +73,10 @@
     "openWithHours": "Open (with hours)",
     "fieldRecurring": "Repeats every year",
     "fieldNotes": "Notes",
-    "errorHoursRequired": "Enter opening and closing times, or mark it as closed"
+    "errorHoursRequired": "Enter opening and closing times, or mark it as closed",
+    "specialDays": "Special days",
+    "deleteConfirmTitle": "Delete",
+    "deleteConfirmMessage": "«{name}» will be deleted. This cannot be undone.",
+    "cancel": "Cancel"
   }
 }

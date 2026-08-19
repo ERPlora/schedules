@@ -1,7 +1,12 @@
 # Schedules — Screens
 
 The module contributes three tabs to the hub navigation — **Hours**, **Special Days** and
-**Settings** — and all three are served by the same screen, which resolves the tab internally.
+**Settings** — served by one Web Component that reads the section from the route it is mounted on
+(`/m/schedules/hours`, `/m/schedules/special_days`, `/m/schedules/settings`). The hub's tabbar is
+the only navigation: deep links and Back/Forward land on the right section, and the screen paints
+no tabs of its own. On phones and tablets (≤ 834 px) every list opens as cards so the status,
+the effective hours and the actions of each row stay readable; deleting a special day or an
+override asks for confirmation first.
 
 ## Hours — the weekly opening hours
 

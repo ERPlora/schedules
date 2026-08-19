@@ -74,6 +74,10 @@
     "openWithHours": "Abierto (con horario)",
     "fieldRecurring": "Se repite cada año",
     "fieldNotes": "Notas",
-    "errorHoursRequired": "Indica la hora de apertura y cierre, o márcalo como cerrado"
+    "errorHoursRequired": "Indica la hora de apertura y cierre, o márcalo como cerrado",
+    "specialDays": "Días especiales",
+    "deleteConfirmTitle": "Eliminar",
+    "deleteConfirmMessage": "Se eliminará «{name}». No se puede deshacer.",
+    "cancel": "Cancelar"
   }
 }

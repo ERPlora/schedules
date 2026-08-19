@@ -7,7 +7,7 @@
 //   · pestaña «Días especiales» → dos tablas (días especiales y excepciones), cada una con SU panel.
 //   · pestaña «Ajustes»        → NO es el alta de ninguna fila: es configuración del módulo. Su
 //                                formulario se queda FUERA de cualquier tabla, a propósito.
-// La vista tampoco pinta título propio (lo pinta el topbar del shell); las pestañas sí se quedan.
+// La vista tampoco pinta título propio ni pestañas propias (schedules#6): el shell pinta ambos.
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const comandos: { name: string; payload: Record<string, unknown> }[] = [];
@@ -250,9 +250,12 @@ describe('pestaña «Ajustes»: NO es el alta de una fila → su formulario se q
 });
 
 describe('cromo de la vista', () => {
-  it('no pinta título propio, pero conserva las pestañas', async () => {
+  // schedules#6: the internal `<nav><button>` row is gone — the shell's tabbar (ADR-0022) and the
+  // route are the only navigation. The old assertion («conserva las pestañas») described the
+  // duplicated level the issue removes; see routing-and-responsive.test.ts.
+  it('no pinta título propio ni pestañas propias (el shell pinta ambos)', async () => {
     const el = await montar('hours');
     expect(el.shadowRoot.querySelector('h2'), 'título duplicado: el shell ya lo pinta').toBeNull();
-    expect(el.shadowRoot.querySelectorAll('nav button').length).toBe(3);
+    expect(el.shadowRoot.querySelectorAll('nav button').length).toBe(0);
   });
 });
