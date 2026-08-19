@@ -462,12 +462,22 @@ export class ErpSchedulesHours extends LitElement {
     return clean;
   }
 
+  /** Reads the module's singleton settings row (schedules#9).
+   *
+   *  `schedules.settings.get` is a plain SQL query, so the runtime answers a ROW ARRAY — `[row]` —
+   *  and never the bare object. Assigning that array straight into `this.settings` left every
+   *  control on the settings tab empty while the server held the values. So the answer is
+   *  NORMALISED here rather than assumed: array or object, and anything that is not an object with
+   *  fields keeps the defaults instead of blanking the form. */
   private async loadSettings() {
     try {
-      const settings = await erplora().query<typeof this.settings | null>('schedules.settings.get');
-      if (settings) this.settings = settings;
+      const answer = await erplora().query<unknown>('schedules.settings.get');
+      const row = Array.isArray(answer) ? answer[0] : answer;
+      if (row && typeof row === 'object') {
+        this.settings = { ...this.settings, ...(row as Partial<typeof this.settings>) };
+      }
     } catch {
-      /* ajustes opcionales */
+      /* optional settings: a missing row is not an error, the defaults stand */
     }
   }
 
