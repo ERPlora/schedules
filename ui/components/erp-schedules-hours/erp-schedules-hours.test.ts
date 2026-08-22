@@ -43,7 +43,7 @@ beforeEach(() => {
   };
 });
 
-type Tabla = HTMLElement & { addable: boolean; fill: boolean };
+type Tabla = HTMLElement & { addable: boolean; fill: boolean; rowClickable: boolean };
 
 async function montar(tab: 'hours' | 'special_days' | 'settings' = 'hours') {
   await import('./erp-schedules-hours');
@@ -257,5 +257,32 @@ describe('cromo de la vista', () => {
     const el = await montar('hours');
     expect(el.shadowRoot.querySelector('h2'), 'título duplicado: el shell ya lo pinta').toBeNull();
     expect(el.shadowRoot.querySelectorAll('nav button').length).toBe(0);
+  });
+});
+
+// ── pm#155 (outfitkit#67, second half) ────────────────────────────────────────────────────────
+//
+// At 1440 px the «Actions» column fell off the screen with nothing hinting the table went on to
+// the right, so the only door into a day's hours was a button nobody could see. OutfitKit 0.1.44
+// pins that column, but the other half of the fix is opt-in: `rowClickable` turns the whole row
+// into a door — the first thing a user tries. The hours table has to ask for it, and wire
+// `rowClick` to the same day editor the «edit» action opens. The special-days and overrides
+// tables only carry `delete` (no record door to share) and stay as they are — see pm#155.
+describe('clicking the row edits the day (pm#155)', () => {
+  it('the hours table declares `rowClickable` → the whole row is a door, not just the action button', async () => {
+    const el = await montar('hours');
+    expect(
+      tablas(el)[0]?.rowClickable,
+      'without `rowClickable` the row is dead: if the actions column is off-screen there is no way in',
+    ).toBe(true);
+  });
+
+  it('`rowClick` opens the day editor, same as the «edit» action', async () => {
+    const el = await montar('hours');
+    tablas(el)[0]!.dispatchEvent(new CustomEvent('rowClick', { detail: { row: { day_of_week: 3, is_closed: 0, intervals: [] } } }));
+    await new Promise((r) => setTimeout(r, 0));
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+    const wc = el as unknown as { bhDay: number };
+    expect(wc.bhDay, 'the row was clicked and the day editor did not open').toBe(3);
   });
 });
