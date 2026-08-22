@@ -689,7 +689,7 @@ export class ErpSchedulesHours extends LitElement {
     const isAllDay = this.bhIntervals.length === 1 && this.bhIntervals[0].open_time === '00:00' && this.bhIntervals[0].close_time === '00:00';
     return html`<div class="pane">
         <!-- Seven fixed rows (one per weekday), no «+»: a day is EDITED, never added (schedules#8). -->
-        <ok-data-table id="tbl-hours" .fill=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} .emptyMessage=${t('ui.emptyHours')}>
+        <ok-data-table id="tbl-hours" .fill=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${t('ui.emptyHours')}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
           <form slot="create" class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>

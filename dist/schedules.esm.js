@@ -1553,12 +1553,53 @@ function okIcon(value) {
 
 // ../outfitkit/dist/ok-data-table.js
 var CSV_BOM = "\uFEFF";
+var WINDOWS_1252_C1 = [
+  8364,
+  129,
+  8218,
+  402,
+  8222,
+  8230,
+  8224,
+  8225,
+  710,
+  8240,
+  352,
+  8249,
+  338,
+  141,
+  381,
+  143,
+  144,
+  8216,
+  8217,
+  8220,
+  8221,
+  8226,
+  8211,
+  8212,
+  732,
+  8482,
+  353,
+  8250,
+  339,
+  157,
+  382,
+  376
+];
+function decodeWindows1252(bytes) {
+  let text = "";
+  for (const byte of bytes) {
+    text += String.fromCharCode(byte >= 128 && byte <= 159 ? WINDOWS_1252_C1[byte - 128] : byte);
+  }
+  return text;
+}
 function decodeCsvBuffer(buf) {
   let text;
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(buf);
   } catch {
-    text = new TextDecoder("windows-1252").decode(buf);
+    text = decodeWindows1252(new Uint8Array(buf));
   }
   return text.charCodeAt(0) === 65279 ? text.slice(1) : text;
 }
@@ -3314,7 +3355,7 @@ function createListController(client, queryName, onChange = () => {
   return new ListController(client, queryName, onChange, opts);
 }
 
-// modules/schedules/locales/es.json
+// modules/schedules/.wt-rowclick/locales/es.json
 var es_default = {
   name: "Horarios",
   description: "Horarios de apertura del negocio, d\xEDas especiales y excepciones al horario habitual.",
@@ -3405,7 +3446,7 @@ var es_default = {
   }
 };
 
-// modules/schedules/locales/en.json
+// modules/schedules/.wt-rowclick/locales/en.json
 var en_default = {
   name: "Schedules",
   navigation: {
@@ -3495,7 +3536,7 @@ var en_default = {
   }
 };
 
-// modules/schedules/ui/components/erp-schedules-hours/erp-schedules-hours.ts
+// modules/schedules/.wt-rowclick/ui/components/erp-schedules-hours/erp-schedules-hours.ts
 var CATALOG = { es: es_default, en: en_default };
 var DAY_KEYS = ["ui.monday", "ui.tuesday", "ui.wednesday", "ui.thursday", "ui.friday", "ui.saturday", "ui.sunday"];
 var ALL_DAY = { open_time: "00:00", close_time: "00:00" };
@@ -3991,7 +4032,7 @@ var ErpSchedulesHours = class extends i3 {
     const isAllDay = this.bhIntervals.length === 1 && this.bhIntervals[0].open_time === "00:00" && this.bhIntervals[0].close_time === "00:00";
     return b2`<div class="pane">
         <!-- Seven fixed rows (one per weekday), no «+»: a day is EDITED, never added (schedules#8). -->
-        <ok-data-table id="tbl-hours" .fill=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} @rowAction=${(e5) => this.onHoursAction(e5)} .emptyMessage=${t5("ui.emptyHours")}>
+        <ok-data-table id="tbl-hours" .fill=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .rowClickable=${true} @rowAction=${(e5) => this.onHoursAction(e5)} @rowClick=${(e5) => this.onHoursAction({ detail: { actionId: "edit", row: e5.detail.row } })} .emptyMessage=${t5("ui.emptyHours")}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
           <form slot="create" class="form" @submit=${(e5) => this.saveBusinessHours(e5)}>
