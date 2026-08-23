@@ -314,10 +314,26 @@ export class ErpSchedulesHours extends LitElement {
     return intervals.map((i) => `${i.open_time}–${i.close_time}`).join(' · ');
   }
 
+  /** A `'YYYY-MM-DD'` date as the hub's locale reads it (schedules#29): `25/08/2026`, never the
+   *  raw ISO. Built from UTC pieces and formatted in UTC so the wall date never shifts with the
+   *  browser's timezone — the string IS the date, it names no instant. Anything that is not an
+   *  ISO date falls through untouched. */
+  private fmtDate(iso: unknown): string {
+    const s = String(iso ?? '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const [y, m, d] = s.split('-').map(Number);
+    return new Intl.DateTimeFormat(erplora().locale || 'es', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(y, m - 1, d)));
+  }
+
   private get specialColumns(): DataTableColumn[] {
     const t = (k: string): string => erplora().t(CATALOG, k);
     return [
-      { key: 'date', header: t('ui.colDate'), sortable: true, filterable: true, filterType: 'daterange' },
+      { key: 'date', header: t('ui.colDate'), sortable: true, filterable: true, filterType: 'daterange', format: (r) => this.fmtDate(r.date) },
       { key: 'name', header: t('ui.colName'), sortable: true, filterable: true, filterType: 'text' },
       {
         key: 'is_closed',
@@ -343,8 +359,8 @@ export class ErpSchedulesHours extends LitElement {
   private get overrideColumns(): DataTableColumn[] {
     const t = (k: string): string => erplora().t(CATALOG, k);
     return [
-      { key: 'start_date', header: t('ui.colFrom'), sortable: true, filterable: true, filterType: 'daterange' },
-      { key: 'end_date', header: t('ui.colTo'), sortable: true, filterable: true, filterType: 'daterange' },
+      { key: 'start_date', header: t('ui.colFrom'), sortable: true, filterable: true, filterType: 'daterange', format: (r) => this.fmtDate(r.start_date) },
+      { key: 'end_date', header: t('ui.colTo'), sortable: true, filterable: true, filterType: 'daterange', format: (r) => this.fmtDate(r.end_date) },
       { key: 'reason', header: t('ui.colReason'), sortable: true, filterable: true, filterType: 'text' },
       {
         key: 'is_closed',
@@ -659,13 +675,13 @@ export class ErpSchedulesHours extends LitElement {
   private onSpecialAction(ev: CustomEvent<{ actionId: string; row: Record<string, unknown> }>) {
     if (ev.detail.actionId !== 'delete') return;
     const row = ev.detail.row;
-    this.pendingDelete = { kind: 'special_day', id: String(row.id), label: String(row.name ?? row.date ?? '') };
+    this.pendingDelete = { kind: 'special_day', id: String(row.id), label: String(row.name || this.fmtDate(row.date) || '') };
   }
 
   private onOverrideAction(ev: CustomEvent<{ actionId: string; row: Record<string, unknown> }>) {
     if (ev.detail.actionId !== 'delete') return;
     const row = ev.detail.row;
-    this.pendingDelete = { kind: 'override', id: String(row.id), label: String(row.reason ?? row.start_date ?? '') };
+    this.pendingDelete = { kind: 'override', id: String(row.id), label: String(row.reason || this.fmtDate(row.start_date) || '') };
   }
 
   private async onDeleteDismiss(ev: CustomEvent<{ role?: string }>) {
@@ -719,8 +735,10 @@ export class ErpSchedulesHours extends LitElement {
     const t = (k: string): string => erplora().t(CATALOG, k);
     const isAllDay = this.bhIntervals.length === 1 && this.bhIntervals[0].open_time === '00:00' && this.bhIntervals[0].close_time === '00:00';
     return html`<div class="pane">
-        <!-- Seven fixed rows (one per weekday), no «+»: a day is EDITED, never added (schedules#8). -->
-        <ok-data-table id="tbl-hours" .fill=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${t('ui.emptyHours')}>
+        <!-- Seven fixed rows (one per weekday), no «+»: a day is EDITED, never added (schedules#8).
+             No rows-per-page selector either (schedules#29): this view paints ALL seven weekdays and
+             never pages, and an empty dropdown that does nothing is a control that lies. -->
+        <ok-data-table id="tbl-hours" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${t('ui.emptyHours')}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
           <form slot="create" class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
@@ -758,7 +776,7 @@ export class ErpSchedulesHours extends LitElement {
     return html`<div class="pane">
         <!-- Two collections, two tables, each labelled (schedules#6): a dated exception vs a range. -->
         <h3>${t('ui.specialDays')}</h3>
-        <ok-data-table id="tbl-special" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.name ?? row.date ?? '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
+        <ok-data-table id="tbl-special" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.name || this.fmtDate(row.date) || '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form slot="create" class="form" @submit=${(e: Event) => this.createSpecialDay(e)}>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colDate')} type="date" .value=${this.sdDate} @ionInput=${(e: any) => (this.sdDate = e.target.value)}></ion-input>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colName')} placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
@@ -784,7 +802,7 @@ export class ErpSchedulesHours extends LitElement {
         </ok-data-table>
         <!-- Las excepciones son OTRA entidad (otra tabla) → llevan su propio panel de alta. -->
         <h3>${t('ui.overrides')}</h3>
-        <ok-data-table id="tbl-override" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.reason ?? row.start_date ?? '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
+        <ok-data-table id="tbl-override" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.reason || this.fmtDate(row.start_date) || '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form slot="create" class="form" @submit=${(e: Event) => this.createOverride(e)}>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colFrom')} type="date" .value=${this.ovStart} @ionInput=${(e: any) => (this.ovStart = e.target.value)}></ion-input>
             <ion-input fill="outline" label-placement="floating" label=${t('ui.colTo')} type="date" .value=${this.ovEnd} @ionInput=${(e: any) => (this.ovEnd = e.target.value)}></ion-input>
