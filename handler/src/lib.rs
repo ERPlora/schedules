@@ -21,11 +21,16 @@
 //!   cliente sobre filas que el propio cliente aporta lo haría falsificable.
 //!
 //! Horas como TEXT `'HH:MM'` y fechas `'YYYY-MM-DD'` (comparación lexicográfica,
-//! válida por el zero-padding). Errores de negocio = `Err("codigo: detalle")` con
-//! códigos `invalid_hours` / `invalid_break` / `missing_hours` / `invalid_range` /
-//! `already_exists` / `invalid_day` / `invalid_date` / `missing_name` / `overlapping`.
+//! válida por el zero-padding). Rechazos de negocio = **`DomainError`** (hub#139): un
+//! código ESTABLE y namespaced (`schedules.<snake_case>`) que la UI traduce contra el
+//! bloque `errors` de `locales/{en,es}.json` — `invalid_hours` / `invalid_break` /
+//! `missing_hours` / `invalid_range` / `already_exists` / `invalid_day` / `invalid_date` /
+//! `missing_name` / `missing_items` / `overlapping` — con una frase EN de fallback que
+//! conserva los valores conflictivos (para logs y clientes sin catálogo). Antes de
+//! schedules#28 el handler fallaba con `Err("código: detalle")` y el runtime lo envolvía
+//! en su plumbing («error de handler WASM: wasm call to … failed:»), mitad EN mitad ES.
 
-use erplora_guest_sdk::{Event, Operation, Output};
+use erplora_guest_sdk::{DomainError, Event, Operation, Output};
 use serde_json::{json, Map, Value};
 
 #[cfg(feature = "guest")]
@@ -33,45 +38,67 @@ use extism_pdk::*;
 
 // ── Exports WASM ───────────────────────────────────────────────────────────
 
+/// A refusal is a VALID answer (an `Output` with `error`), not a fault of the plugin: the
+/// host surfaces the code (409) without the WASM plumbing. Only contract violations with the
+/// host itself (a missing `context.new_ids` the runtime always delivers) stay on the `Err`
+/// path — a bug to fix, not a sentence for the user.
 #[cfg(feature = "guest")]
-#[plugin_fn]
-pub fn is_open(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Value>> {
-    to_fn_result(is_open_pure(input.into_inner().into_value()))
-}
-
-#[cfg(feature = "guest")]
-#[plugin_fn]
-pub fn bulk_create_special_days(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Value>> {
-    to_fn_result(bulk_create_special_days_pure(input.into_inner().into_value()))
-}
-
-#[cfg(feature = "guest")]
-#[plugin_fn]
-pub fn set_business_hours(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Value>> {
-    to_fn_result(set_business_hours_pure(input.into_inner().into_value()))
-}
-
-#[cfg(feature = "guest")]
-#[plugin_fn]
-pub fn create_special_day(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Value>> {
-    to_fn_result(create_special_day_pure(input.into_inner().into_value()))
-}
-
-#[cfg(feature = "guest")]
-#[plugin_fn]
-pub fn create_override(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Value>> {
-    to_fn_result(create_override_pure(input.into_inner().into_value()))
-}
-
-#[cfg(feature = "guest")]
-fn to_fn_result(r: Result<Value, String>) -> FnResult<Json<Value>> {
+fn to_fn_result(r: Result<Output, String>) -> FnResult<Json<Output>> {
     match r {
         Ok(out) => Ok(Json(out)),
         Err(e) => Err(Error::msg(e).into()),
     }
 }
 
+#[cfg(feature = "guest")]
+#[plugin_fn]
+pub fn is_open(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Output>> {
+    to_fn_result(is_open_pure(input.into_inner().into_value()))
+}
+
+#[cfg(feature = "guest")]
+#[plugin_fn]
+pub fn bulk_create_special_days(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Output>> {
+    to_fn_result(bulk_create_special_days_pure(
+        input.into_inner().into_value(),
+    ))
+}
+
+#[cfg(feature = "guest")]
+#[plugin_fn]
+pub fn set_business_hours(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Output>> {
+    to_fn_result(set_business_hours_pure(input.into_inner().into_value()))
+}
+
+#[cfg(feature = "guest")]
+#[plugin_fn]
+pub fn create_special_day(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Output>> {
+    to_fn_result(create_special_day_pure(input.into_inner().into_value()))
+}
+
+#[cfg(feature = "guest")]
+#[plugin_fn]
+pub fn create_override(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Output>> {
+    to_fn_result(create_override_pure(input.into_inner().into_value()))
+}
+
 // ── Helpers (mismo estilo que kitchen-handler) ─────────────────────────────
+
+/// schedules#28: a business refusal the caller can act on (hub#139). The code is stable and
+/// namespaced (`schedules.<snake_case>`); the UI paints the TRANSLATION of that code (the
+/// `errors` block of `locales/{en,es}.json`) and `message` is only the English fallback —
+/// it keeps the offending values for logs and clients without the catalog. Replaces the old
+/// `Err("code: detail")`, whose runtime wrapping («error de handler WASM: wasm call to …
+/// failed:») and half-English text is exactly what schedules#28 came to fix.
+fn domain(code: &str, message: impl std::fmt::Display) -> DomainError {
+    DomainError::new(format!("schedules.{code}"), message.to_string())
+}
+
+/// The refusal IS the answer: an output with `error`, no operations, no events. The host
+/// aborts the command and surfaces the code (409) — never the WASM plumbing.
+fn refused(e: DomainError) -> Output {
+    Output::new().with_error(e)
+}
 
 fn as_str(v: &Value) -> String {
     match v {
@@ -93,7 +120,9 @@ fn as_bool(v: &Value) -> bool {
 
 fn as_i64(v: &Value, d: i64) -> i64 {
     match v {
-        Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map(|f| f as i64).unwrap_or(d)),
+        Value::Number(n) => n
+            .as_i64()
+            .unwrap_or_else(|| n.as_f64().map(|f| f as i64).unwrap_or(d)),
         Value::String(s) => s.trim().parse::<i64>().unwrap_or(d),
         _ => d,
     }
@@ -101,13 +130,21 @@ fn as_i64(v: &Value, d: i64) -> i64 {
 
 fn str_or(p: &Value, k: &str, d: &str) -> String {
     let s = as_str(p.get(k).unwrap_or(&Value::Null));
-    if s.is_empty() { d.to_string() } else { s }
+    if s.is_empty() {
+        d.to_string()
+    } else {
+        s
+    }
 }
 
 /// String opcional: '' o ausente → None.
 fn opt_str(p: &Value, k: &str) -> Option<String> {
     let s = as_str(p.get(k).unwrap_or(&Value::Null));
-    if s.is_empty() { None } else { Some(s) }
+    if s.is_empty() {
+        None
+    } else {
+        Some(s)
+    }
 }
 
 fn bool_or(p: &Value, k: &str, d: bool) -> bool {
@@ -123,7 +160,10 @@ fn valid_time(s: &str) -> bool {
     if b.len() != 5 || b[2] != b':' {
         return false;
     }
-    let digits = b[0].is_ascii_digit() && b[1].is_ascii_digit() && b[3].is_ascii_digit() && b[4].is_ascii_digit();
+    let digits = b[0].is_ascii_digit()
+        && b[1].is_ascii_digit()
+        && b[3].is_ascii_digit()
+        && b[4].is_ascii_digit();
     if !digits {
         return false;
     }
@@ -142,7 +182,13 @@ fn days_in_month(y: u32, m: u32) -> u32 {
     match m {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         4 | 6 | 9 | 11 => 30,
-        2 => if is_leap_year(y) { 29 } else { 28 },
+        2 => {
+            if is_leap_year(y) {
+                29
+            } else {
+                28
+            }
+        }
         _ => 0,
     }
 }
@@ -154,7 +200,13 @@ fn valid_date(s: &str) -> bool {
     if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
         return false;
     }
-    if !b.iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { true } else { c.is_ascii_digit() }) {
+    if !b.iter().enumerate().all(|(i, c)| {
+        if i == 4 || i == 7 {
+            true
+        } else {
+            c.is_ascii_digit()
+        }
+    }) {
         return false;
     }
     let y: u32 = s[0..4].parse().unwrap_or(0);
@@ -185,35 +237,48 @@ fn weekday_iso0(date: &str) -> Option<i64> {
     Some((days_from_civil(y, m, d) + 3).rem_euclid(7))
 }
 
-/// Serializa un Output con su veredicto en el canal `result` del contrato (hub#70).
-fn output_with_result(out: Output, result: Value) -> Value {
-    serde_json::to_value(out.with_result(result)).unwrap_or_else(|_| json!({}))
+/// Serializa el veredicto por el canal `result` del contrato (hub#70).
+fn output_with_result(out: Output, result: Value) -> Output {
+    out.with_result(result)
 }
 
 // ── Validación de horas (WASM-TODO §3) ─────────────────────────────────────
 
 /// Valida el par open/close cuando el día está abierto. `close > open` estricto.
-fn check_hours(open: &str, close: &str) -> Result<(), String> {
+fn check_hours(open: &str, close: &str) -> Result<(), DomainError> {
     if !valid_time(open) || !valid_time(close) {
-        return Err(format!("invalid_hours: formato de hora inválido (open='{open}', close='{close}', se espera HH:MM)"));
+        return Err(domain(
+            "invalid_hours",
+            format!("Invalid time format (open='{open}', close='{close}', expected HH:MM)"),
+        ));
     }
     if close <= open {
-        return Err(format!("invalid_hours: close_time ({close}) debe ser posterior a open_time ({open})"));
+        return Err(domain(
+            "invalid_hours",
+            format!("close_time ({close}) must be after open_time ({open})"),
+        ));
     }
     Ok(())
 }
 
 /// Valida el descanso: `break_end > break_start` y dentro de `[open, close]`.
-fn check_break(open: &str, close: &str, bs: &str, be: &str) -> Result<(), String> {
+fn check_break(open: &str, close: &str, bs: &str, be: &str) -> Result<(), DomainError> {
     if !valid_time(bs) || !valid_time(be) {
-        return Err(format!("invalid_break: formato de hora inválido (break_start='{bs}', break_end='{be}')"));
+        return Err(domain(
+            "invalid_break",
+            format!("Invalid break format (break_start='{bs}', break_end='{be}', expected HH:MM)"),
+        ));
     }
     if be <= bs {
-        return Err(format!("invalid_break: break_end ({be}) debe ser posterior a break_start ({bs})"));
+        return Err(domain(
+            "invalid_break",
+            format!("break_end ({be}) must be after break_start ({bs})"),
+        ));
     }
     if bs < open || be > close {
-        return Err(format!(
-            "invalid_break: el descanso ({bs}–{be}) debe quedar dentro del horario ({open}–{close})"
+        return Err(domain(
+            "invalid_break",
+            format!("The break ({bs}–{be}) must fit inside the opening hours ({open}–{close})"),
         ));
     }
     Ok(())
@@ -232,23 +297,32 @@ struct SpecialDayItem {
     intervals: Vec<Interval>,
 }
 
-fn validate_special_day(item: &Value) -> Result<SpecialDayItem, String> {
+fn validate_special_day(item: &Value) -> Result<SpecialDayItem, DomainError> {
     let date = str_or(item, "date", "");
     if !valid_date(&date) {
-        return Err(format!("invalid_date: fecha inválida '{date}' (se espera YYYY-MM-DD)"));
+        return Err(domain(
+            "invalid_date",
+            format!("Invalid date '{date}' (expected YYYY-MM-DD, a real calendar date)"),
+        ));
     }
     let name = str_or(item, "name", "");
     if name.trim().is_empty() {
-        return Err("missing_name: el día especial requiere un nombre".to_string());
+        return Err(domain("missing_name", "A special day needs a name"));
     }
     let is_closed = bool_or(item, "is_closed", true);
     let mut open_time = opt_str(item, "open_time");
     let mut close_time = opt_str(item, "close_time");
     let mut intervals: Vec<Interval> = Vec::new();
     if !is_closed {
-        intervals = exception_intervals_from_payload(item)?;
+        intervals = match exception_intervals_from_payload(item) {
+            Ok(v) => v,
+            Err(e) => return Err(e),
+        };
         if intervals.is_empty() {
-            return Err("missing_hours: un día especial abierto (is_closed=0) requiere open_time y close_time".to_string());
+            return Err(domain(
+                "missing_hours",
+                "An open special day needs at least one opening interval",
+            ));
         }
         // The pair on the parent row mirrors the FIRST interval: a reader that predates migration
         // 003 sees a real opening slot of this day, never one wider than the truth.
@@ -272,8 +346,20 @@ fn special_day_params(it: &SpecialDayItem) -> Map<String, Value> {
     p.insert("date".into(), json!(it.date));
     p.insert("name".into(), json!(it.name));
     p.insert("is_closed".into(), json!(it.is_closed as i64));
-    p.insert("open_time".into(), it.open_time.clone().map(Value::String).unwrap_or(Value::Null));
-    p.insert("close_time".into(), it.close_time.clone().map(Value::String).unwrap_or(Value::Null));
+    p.insert(
+        "open_time".into(),
+        it.open_time
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    p.insert(
+        "close_time".into(),
+        it.close_time
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
     p.insert("recurring_yearly".into(), json!(it.recurring_yearly as i64));
     p.insert("notes".into(), json!(it.notes));
     p
@@ -295,7 +381,10 @@ fn special_day_event(it: &SpecialDayItem) -> Event {
 
 /// The intervals as the listeners of a `schedules.*.created` event see them (schedules#23).
 fn intervals_json(intervals: &[Interval]) -> Vec<Value> {
-    intervals.iter().map(|i| json!({ "open_time": i.open, "close_time": i.close })).collect()
+    intervals
+        .iter()
+        .map(|i| json!({ "open_time": i.open, "close_time": i.close }))
+        .collect()
 }
 
 /// Params of `schedules._insert_exception_interval` — one opening interval of an exception
@@ -369,15 +458,25 @@ const OVERRIDES_OVERLAPPING_READ: &str = "schedules.overrides.overlapping";
 
 /// Rows of a pre-loaded read, if the runtime delivered it (present even when empty).
 fn read_rows<'a>(input: &'a Value, name: &str) -> Option<&'a Vec<Value>> {
-    input.get("context").and_then(|c| c.get("reads")).and_then(|r| r.get(name)).and_then(|v| v.as_array())
+    input
+        .get("context")
+        .and_then(|c| c.get("reads"))
+        .and_then(|r| r.get(name))
+        .and_then(|v| v.as_array())
 }
 
 /// Dates already taken by a live special day. Prefers the authoritative reads (`by_date` for
 /// the single create, `dates` for the bulk); only when neither is present (old manifest / query
 /// failed) it degrades to the client hint `existing_dates`.
 fn taken_special_day_dates(input: &Value, payload: &Value) -> Vec<String> {
-    match read_rows(input, SPECIAL_DAY_BY_DATE_READ).or_else(|| read_rows(input, SPECIAL_DAY_DATES_READ)) {
-        Some(rows) => rows.iter().map(|r| str_or(r, "date", "")).filter(|d| !d.is_empty()).collect(),
+    match read_rows(input, SPECIAL_DAY_BY_DATE_READ)
+        .or_else(|| read_rows(input, SPECIAL_DAY_DATES_READ))
+    {
+        Some(rows) => rows
+            .iter()
+            .map(|r| str_or(r, "date", ""))
+            .filter(|d| !d.is_empty())
+            .collect(),
         None => existing_dates(payload),
     }
 }
@@ -418,12 +517,24 @@ fn minutes(t: &str) -> i64 {
     h * 60 + m
 }
 
-fn check_interval(it: &Interval) -> Result<(), String> {
+fn check_interval(it: &Interval) -> Result<(), DomainError> {
     if !valid_time(&it.open) || !valid_time(&it.close) {
-        return Err(format!("invalid_hours: invalid time format (open='{}', close='{}', expected HH:MM)", it.open, it.close));
+        return Err(domain(
+            "invalid_hours",
+            format!(
+                "Invalid time format (open='{}', close='{}', expected HH:MM)",
+                it.open, it.close
+            ),
+        ));
     }
     if it.open == it.close && !it.is_all_day() {
-        return Err(format!("invalid_hours: an interval cannot be empty ({}–{}); use 00:00–00:00 for open 24 hours", it.open, it.close));
+        return Err(domain(
+            "invalid_hours",
+            format!(
+                "An interval cannot be empty ({}–{}); use 00:00–00:00 for open 24 hours",
+                it.open, it.close
+            ),
+        ));
     }
     Ok(())
 }
@@ -431,7 +542,10 @@ fn check_interval(it: &Interval) -> Result<(), String> {
 /// Reads an `intervals[]` array as it travels in a payload.
 fn intervals_of_array(arr: &[Value]) -> Vec<Interval> {
     arr.iter()
-        .map(|it| Interval { open: str_or(it, "open_time", ""), close: str_or(it, "close_time", "") })
+        .map(|it| Interval {
+            open: str_or(it, "open_time", ""),
+            close: str_or(it, "close_time", ""),
+        })
         .collect()
 }
 
@@ -439,7 +553,7 @@ fn intervals_of_array(arr: &[Value]) -> Vec<Interval> {
 /// hours (schedules#8) and for the exceptions (schedules#23): order does not matter to the caller,
 /// two intervals may not cover the same minute, `close < open` crosses midnight and `00:00–00:00`
 /// is 24 hours.
-fn normalize_intervals(mut items: Vec<Interval>) -> Result<Vec<Interval>, String> {
+fn normalize_intervals(mut items: Vec<Interval>) -> Result<Vec<Interval>, DomainError> {
     for it in &items {
         check_interval(it)?;
     }
@@ -449,14 +563,26 @@ fn normalize_intervals(mut items: Vec<Interval>) -> Result<Vec<Interval>, String
     for w in items.windows(2) {
         let (a, b) = (&w[0], &w[1]);
         if b.span().0 < a.span().1 {
-            return Err(format!("overlapping: intervals {}–{} and {}–{} overlap", a.open, a.close, b.open, b.close));
+            return Err(domain(
+                "overlapping",
+                format!(
+                    "intervals {}–{} and {}–{} overlap",
+                    a.open, a.close, b.open, b.close
+                ),
+            ));
         }
     }
     if items.len() > 1 {
         let last = items.last().unwrap();
         let first = items.first().unwrap();
         if last.span().1 > 1440 && (last.span().1 - 1440) > first.span().0 {
-            return Err(format!("overlapping: the overnight interval {}–{} runs into {}–{}", last.open, last.close, first.open, first.close));
+            return Err(domain(
+                "overlapping",
+                format!(
+                    "the overnight interval {}–{} runs into {}–{}",
+                    last.open, last.close, first.open, first.close
+                ),
+            ));
         }
     }
     Ok(items)
@@ -466,7 +592,7 @@ fn normalize_intervals(mut items: Vec<Interval>) -> Result<Vec<Interval>, String
 /// and, for old callers, the legacy `open_time`/`close_time` + optional break, which becomes
 /// one or two intervals ([open,break_start] + [break_end,close]). Validated, sorted, and
 /// checked for overlaps (through midnight too).
-fn intervals_from_payload(payload: &Value) -> Result<Vec<Interval>, String> {
+fn intervals_from_payload(payload: &Value) -> Result<Vec<Interval>, DomainError> {
     let items: Vec<Interval> = match payload.get("intervals").and_then(|v| v.as_array()) {
         Some(arr) => intervals_of_array(arr),
         None => {
@@ -480,9 +606,20 @@ fn intervals_from_payload(payload: &Value) -> Result<Vec<Interval>, String> {
                 (None, None) => vec![Interval { open, close }],
                 (Some(bs), Some(be)) => {
                     check_break(&open, &close, &bs, &be)?;
-                    vec![Interval { open, close: bs.clone() }, Interval { open: be, close }]
+                    vec![
+                        Interval {
+                            open,
+                            close: bs.clone(),
+                        },
+                        Interval { open: be, close },
+                    ]
                 }
-                _ => return Err("invalid_break: a break needs both break_start and break_end (or neither)".to_string()),
+                _ => {
+                    return Err(domain(
+                        "invalid_break",
+                        "A break needs both break_start and break_end (or neither)",
+                    ))
+                }
             }
         }
     };
@@ -495,10 +632,13 @@ fn intervals_from_payload(payload: &Value) -> Result<Vec<Interval>, String> {
 /// interval 0 and keeps its stricter reading (`close > open`, no overnight, no 24 h), so a
 /// payload written before this change means exactly what it meant. An exception with no hours
 /// at all yields an empty list — the caller decides whether that is legal.
-fn exception_intervals_from_payload(payload: &Value) -> Result<Vec<Interval>, String> {
+fn exception_intervals_from_payload(payload: &Value) -> Result<Vec<Interval>, DomainError> {
     match payload.get("intervals").and_then(|v| v.as_array()) {
         Some(arr) => normalize_intervals(intervals_of_array(arr)),
-        None => match (opt_str(payload, "open_time"), opt_str(payload, "close_time")) {
+        None => match (
+            opt_str(payload, "open_time"),
+            opt_str(payload, "close_time"),
+        ) {
             (Some(open), Some(close)) => {
                 check_hours(&open, &close)?;
                 Ok(vec![Interval { open, close }])
@@ -511,48 +651,78 @@ fn exception_intervals_from_payload(payload: &Value) -> Result<Vec<Interval>, St
 /// Replaces the weekday's intervals (schedules#8): one `_clear_business_hours_day` for the day
 /// plus one `_insert_business_hours` per interval (or a single closed row). Ids come from
 /// `context.new_ids` — the host is the only authority of ids.
-pub fn set_business_hours_pure(input: Value) -> Result<Value, String> {
+pub fn set_business_hours_pure(input: Value) -> Result<Output, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
     let new_ids = new_ids_of(&input);
 
     let dow = as_i64(payload.get("day_of_week").unwrap_or(&Value::Null), -1);
     if !(0..=6).contains(&dow) {
-        return Err(format!("invalid_day: day_of_week must be between 0 (Monday) and 6 (Sunday), got {dow}"));
+        return Ok(refused(domain(
+            "invalid_day",
+            format!("day_of_week must be between 0 (Monday) and 6 (Sunday), got {dow}"),
+        )));
     }
     let is_closed = bool_or(&payload, "is_closed", false);
-    let intervals = if is_closed { Vec::new() } else { intervals_from_payload(&payload)? };
+    let intervals = if is_closed {
+        Vec::new()
+    } else {
+        match intervals_from_payload(&payload) {
+            Ok(v) => v,
+            Err(e) => return Ok(refused(e)),
+        }
+    };
     if !is_closed && intervals.is_empty() {
-        return Err("missing_hours: an open day needs at least one interval (open_time/close_time)".to_string());
+        return Ok(refused(domain(
+            "missing_hours",
+            "An open day needs at least one opening interval (open_time/close_time)",
+        )));
     }
 
     let mut clear = Map::new();
     clear.insert("day_of_week".into(), json!(dow));
-    let mut out = Output::new().with_operation(Operation::sql("schedules._clear_business_hours_day", clear));
+    let mut out =
+        Output::new().with_operation(Operation::sql("schedules._clear_business_hours_day", clear));
 
-    let row = |id: Value, position: usize, open: &str, close: &str, closed: bool| -> Map<String, Value> {
-        let mut p = Map::new();
-        p.insert("id".into(), id);
-        p.insert("day_of_week".into(), json!(dow));
-        p.insert("position".into(), json!(position as i64));
-        p.insert("open_time".into(), json!(open));
-        p.insert("close_time".into(), json!(close));
-        p.insert("is_closed".into(), json!(closed as i64));
-        // Legacy columns stay NULL: the break is now the gap between two intervals.
-        p.insert("break_start".into(), Value::Null);
-        p.insert("break_end".into(), Value::Null);
-        p
-    };
+    let row =
+        |id: Value, position: usize, open: &str, close: &str, closed: bool| -> Map<String, Value> {
+            let mut p = Map::new();
+            p.insert("id".into(), id);
+            p.insert("day_of_week".into(), json!(dow));
+            p.insert("position".into(), json!(position as i64));
+            p.insert("open_time".into(), json!(open));
+            p.insert("close_time".into(), json!(close));
+            p.insert("is_closed".into(), json!(closed as i64));
+            // Legacy columns stay NULL: the break is now the gap between two intervals.
+            p.insert("break_start".into(), Value::Null);
+            p.insert("break_end".into(), Value::Null);
+            p
+        };
     if is_closed {
-        let id = new_ids.first().cloned().ok_or_else(|| "missing_id: no id available".to_string())?;
-        out = out.with_operation(Operation::sql("schedules._insert_business_hours", row(id, 0, "00:00", "00:00", true)));
+        let id = new_ids
+            .first()
+            .cloned()
+            .ok_or_else(|| "missing_id: no id available".to_string())?;
+        out = out.with_operation(Operation::sql(
+            "schedules._insert_business_hours",
+            row(id, 0, "00:00", "00:00", true),
+        ));
     } else {
         for (i, it) in intervals.iter().enumerate() {
-            let id = new_ids.get(i).cloned().ok_or_else(|| "missing_id: too many intervals for one day".to_string())?;
-            out = out.with_operation(Operation::sql("schedules._insert_business_hours", row(id, i, &it.open, &it.close, false)));
+            let id = new_ids
+                .get(i)
+                .cloned()
+                .ok_or_else(|| "missing_id: too many intervals for one day".to_string())?;
+            out = out.with_operation(Operation::sql(
+                "schedules._insert_business_hours",
+                row(id, i, &it.open, &it.close, false),
+            ));
         }
     }
 
-    let event_intervals: Vec<Value> = intervals.iter().map(|i| json!({ "open_time": i.open, "close_time": i.close })).collect();
+    let event_intervals: Vec<Value> = intervals
+        .iter()
+        .map(|i| json!({ "open_time": i.open, "close_time": i.close }))
+        .collect();
     let out = out.with_event(Event::new(
         "schedules.business_hours.updated",
         json!({
@@ -565,7 +735,7 @@ pub fn set_business_hours_pure(input: Value) -> Result<Value, String> {
             "close_time": intervals.last().map(|i| i.close.clone()).unwrap_or_default(),
         }),
     ));
-    serde_json::to_value(&out).map_err(|e| e.to_string())
+    Ok(out)
 }
 
 // ── schedules.special_days.create (fn create_special_day) ─────────────────
@@ -575,20 +745,29 @@ pub fn set_business_hours_pure(input: Value) -> Result<Value, String> {
 ///
 /// schedules#23: an open special day now writes 0..N `schedules_exception_interval` rows — a
 /// holiday with a split shift (10–13 and 17–19) is one day and two intervals, not two days.
-pub fn create_special_day_pure(input: Value) -> Result<Value, String> {
+pub fn create_special_day_pure(input: Value) -> Result<Output, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
-    let item = validate_special_day(&payload)?;
+    let item = match validate_special_day(&payload) {
+        Ok(i) => i,
+        Err(e) => return Ok(refused(e)),
+    };
     if taken_special_day_dates(&input, &payload).contains(&item.date) {
-        return Err(format!("already_exists: ya existe un día especial en la fecha {}", item.date));
+        return Ok(refused(domain(
+            "already_exists",
+            format!("A special day already exists on {}", item.date),
+        )));
     }
     let new_ids = new_ids_of(&input);
-    let day_id = new_ids.first().cloned().ok_or_else(|| "missing_id: no id available".to_string())?;
+    let day_id = new_ids
+        .first()
+        .cloned()
+        .ok_or_else(|| "missing_id: no id available".to_string())?;
     let mut params = special_day_params(&item);
     params.insert("id".into(), day_id.clone());
     let out = Output::new().with_operation(Operation::sql("schedules._insert_special_day", params));
     let out = exception_interval_ops(out, "special_day", &day_id, &item.intervals, &new_ids)?;
     let out = out.with_event(special_day_event(&item));
-    serde_json::to_value(&out).map_err(|e| e.to_string())
+    Ok(out)
 }
 
 // ── schedules.overrides.create (fn create_override) ───────────────────────
@@ -596,29 +775,46 @@ pub fn create_special_day_pure(input: Value) -> Result<Value, String> {
 /// Validated schedule override (WASM-TODO §3): `end_date >= start_date` and, when the
 /// override is open (`is_closed=0`), BOTH hours are required with `close > open`
 /// (schedules#7: an open override without hours used to be read as "open 24h").
-pub fn create_override_pure(input: Value) -> Result<Value, String> {
+pub fn create_override_pure(input: Value) -> Result<Output, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
 
     let start_date = str_or(&payload, "start_date", "");
     let end_date = str_or(&payload, "end_date", "");
     if !valid_date(&start_date) || !valid_date(&end_date) {
-        return Err(format!(
-            "invalid_date: fechas inválidas (start='{start_date}', end='{end_date}', se espera YYYY-MM-DD)"
-        ));
+        return Ok(refused(domain(
+            "invalid_date",
+            format!("Invalid dates (start='{start_date}', end='{end_date}', expected YYYY-MM-DD)"),
+        )));
     }
     if end_date < start_date {
-        return Err(format!("invalid_range: end_date ({end_date}) debe ser igual o posterior a start_date ({start_date})"));
+        return Ok(refused(domain(
+            "invalid_range",
+            format!("end_date ({end_date}) must not be before start_date ({start_date})"),
+        )));
     }
     let reason = str_or(&payload, "reason", "");
     if reason.trim().is_empty() {
-        return Err("missing_name: el override requiere un motivo (reason)".to_string());
+        return Ok(refused(domain(
+            "missing_name",
+            "An override needs a reason",
+        )));
     }
     let is_closed = bool_or(&payload, "is_closed", false);
     // schedules#23: an open override carries 0..N intervals (a summer split shift is one override
     // with two intervals). The legacy single pair still arrives as the one interval 0.
-    let intervals = if is_closed { Vec::new() } else { exception_intervals_from_payload(&payload)? };
+    let intervals = if is_closed {
+        Vec::new()
+    } else {
+        match exception_intervals_from_payload(&payload) {
+            Ok(v) => v,
+            Err(e) => return Ok(refused(e)),
+        }
+    };
     if !is_closed && intervals.is_empty() {
-        return Err("missing_hours: an open override (is_closed=0) requires open_time and close_time".to_string());
+        return Ok(refused(domain(
+            "missing_hours",
+            "An open override needs at least one opening interval",
+        )));
     }
     // A closed override never carries hours (no contradictory payloads reach the row); an open one
     // mirrors its FIRST interval on the row, so a reader that predates migration 003 never sees a
@@ -637,25 +833,37 @@ pub fn create_override_pure(input: Value) -> Result<Value, String> {
             let e = str_or(r, "end_date", "");
             !s.is_empty() && !e.is_empty() && s <= end_date && start_date <= e
         }) {
-            return Err(format!(
-                "overlapping: the range {start_date}..{end_date} overlaps the override '{}' ({}..{})",
-                str_or(ov, "reason", ""),
-                str_or(ov, "start_date", ""),
-                str_or(ov, "end_date", "")
-            ));
+            return Ok(refused(domain(
+                "overlapping",
+                format!(
+                    "the range {start_date}..{end_date} overlaps the override '{}' ({}..{})",
+                    str_or(ov, "reason", ""),
+                    str_or(ov, "start_date", ""),
+                    str_or(ov, "end_date", "")
+                ),
+            )));
         }
     }
 
     let new_ids = new_ids_of(&input);
-    let override_id = new_ids.first().cloned().ok_or_else(|| "missing_id: no id available".to_string())?;
+    let override_id = new_ids
+        .first()
+        .cloned()
+        .ok_or_else(|| "missing_id: no id available".to_string())?;
 
     let mut p = Map::new();
     p.insert("id".into(), override_id.clone());
     p.insert("start_date".into(), json!(start_date));
     p.insert("end_date".into(), json!(end_date));
     p.insert("reason".into(), json!(reason.trim()));
-    p.insert("open_time".into(), open_time.clone().map(Value::String).unwrap_or(Value::Null));
-    p.insert("close_time".into(), close_time.clone().map(Value::String).unwrap_or(Value::Null));
+    p.insert(
+        "open_time".into(),
+        open_time.clone().map(Value::String).unwrap_or(Value::Null),
+    );
+    p.insert(
+        "close_time".into(),
+        close_time.clone().map(Value::String).unwrap_or(Value::Null),
+    );
     p.insert("is_closed".into(), json!(is_closed as i64));
 
     let out = Output::new().with_operation(Operation::sql("schedules._insert_override", p));
@@ -671,7 +879,7 @@ pub fn create_override_pure(input: Value) -> Result<Value, String> {
             "intervals": intervals_json(&intervals),
         }),
     ));
-    serde_json::to_value(&out).map_err(|e| e.to_string())
+    Ok(out)
 }
 
 // ── schedules.bulk_create_special_days (fn bulk_create_special_days) ──────
@@ -679,12 +887,18 @@ pub fn create_override_pure(input: Value) -> Result<Value, String> {
 /// Alta en lote tolerante a fallos (WASM-TODO §4): valida cada item, dedupe por
 /// fecha (dentro del lote y contra `existing_dates`), acumula `errors[]` sin
 /// abortar el resto y emite un `_insert` (ON CONFLICT DO NOTHING) por item válido.
-pub fn bulk_create_special_days_pure(input: Value) -> Result<Value, String> {
+pub fn bulk_create_special_days_pure(input: Value) -> Result<Output, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
     let empty: Vec<Value> = Vec::new();
-    let items = payload.get("special_days").and_then(|v| v.as_array()).unwrap_or(&empty);
+    let items = payload
+        .get("special_days")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
     if items.is_empty() {
-        return Err("missing_items: special_days debe ser una lista no vacía".to_string());
+        return Ok(refused(domain(
+            "missing_items",
+            "special_days must be a non-empty list",
+        )));
     }
 
     let existing = taken_special_day_dates(&input, &payload);
@@ -697,22 +911,27 @@ pub fn bulk_create_special_days_pure(input: Value) -> Result<Value, String> {
         let date = str_or(item, "date", "");
         let name = str_or(item, "name", "");
         match validate_special_day(item) {
-            Err(e) => errors.push(json!({ "date": date, "name": name, "error": e })),
+            // The per-item error is the CODE (namespaced, translatable by the caller against
+            // the same `errors` catalog); the offending date/name travel in the item itself.
+            Err(e) => errors.push(json!({ "date": date, "name": name, "error": e.code })),
             Ok(it) => {
                 if existing.contains(&it.date) {
                     errors.push(json!({
                         "date": it.date, "name": it.name,
-                        "error": format!("already_exists: ya existe un día especial en la fecha {}", it.date),
+                        "error": domain("already_exists", format!("A special day already exists on {}", it.date)).code,
                     }));
                 } else if seen.contains(&it.date) {
                     errors.push(json!({
                         "date": it.date, "name": it.name,
-                        "error": format!("already_exists: fecha {} duplicada dentro del lote", it.date),
+                        "error": domain("already_exists", format!("Date {} is duplicated inside the batch", it.date)).code,
                     }));
                 } else {
                     seen.push(it.date.clone());
                     out = out
-                        .with_operation(Operation::sql("schedules._insert_special_day_skip", special_day_params(&it)))
+                        .with_operation(Operation::sql(
+                            "schedules._insert_special_day_skip",
+                            special_day_params(&it),
+                        ))
                         .with_event(special_day_event(&it));
                     created += 1;
                 }
@@ -731,41 +950,77 @@ pub fn bulk_create_special_days_pure(input: Value) -> Result<Value, String> {
 /// (rango que cubre hoy) → BusinessHours (día de la semana, con descanso) →
 /// sin configuración (`fail_open` decide). Solo-lectura: no emite intenciones;
 /// el veredicto va por el canal `result` del Output (hub#70).
-pub fn is_open_pure(input: Value) -> Result<Value, String> {
+///
+/// schedules#28: el veredicto es DATOS, no prosa. Lleva un `code` ESTABLE que el
+/// llamador redacta en su idioma (`exception_closed` / `exception_hours` /
+/// `open_interval` / `on_break` / `closed_today` / `overnight_open` /
+/// `outside_hours` / `no_hours` / `no_hours_fail_open`), con `intervals`
+/// («HH:MM–HH:MM») cuando los tramos explican el veredicto. `reason` SOLO existe
+/// cuando es dato del usuario: el nombre del día especial o el motivo del
+/// override que ganaron — nunca una frase horneada dentro del WASM.
+pub fn is_open_pure(input: Value) -> Result<Output, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
     let context = input.get("context").cloned().unwrap_or(Value::Null);
     let empty: Vec<Value> = Vec::new();
 
     // `when` opcional ('YYYY-MM-DDTHH:MM[…]'); por defecto context.now (RFC3339 UTC).
-    let when = opt_str(&payload, "when").unwrap_or_else(|| context.get("now").map(as_str).unwrap_or_default());
+    let when = opt_str(&payload, "when")
+        .unwrap_or_else(|| context.get("now").map(as_str).unwrap_or_default());
     if when.len() < 16 {
-        return Err(format!("invalid_date: 'when' inválido ('{when}', se espera YYYY-MM-DDTHH:MM)"));
+        return Ok(refused(domain(
+            "invalid_date",
+            format!("Invalid 'when' ('{when}', expected YYYY-MM-DDTHH:MM)"),
+        )));
     }
     let today = when[..10].to_string();
     let current_time = when[11..16].to_string();
     if !valid_date(&today) || !valid_time(&current_time) {
-        return Err(format!("invalid_date: 'when' inválido ('{when}', se espera YYYY-MM-DDTHH:MM)"));
+        return Ok(refused(domain(
+            "invalid_date",
+            format!("Invalid 'when' ('{when}', expected YYYY-MM-DDTHH:MM)"),
+        )));
     }
     let fail_open = bool_or(&payload, "fail_open", false);
 
-    let special_days = payload.get("special_days").and_then(|v| v.as_array()).unwrap_or(&empty);
-    let overrides = payload.get("overrides").and_then(|v| v.as_array()).unwrap_or(&empty);
-    let business_hours = payload.get("business_hours").and_then(|v| v.as_array()).unwrap_or(&empty);
+    let special_days = payload
+        .get("special_days")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
+    let overrides = payload
+        .get("overrides")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
+    let business_hours = payload
+        .get("business_hours")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
     // schedules#23: rows of `schedules.exception_intervals.list` — the 0..N intervals of the
     // special days and overrides above. Absent (old caller, exception written before migration
     // 003, day created by the bulk) → the pair on the exception row still decides.
-    let exception_intervals = payload.get("exception_intervals").and_then(|v| v.as_array()).unwrap_or(&empty);
+    let exception_intervals = payload
+        .get("exception_intervals")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
 
     let t = current_time.as_str();
     let now_min = minutes(t);
     // The verdict says WHICH rule won (schedules#8): `source` ∈ special_day | override |
-    // business_hours | none, and `rule_id` = the row that decided (when there is one).
-    let done = |is_open: bool, reason: String, source: &str, rule_id: Value| -> Result<Value, String> {
-        Ok(output_with_result(
-            Output::new(),
-            json!({ "is_open": is_open, "reason": reason, "today": today, "current_time": current_time,
-                    "source": source, "rule_id": rule_id }),
-        ))
+    // business_hours | none, `rule_id` = the row that decided (when there is one), `code` = the
+    // stable machine reason, `intervals` = the spans that explain it, and `reason` = user data
+    // (the winning exception's own name/reason) — only when there is any.
+    let done = |is_open: bool,
+                code: &str,
+                reason: &str,
+                source: &str,
+                rule_id: Value,
+                intervals: &[String]|
+     -> Result<Output, String> {
+        let mut verdict = json!({ "is_open": is_open, "code": code, "intervals": intervals,
+                "today": today, "current_time": current_time, "source": source, "rule_id": rule_id });
+        if !reason.is_empty() {
+            verdict["reason"] = json!(reason);
+        }
+        Ok(output_with_result(Output::new(), verdict))
     };
     let id_of = |r: &Value| -> Value { r.get("id").cloned().unwrap_or(Value::Null) };
     // Intervals belonging to one exception, in `position` order (schedules#23).
@@ -773,10 +1028,17 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
         let owner = as_str(id);
         let mut rows: Vec<&Value> = exception_intervals
             .iter()
-            .filter(|r| str_or(r, "exception_kind", "") == kind && str_or(r, "exception_id", "") == owner)
+            .filter(|r| {
+                str_or(r, "exception_kind", "") == kind && str_or(r, "exception_id", "") == owner
+            })
             .collect();
         rows.sort_by_key(|r| as_i64(r.get("position").unwrap_or(&Value::Null), 0));
-        rows.iter().map(|r| Interval { open: str_or(r, "open_time", "00:00"), close: str_or(r, "close_time", "00:00") }).collect()
+        rows.iter()
+            .map(|r| Interval {
+                open: str_or(r, "open_time", "00:00"),
+                close: str_or(r, "close_time", "00:00"),
+            })
+            .collect()
     };
     // Is this moment inside the interval, on the interval's OWN day? `00:00–00:00` is 24 h; an
     // overnight interval (22:00–02:00) counts from `open` to midnight — the small hours that
@@ -787,6 +1049,11 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
         }
         let (start, end) = it.span();
         now_min >= start && now_min < end
+    };
+    let spans = |its: &[Interval]| -> Vec<String> {
+        its.iter()
+            .map(|i| format!("{}–{}", i.open, i.close))
+            .collect()
     };
 
     // 1) SpecialDay: fecha exacta tiene prioridad sobre recurrente (MM-DD).
@@ -799,16 +1066,31 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
         let name = str_or(sd, "name", "Special day");
         let id = id_of(sd);
         if bool_or(sd, "is_closed", true) {
-            return done(false, name, "special_day", id);
+            return done(false, "exception_closed", &name, "special_day", id, &[]);
         }
         let intervals = intervals_of("special_day", &id);
         if !intervals.is_empty() {
-            return done(intervals.iter().any(covers), name, "special_day", id);
+            let its = spans(&intervals);
+            return done(
+                intervals.iter().any(covers),
+                "exception_hours",
+                &name,
+                "special_day",
+                id,
+                &its,
+            );
         }
         return match (opt_str(sd, "open_time"), opt_str(sd, "close_time")) {
-            (Some(o), Some(c)) => done(t >= o.as_str() && t < c.as_str(), name, "special_day", id),
-            // SpecialDay abierto sin horas = abierto todo el día.
-            _ => done(true, name, "special_day", id),
+            (Some(o), Some(c)) => done(
+                t >= o.as_str() && t < c.as_str(),
+                "exception_hours",
+                &name,
+                "special_day",
+                id,
+                &[format!("{o}–{c}")],
+            ),
+            // SpecialDay abierto sin horas = abierto todo el día (tramos vacíos).
+            _ => done(true, "exception_hours", &name, "special_day", id, &[]),
         };
     }
 
@@ -816,33 +1098,65 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
     if let Some(ov) = overrides.iter().find(|r| {
         let s = str_or(r, "start_date", "");
         let e = str_or(r, "end_date", "");
-        !s.is_empty() && !e.is_empty() && s.as_str() <= today.as_str() && today.as_str() <= e.as_str()
+        !s.is_empty()
+            && !e.is_empty()
+            && s.as_str() <= today.as_str()
+            && today.as_str() <= e.as_str()
     }) {
         let reason = str_or(ov, "reason", "Schedule override");
         let id = id_of(ov);
         if bool_or(ov, "is_closed", false) {
-            return done(false, reason, "override", id);
+            return done(false, "exception_closed", &reason, "override", id, &[]);
         }
         let intervals = intervals_of("override", &id);
         if !intervals.is_empty() {
-            return done(intervals.iter().any(covers), reason, "override", id);
+            let its = spans(&intervals);
+            return done(
+                intervals.iter().any(covers),
+                "exception_hours",
+                &reason,
+                "override",
+                id,
+                &its,
+            );
         }
         return match (opt_str(ov, "open_time"), opt_str(ov, "close_time")) {
-            (Some(o), Some(c)) => done(t >= o.as_str() && t < c.as_str(), reason, "override", id),
-            _ => done(true, reason, "override", id),
+            (Some(o), Some(c)) => done(
+                t >= o.as_str() && t < c.as_str(),
+                "exception_hours",
+                &reason,
+                "override",
+                id,
+                &[format!("{o}–{c}")],
+            ),
+            _ => done(true, "exception_hours", &reason, "override", id, &[]),
         };
     }
 
     // 3) Weekly hours: EVERY row of the weekday is an interval (schedules#8) — split shifts are
     //    several rows; a row with `is_closed` closes the day; legacy rows may still carry a break.
     //    An overnight interval of YESTERDAY (22:00–02:00) reaches into this morning.
-    let dow = weekday_iso0(&today).ok_or_else(|| format!("invalid_date: invalid date '{today}'"))?;
+    let dow = match weekday_iso0(&today) {
+        Some(d) => d,
+        None => {
+            return Ok(refused(domain(
+                "invalid_date",
+                format!("Invalid date '{today}'"),
+            )))
+        }
+    };
     let rows_for = |d: i64| -> Vec<&Value> {
-        business_hours.iter().filter(|r| as_i64(r.get("day_of_week").unwrap_or(&Value::Null), -1) == d).collect()
+        business_hours
+            .iter()
+            .filter(|r| as_i64(r.get("day_of_week").unwrap_or(&Value::Null), -1) == d)
+            .collect()
     };
     let todays = rows_for(dow);
     let now_min = minutes(t);
-    let interval_of = |r: &Value| Interval { open: str_or(r, "open_time", "00:00"), close: str_or(r, "close_time", "00:00") };
+    let interval_of = |r: &Value| Interval {
+        open: str_or(r, "open_time", "00:00"),
+        close: str_or(r, "close_time", "00:00"),
+    };
     // Yesterday's overnight interval (22:00–02:00) that still covers this moment, if any.
     let overnight_from_yesterday = || -> Option<&Value> {
         rows_for((dow + 6) % 7).into_iter().find(|r| {
@@ -850,13 +1164,31 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
             !bool_or(r, "is_closed", false) && it.is_overnight() && now_min < it.span().1 - 1440
         })
     };
+    let overnight_span = |y: &Value| -> Vec<String> {
+        let it = interval_of(y);
+        vec![format!("{}–{}", it.open, it.close)]
+    };
     if !todays.is_empty() {
         if let Some(closed) = todays.iter().find(|r| bool_or(r, "is_closed", false)) {
             // Even on a closed day, yesterday's overnight tail may still be open.
             if let Some(y) = overnight_from_yesterday() {
-                return done(true, format!("Open (overnight from {})", str_or(y, "open_time", "")), "business_hours", id_of(y));
+                return done(
+                    true,
+                    "overnight_open",
+                    "",
+                    "business_hours",
+                    id_of(y),
+                    &overnight_span(y),
+                );
             }
-            return done(false, "Closed today".to_string(), "business_hours", id_of(closed));
+            return done(
+                false,
+                "closed_today",
+                "",
+                "business_hours",
+                id_of(closed),
+                &[],
+            );
         }
         let mut described: Vec<String> = Vec::new();
         for r in &todays {
@@ -865,31 +1197,60 @@ pub fn is_open_pure(input: Value) -> Result<Value, String> {
             let bs = opt_str(r, "break_start");
             let be = opt_str(r, "break_end");
             let in_span = it.is_all_day() || (now_min >= start && now_min < end);
-            let on_break = matches!((&bs, &be), (Some(bs), Some(be)) if t >= bs.as_str() && t < be.as_str());
+            let on_break =
+                matches!((&bs, &be), (Some(bs), Some(be)) if t >= bs.as_str() && t < be.as_str());
             if in_span && !on_break {
-                return done(true, format!("Open ({}–{})", it.open, it.close), "business_hours", id_of(r));
+                return done(
+                    true,
+                    "open_interval",
+                    "",
+                    "business_hours",
+                    id_of(r),
+                    &[format!("{}–{}", it.open, it.close)],
+                );
             }
             if in_span && on_break {
-                return done(false, "On break".to_string(), "business_hours", id_of(r));
+                return done(false, "on_break", "", "business_hours", id_of(r), &[]);
             }
             described.push(format!("{}–{}", it.open, it.close));
         }
         if let Some(y) = overnight_from_yesterday() {
-            return done(true, format!("Open (overnight from {})", str_or(y, "open_time", "")), "business_hours", id_of(y));
+            return done(
+                true,
+                "overnight_open",
+                "",
+                "business_hours",
+                id_of(y),
+                &overnight_span(y),
+            );
         }
         let first = todays[0];
-        return done(false, format!("Outside business hours ({})", described.join(", ")), "business_hours", id_of(first));
+        return done(
+            false,
+            "outside_hours",
+            "",
+            "business_hours",
+            id_of(first),
+            &described,
+        );
     }
     // No rows today: yesterday's overnight interval may still cover this moment.
     if let Some(y) = overnight_from_yesterday() {
-        return done(true, format!("Open (overnight from {})", str_or(y, "open_time", "")), "business_hours", id_of(y));
+        return done(
+            true,
+            "overnight_open",
+            "",
+            "business_hours",
+            id_of(y),
+            &overnight_span(y),
+        );
     }
 
     // 4) Sin configuración para hoy: fail-open (contrato cross-módulo) o fail-closed (dashboard).
     if fail_open {
-        done(true, "No hours configured (fail-open)".to_string(), "none", Value::Null)
+        done(true, "no_hours_fail_open", "", "none", Value::Null, &[])
     } else {
-        done(false, "No hours configured".to_string(), "none", Value::Null)
+        done(false, "no_hours", "", "none", Value::Null, &[])
     }
 }
 
@@ -915,9 +1276,225 @@ mod tests {
         v
     }
 
-    fn err_code(r: Result<Value, String>) -> String {
-        let e = r.expect_err("expected a business error");
-        e.split(':').next().unwrap_or("").to_string()
+    /// schedules#28: a business refusal is an Ok Output carrying `error` (hub#139) — never an
+    /// `Err`, whose runtime wrapping is exactly the plumbing schedules#28 removed. The bare code
+    /// (without the `schedules.` namespace) keeps the older assertions readable; the FULL
+    /// namespaced codes are pinned by the schedules#28 tests above.
+    fn err_code(r: Result<Output, String>) -> String {
+        let out = r.expect("a refusal is an Ok output, not an Err");
+        out.error
+            .as_ref()
+            .expect("the output refuses")
+            .code
+            .strip_prefix("schedules.")
+            .unwrap_or("")
+            .to_string()
+    }
+
+    // ── schedules#28: every business refusal is a DomainError, not an Err(String) ──────────
+    //
+    // The eight rejections of the issue arrived on screen wrapped in the runtime's plumbing
+    // ("error de handler WASM: wasm call to `set_business_hours` failed: …") and in a mix of
+    // English and Spanish, because the handler FAILED with `"code: detail"` instead of answering
+    // with the structured error channel (hub#139). These tests pin the contract the UI depends
+    // on: a refusal is an Ok Output whose `error.code` is stable and namespaced (`schedules.*`),
+    // with NO operations or events, and whose message keeps the offending values for logs.
+
+    fn refusal_code(out: &Output) -> String {
+        out.error
+            .as_ref()
+            .expect("a refusal carries error.code")
+            .code
+            .clone()
+    }
+
+    fn refusal_message(out: &Output) -> String {
+        out.error
+            .as_ref()
+            .expect("a refusal carries error.message")
+            .message
+            .clone()
+    }
+
+    fn assert_clean_refusal(out: &Output, code: &str) {
+        assert_eq!(refusal_code(out), code);
+        assert!(
+            out.operations.is_empty(),
+            "a refusal must not carry operations"
+        );
+        assert!(
+            out.events.is_empty(),
+            "a refusal must not announce effects that did not happen"
+        );
+        // The sentence the user reads is the TRANSLATION of the code; the fallback must not
+        // leak column names (`is_closed=`) that only make sense to whoever wrote the handler.
+        assert!(
+            !refusal_message(out).contains("is_closed="),
+            "message leaks a column name: {}",
+            refusal_message(out)
+        );
+    }
+
+    #[test]
+    fn the_issue_table_rejections_are_namespaced_domain_codes() {
+        // Every row of the inventory table of schedules#28, same payloads, one stable code each.
+        // WEEKLY HOURS
+        let overlap = json!({ "day_of_week": 0, "intervals": [
+            { "open_time": "09:00", "close_time": "14:00" },
+            { "open_time": "13:00", "close_time": "18:00" } ] });
+        assert_clean_refusal(
+            &set_business_hours_pure(input(overlap)).unwrap(),
+            "schedules.overlapping",
+        );
+        let no_hours = json!({ "day_of_week": 0, "is_closed": false, "intervals": [] });
+        assert_clean_refusal(
+            &set_business_hours_pure(input(no_hours)).unwrap(),
+            "schedules.missing_hours",
+        );
+        let bad_hours = json!({ "day_of_week": 0, "intervals": [ { "open_time": "10:00", "close_time": "10:00" } ] });
+        assert_clean_refusal(
+            &set_business_hours_pure(input(bad_hours)).unwrap(),
+            "schedules.invalid_hours",
+        );
+        let bad_break = json!({ "day_of_week": 0, "open_time": "09:00", "close_time": "18:00", "break_start": "13:00" });
+        assert_clean_refusal(
+            &set_business_hours_pure(input(bad_break)).unwrap(),
+            "schedules.invalid_break",
+        );
+        let bad_day = json!({ "day_of_week": 9, "is_closed": true });
+        assert_clean_refusal(
+            &set_business_hours_pure(input(bad_day)).unwrap(),
+            "schedules.invalid_day",
+        );
+        // SPECIAL DAYS
+        let dup = json!({ "date": "2026-08-25", "name": "Local holiday", "is_closed": true });
+        let reads =
+            json!({ "schedules.special_days.by_date": [ { "id": "s1", "date": "2026-08-25" } ] });
+        assert_clean_refusal(
+            &create_special_day_pure(input_with_reads(dup, reads)).unwrap(),
+            "schedules.already_exists",
+        );
+        let impossible = json!({ "date": "2026-02-31", "name": "Nope", "is_closed": true });
+        assert_clean_refusal(
+            &create_special_day_pure(input(impossible)).unwrap(),
+            "schedules.invalid_date",
+        );
+        let open_no_hours = json!({ "date": "2026-08-25", "name": "x", "is_closed": false });
+        assert_clean_refusal(
+            &create_special_day_pure(input(open_no_hours)).unwrap(),
+            "schedules.missing_hours",
+        );
+        // OVERRIDES
+        let inverted = json!({ "start_date": "2026-09-01", "end_date": "2026-08-30", "reason": "x", "is_closed": true });
+        assert_clean_refusal(
+            &create_override_pure(input(inverted)).unwrap(),
+            "schedules.invalid_range",
+        );
+        let no_reason =
+            json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "is_closed": true });
+        assert_clean_refusal(
+            &create_override_pure(input(no_reason)).unwrap(),
+            "schedules.missing_name",
+        );
+        let ov_open_no_hours = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "x", "is_closed": false });
+        assert_clean_refusal(
+            &create_override_pure(input(ov_open_no_hours)).unwrap(),
+            "schedules.missing_hours",
+        );
+        let overlapping_live = json!({ "start_date": "2026-08-28", "end_date": "2026-08-30", "reason": "More holidays", "is_closed": true });
+        let live = json!({ "schedules.overrides.overlapping": [
+            { "id": "o1", "start_date": "2026-08-01", "end_date": "2026-08-31", "reason": "Vacaciones" } ] });
+        let out = create_override_pure(input_with_reads(overlapping_live, live)).unwrap();
+        assert_clean_refusal(&out, "schedules.overlapping");
+        assert!(
+            refusal_message(&out).contains("Vacaciones"),
+            "names the live override it clashes with"
+        );
+        // BULK
+        let empty_bulk = json!({ "special_days": [] });
+        assert_clean_refusal(
+            &bulk_create_special_days_pure(input(empty_bulk)).unwrap(),
+            "schedules.missing_items",
+        );
+    }
+
+    #[test]
+    fn the_same_code_means_the_same_rejection_whichever_function_emits_it() {
+        // schedules#28: `missing_hours` used to arrive in Spanish from create_special_day and in
+        // English from create_override — the CODE is the contract, so one code, one meaning.
+        let day = json!({ "date": "2026-08-25", "name": "x", "is_closed": false, "intervals": [] });
+        let ov = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "x", "is_closed": false, "intervals": [] });
+        let week = json!({ "day_of_week": 0, "is_closed": false, "intervals": [] });
+        for out in [
+            create_special_day_pure(input(day)).unwrap(),
+            create_override_pure(input(ov)).unwrap(),
+            set_business_hours_pure(input(week)).unwrap(),
+        ] {
+            assert_eq!(refusal_code(&out), "schedules.missing_hours");
+        }
+    }
+
+    #[test]
+    fn is_open_answers_with_a_stable_code_and_no_baked_english() {
+        // The `reason` of the verdict used to be an English sentence baked inside the WASM
+        // ("Outside business hours (…)", "Closed today", …). Now the verdict carries a stable
+        // `code` plus the data to phrase it (`intervals`); `reason` only survives when it is
+        // USER data — the winning special day's name or the override's own reason.
+        let bh = json!([
+            { "id": "a", "day_of_week": 0, "open_time": "09:00", "close_time": "14:00", "is_closed": 0 },
+            { "id": "b", "day_of_week": 0, "open_time": "16:00", "close_time": "20:00", "is_closed": 0 },
+            { "id": "c", "day_of_week": 1, "open_time": "09:00", "close_time": "18:00", "is_closed": 1 } ]);
+        let cases: [(&str, &str, bool); 5] = [
+            ("2026-08-17T10:00", "open_interval", true), // inside a span
+            ("2026-08-17T15:00", "outside_hours", false), // in the gap between spans
+            ("2026-08-18T10:00", "closed_today", false), // the weekday is closed
+            ("2026-08-16T10:00", "no_hours", false),     // nothing configured for a Sunday
+            ("2026-08-17T05:00", "outside_hours", false),
+        ];
+        for (when, code, open) in cases {
+            let r = is_open_pure(input(json!({ "when": when, "business_hours": bh })))
+                .unwrap()
+                .result
+                .expect("verdict");
+            assert_eq!(r["code"], code, "{when}");
+            assert_eq!(r["is_open"], open, "{when}");
+            assert!(
+                r.get("reason").is_none() || r["reason"].as_str().unwrap_or("").is_empty(),
+                "no baked sentence: {}",
+                r["reason"]
+            );
+        }
+        // The spans travel with the verdict, so the caller phrases it in the user's language.
+        let r = is_open_pure(input(
+            json!({ "when": "2026-08-17T15:00", "business_hours": bh }),
+        ))
+        .unwrap()
+        .result
+        .expect("verdict");
+        assert_eq!(r["intervals"], json!(["09:00–14:00", "16:00–20:00"]));
+        // An overnight tail from yesterday is its own code.
+        let night = json!([ { "id": "n", "day_of_week": 3, "open_time": "22:00", "close_time": "02:00", "is_closed": 0 } ]);
+        let r = is_open_pure(input(
+            json!({ "when": "2026-08-21T01:00", "business_hours": night }),
+        ))
+        .unwrap()
+        .result
+        .expect("verdict");
+        assert_eq!(r["code"], "overnight_open");
+        // A winning special day keeps its NAME (user data) as reason, plus its own codes.
+        let sd = json!({ "when": "2026-12-25T11:00",
+            "special_days": [ { "id": "sd", "date": "2026-12-25", "name": "Navidad", "is_closed": 1 } ] });
+        let r = is_open_pure(input(sd)).unwrap().result.expect("verdict");
+        assert_eq!(r["code"], "exception_closed");
+        assert_eq!(r["reason"], "Navidad");
+        // fail_open is its own code too.
+        let r = is_open_pure(input(
+            json!({ "when": "2026-08-17T10:00", "fail_open": true }),
+        ))
+        .unwrap()
+        .result
+        .expect("verdict");
+        assert_eq!(r["code"], "no_hours_fail_open");
     }
 
     // ── schedules#7: special day duplicate check is server-authoritative (reads) ──
@@ -925,8 +1502,12 @@ mod tests {
     #[test]
     fn special_day_create_rejects_duplicate_from_authoritative_read() {
         let payload = json!({ "date": "2026-12-25", "name": "Christmas", "is_closed": true });
-        let reads = json!({ "schedules.special_days.by_date": [ { "id": "s1", "date": "2026-12-25" } ] });
-        assert_eq!(err_code(create_special_day_pure(input_with_reads(payload, reads))), "already_exists");
+        let reads =
+            json!({ "schedules.special_days.by_date": [ { "id": "s1", "date": "2026-12-25" } ] });
+        assert_eq!(
+            err_code(create_special_day_pure(input_with_reads(payload, reads))),
+            "already_exists"
+        );
     }
 
     #[test]
@@ -935,7 +1516,7 @@ mod tests {
         let payload = json!({ "date": "2026-12-25", "name": "Christmas", "is_closed": true, "existing_dates": ["2026-12-25"] });
         let reads = json!({ "schedules.special_days.by_date": [] });
         let out = create_special_day_pure(input_with_reads(payload, reads)).expect("ok");
-        assert_eq!(out["operations"][0]["command"], "schedules._insert_special_day");
+        assert_eq!(out.operations[0].command, "schedules._insert_special_day");
     }
 
     #[test]
@@ -945,8 +1526,12 @@ mod tests {
             "date": "2026-12-24", "name": "Christmas Eve", "is_closed": false,
             "open_time": "09:00", "close_time": "14:00", "recurring_yearly": true, "notes": "half day"
         });
-        let out = create_special_day_pure(input_with_reads(payload, json!({ "schedules.special_days.by_date": [] }))).expect("ok");
-        let params = &out["operations"][0]["params"];
+        let out = create_special_day_pure(input_with_reads(
+            payload,
+            json!({ "schedules.special_days.by_date": [] }),
+        ))
+        .expect("ok");
+        let params = &out.operations[0].params;
         assert_eq!(params["open_time"], "09:00");
         assert_eq!(params["recurring_yearly"], 1);
         assert_eq!(params["notes"], "half day");
@@ -957,15 +1542,18 @@ mod tests {
     #[test]
     fn override_create_open_without_hours_is_missing_hours() {
         let payload = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "Summer", "is_closed": false });
-        assert_eq!(err_code(create_override_pure(input(payload))), "missing_hours");
+        assert_eq!(
+            err_code(create_override_pure(input(payload))),
+            "missing_hours"
+        );
     }
 
     #[test]
     fn override_create_closed_without_hours_is_ok() {
         let payload = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "Holidays", "is_closed": true });
         let out = create_override_pure(input(payload)).expect("ok");
-        assert_eq!(out["operations"][0]["params"]["is_closed"], 1);
-        assert!(out["operations"][0]["params"]["open_time"].is_null());
+        assert_eq!(out.operations[0].params["is_closed"], 1);
+        assert!(out.operations[0].params["open_time"].is_null());
     }
 
     // ── schedules#2: real calendar dates, inverted intervals, overlaps ──
@@ -987,7 +1575,10 @@ mod tests {
     #[test]
     fn special_day_create_rejects_impossible_calendar_date() {
         let payload = json!({ "date": "2026-02-31", "name": "Nope", "is_closed": true });
-        assert_eq!(err_code(create_special_day_pure(input(payload))), "invalid_date");
+        assert_eq!(
+            err_code(create_special_day_pure(input(payload))),
+            "invalid_date"
+        );
     }
 
     #[test]
@@ -998,9 +1589,14 @@ mod tests {
             { "date": "2026-02-29", "name": "Not leap", "is_closed": true },
         ]});
         let out = bulk_create_special_days_pure(input(payload)).expect("bulk is fault-tolerant");
-        assert_eq!(out["result"]["created"], 1);
-        assert_eq!(out["result"]["errors"].as_array().unwrap().len(), 2);
-        assert!(out["result"]["errors"][0]["error"].as_str().unwrap().starts_with("invalid_date"));
+        let result = out
+            .result
+            .expect("the partial summary is the point of the bulk");
+        assert_eq!(result["created"], 1);
+        assert_eq!(result["errors"].as_array().unwrap().len(), 2);
+        // The per-item error is the namespaced CODE — the caller translates it against the
+        // module's `errors` catalog, the offending date travels in the item itself (schedules#28).
+        assert_eq!(result["errors"][0]["error"], "schedules.invalid_date");
     }
 
     #[test]
@@ -1012,19 +1608,29 @@ mod tests {
         ]});
         let reads = json!({ "schedules.special_days.dates": [ { "date": "2026-12-25" } ] });
         let out = bulk_create_special_days_pure(input_with_reads(payload, reads)).expect("ok");
-        assert_eq!(out["result"]["created"], 1);
-        assert_eq!(out["operations"].as_array().unwrap().len(), 1);
-        assert_eq!(out["result"]["errors"].as_array().unwrap().len(), 2);
+        let result = out.result.expect("bulk summary");
+        assert_eq!(result["created"], 1);
+        assert_eq!(out.operations.len(), 1);
+        assert_eq!(result["errors"].as_array().unwrap().len(), 2);
     }
 
     #[test]
     fn override_create_rejects_inverted_range_and_inverted_hours() {
         let inverted_range = json!({ "start_date": "2026-08-15", "end_date": "2026-08-01", "reason": "x", "is_closed": true });
-        assert_eq!(err_code(create_override_pure(input(inverted_range))), "invalid_range");
+        assert_eq!(
+            err_code(create_override_pure(input(inverted_range))),
+            "invalid_range"
+        );
         let inverted_hours = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "x", "is_closed": false, "open_time": "14:00", "close_time": "10:00" });
-        assert_eq!(err_code(create_override_pure(input(inverted_hours))), "invalid_hours");
+        assert_eq!(
+            err_code(create_override_pure(input(inverted_hours))),
+            "invalid_hours"
+        );
         let same_hours = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "x", "is_closed": false, "open_time": "10:00", "close_time": "10:00" });
-        assert_eq!(err_code(create_override_pure(input(same_hours))), "invalid_hours");
+        assert_eq!(
+            err_code(create_override_pure(input(same_hours))),
+            "invalid_hours"
+        );
     }
 
     #[test]
@@ -1048,7 +1654,7 @@ mod tests {
     fn override_create_open_with_hours_is_ok() {
         let payload = json!({ "start_date": "2026-08-01", "end_date": "2026-08-15", "reason": "Summer", "is_closed": false, "open_time": "10:00", "close_time": "14:00" });
         let out = create_override_pure(input(payload)).expect("ok");
-        assert_eq!(out["operations"][0]["params"]["open_time"], "10:00");
+        assert_eq!(out.operations[0].params["open_time"], "10:00");
     }
 
     // ── schedules#8: several intervals per weekday, overnight, 24 h, and an explained verdict ──
@@ -1064,21 +1670,24 @@ mod tests {
             { "open_time": "10:00", "close_time": "14:00" },
             { "open_time": "17:00", "close_time": "20:00" } ] });
         let out = set_business_hours_pure(ctx_with_ids(payload)).expect("ok");
-        let ops = out["operations"].as_array().unwrap();
-        assert_eq!(ops[0]["command"], "schedules._clear_business_hours_day");
-        assert_eq!(ops[0]["params"]["day_of_week"], 0);
+        let ops = &out.operations;
+        assert_eq!(ops[0].command, "schedules._clear_business_hours_day");
+        assert_eq!(ops[0].params["day_of_week"], 0);
         assert_eq!(ops.len(), 3);
-        assert_eq!(ops[1]["command"], "schedules._insert_business_hours");
-        assert_eq!(ops[1]["params"]["id"], "n1");
-        assert_eq!(ops[1]["params"]["position"], 0);
-        assert_eq!(ops[1]["params"]["open_time"], "10:00");
-        assert_eq!(ops[1]["params"]["close_time"], "14:00");
-        assert_eq!(ops[1]["params"]["is_closed"], 0);
-        assert_eq!(ops[2]["params"]["id"], "n2");
-        assert_eq!(ops[2]["params"]["position"], 1);
-        assert_eq!(ops[2]["params"]["open_time"], "17:00");
-        assert_eq!(out["events"][0]["name"], "schedules.business_hours.updated");
-        assert_eq!(out["events"][0]["payload"]["intervals"].as_array().unwrap().len(), 2);
+        assert_eq!(ops[1].command, "schedules._insert_business_hours");
+        assert_eq!(ops[1].params["id"], "n1");
+        assert_eq!(ops[1].params["position"], 0);
+        assert_eq!(ops[1].params["open_time"], "10:00");
+        assert_eq!(ops[1].params["close_time"], "14:00");
+        assert_eq!(ops[1].params["is_closed"], 0);
+        assert_eq!(ops[2].params["id"], "n2");
+        assert_eq!(ops[2].params["position"], 1);
+        assert_eq!(ops[2].params["open_time"], "17:00");
+        assert_eq!(out.events[0].name, "schedules.business_hours.updated");
+        assert_eq!(
+            out.events[0].payload["intervals"].as_array().unwrap().len(),
+            2
+        );
     }
 
     #[test]
@@ -1087,13 +1696,16 @@ mod tests {
             { "open_time": "17:00", "close_time": "20:00" },
             { "open_time": "10:00", "close_time": "14:00" } ] });
         let out = set_business_hours_pure(ctx_with_ids(unsorted)).expect("ok");
-        assert_eq!(out["operations"][1]["params"]["open_time"], "10:00");
-        assert_eq!(out["operations"][2]["params"]["open_time"], "17:00");
+        assert_eq!(out.operations[1].params["open_time"], "10:00");
+        assert_eq!(out.operations[2].params["open_time"], "17:00");
 
         let overlap = json!({ "day_of_week": 1, "intervals": [
             { "open_time": "10:00", "close_time": "14:00" },
             { "open_time": "13:00", "close_time": "20:00" } ] });
-        assert_eq!(err_code(set_business_hours_pure(ctx_with_ids(overlap))), "overlapping");
+        assert_eq!(
+            err_code(set_business_hours_pure(ctx_with_ids(overlap))),
+            "overlapping"
+        );
     }
 
     #[test]
@@ -1101,17 +1713,23 @@ mod tests {
         // 22:00–02:00 crosses midnight: close < open is the overnight representation.
         let night = json!({ "day_of_week": 4, "intervals": [ { "open_time": "22:00", "close_time": "02:00" } ] });
         let out = set_business_hours_pure(ctx_with_ids(night)).expect("overnight must be accepted");
-        assert_eq!(out["operations"][1]["params"]["close_time"], "02:00");
+        assert_eq!(out.operations[1].params["close_time"], "02:00");
         // 00:00–00:00 is «open 24 hours».
         let all_day = json!({ "day_of_week": 5, "intervals": [ { "open_time": "00:00", "close_time": "00:00" } ] });
         set_business_hours_pure(ctx_with_ids(all_day)).expect("24h must be accepted");
         // Any other zero-length interval is still an error.
         let zero = json!({ "day_of_week": 5, "intervals": [ { "open_time": "10:00", "close_time": "10:00" } ] });
-        assert_eq!(err_code(set_business_hours_pure(ctx_with_ids(zero))), "invalid_hours");
+        assert_eq!(
+            err_code(set_business_hours_pure(ctx_with_ids(zero))),
+            "invalid_hours"
+        );
         // An overnight interval followed by a morning one overlaps through midnight → still overlapping.
         let wrap = json!({ "day_of_week": 4, "intervals": [
             { "open_time": "22:00", "close_time": "02:00" }, { "open_time": "23:00", "close_time": "23:30" } ] });
-        assert_eq!(err_code(set_business_hours_pure(ctx_with_ids(wrap))), "overlapping");
+        assert_eq!(
+            err_code(set_business_hours_pure(ctx_with_ids(wrap))),
+            "overlapping"
+        );
     }
 
     #[test]
@@ -1119,27 +1737,45 @@ mod tests {
         let legacy = json!({ "day_of_week": 2, "open_time": "09:00", "close_time": "18:00",
             "break_start": "13:00", "break_end": "15:00" });
         let out = set_business_hours_pure(ctx_with_ids(legacy)).expect("ok");
-        let ops = out["operations"].as_array().unwrap();
+        let ops = &out.operations;
         assert_eq!(ops.len(), 3);
-        assert_eq!((ops[1]["params"]["open_time"].as_str().unwrap(), ops[1]["params"]["close_time"].as_str().unwrap()), ("09:00", "13:00"));
-        assert_eq!((ops[2]["params"]["open_time"].as_str().unwrap(), ops[2]["params"]["close_time"].as_str().unwrap()), ("15:00", "18:00"));
+        assert_eq!(
+            (
+                ops[1].params["open_time"].as_str().unwrap(),
+                ops[1].params["close_time"].as_str().unwrap()
+            ),
+            ("09:00", "13:00")
+        );
+        assert_eq!(
+            (
+                ops[2].params["open_time"].as_str().unwrap(),
+                ops[2].params["close_time"].as_str().unwrap()
+            ),
+            ("15:00", "18:00")
+        );
     }
 
     #[test]
     fn set_hours_closed_day_writes_a_single_closed_row_and_no_intervals() {
         let payload = json!({ "day_of_week": 6, "is_closed": true, "intervals": [ { "open_time": "10:00", "close_time": "14:00" } ] });
         let out = set_business_hours_pure(ctx_with_ids(payload)).expect("ok");
-        let ops = out["operations"].as_array().unwrap();
+        let ops = &out.operations;
         assert_eq!(ops.len(), 2);
-        assert_eq!(ops[1]["params"]["is_closed"], 1);
+        assert_eq!(ops[1].params["is_closed"], 1);
         // An open day with no interval is a mistake, not «open all day».
         let empty = json!({ "day_of_week": 6, "is_closed": false, "intervals": [] });
-        assert_eq!(err_code(set_business_hours_pure(ctx_with_ids(empty))), "missing_hours");
+        assert_eq!(
+            err_code(set_business_hours_pure(ctx_with_ids(empty))),
+            "missing_hours"
+        );
     }
 
     fn open_at(when: &str, business_hours: Value) -> Value {
         let payload = json!({ "when": when, "business_hours": business_hours });
-        is_open_pure(input(payload)).expect("ok")["result"].clone()
+        is_open_pure(input(payload))
+            .expect("ok")
+            .result
+            .expect("verdict")
     }
 
     #[test]
@@ -1169,7 +1805,10 @@ mod tests {
         assert_eq!(open_at("2026-08-20T21:00", bh)["is_open"], false);
 
         let all_day = json!([ { "id": "d", "day_of_week": 3, "open_time": "00:00", "close_time": "00:00", "is_closed": 0 } ]);
-        assert_eq!(open_at("2026-08-20T00:00", all_day.clone())["is_open"], true);
+        assert_eq!(
+            open_at("2026-08-20T00:00", all_day.clone())["is_open"],
+            true
+        );
         assert_eq!(open_at("2026-08-20T23:59", all_day)["is_open"], true);
     }
 
@@ -1179,7 +1818,10 @@ mod tests {
             "special_days": [ { "id": "sd", "date": "2026-12-25", "name": "Christmas", "is_closed": 1 } ],
             "overrides": [ { "id": "ov", "start_date": "2026-12-20", "end_date": "2026-12-31", "reason": "Winter", "is_closed": 0, "open_time": "10:00", "close_time": "14:00" } ],
             "business_hours": [ { "id": "bh", "day_of_week": 4, "open_time": "09:00", "close_time": "18:00", "is_closed": 0 } ] });
-        let r = is_open_pure(input(payload)).expect("ok")["result"].clone();
+        let r = is_open_pure(input(payload))
+            .expect("ok")
+            .result
+            .expect("verdict");
         assert_eq!(r["is_open"], false);
         assert_eq!(r["source"], "special_day");
         assert_eq!(r["rule_id"], "sd");
@@ -1187,11 +1829,17 @@ mod tests {
         let payload = json!({ "when": "2026-12-26T11:00",
             "overrides": [ { "id": "ov", "start_date": "2026-12-20", "end_date": "2026-12-31", "reason": "Winter", "is_closed": 0, "open_time": "10:00", "close_time": "14:00" } ],
             "business_hours": [ { "id": "bh", "day_of_week": 5, "open_time": "09:00", "close_time": "18:00", "is_closed": 0 } ] });
-        let r = is_open_pure(input(payload)).expect("ok")["result"].clone();
+        let r = is_open_pure(input(payload))
+            .expect("ok")
+            .result
+            .expect("verdict");
         assert_eq!(r["source"], "override");
         assert_eq!(r["rule_id"], "ov");
 
-        let r = is_open_pure(input(json!({ "when": "2026-12-26T11:00" }))).expect("ok")["result"].clone();
+        let r = is_open_pure(input(json!({ "when": "2026-12-26T11:00" })))
+            .expect("ok")
+            .result
+            .expect("verdict");
         assert_eq!(r["source"], "none");
     }
 
@@ -1199,12 +1847,10 @@ mod tests {
 
     /// The ops a create emitted, as `(command, params)`, so a test reads them by name instead of
     /// by index (the parent is always the first one).
-    fn ops_of(out: &Value) -> Vec<(String, Value)> {
-        out["operations"]
-            .as_array()
-            .expect("operations")
+    fn ops_of(out: &Output) -> Vec<(String, Value)> {
+        out.operations
             .iter()
-            .map(|o| (o["command"].as_str().unwrap_or_default().to_string(), o["params"].clone()))
+            .map(|o| (o.command.clone(), Value::from(o.params.clone())))
             .collect()
     }
 
@@ -1212,7 +1858,7 @@ mod tests {
         json!({ "schedules.special_days.by_date": [] })
     }
 
-    fn create_special_day_with(payload: Value) -> Result<Value, String> {
+    fn create_special_day_with(payload: Value) -> Result<Output, String> {
         let mut input = ctx_with_ids(payload);
         input["context"]["reads"] = empty_by_date();
         create_special_day_pure(input)
@@ -1246,7 +1892,10 @@ mod tests {
         // never a wider one.
         assert_eq!(ops[0].1["open_time"], "10:00");
         assert_eq!(ops[0].1["close_time"], "13:00");
-        assert_eq!(out["events"][0]["payload"]["intervals"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            out.events[0].payload["intervals"].as_array().unwrap().len(),
+            2
+        );
     }
 
     #[test]
@@ -1271,15 +1920,18 @@ mod tests {
         assert_eq!(err_code(create_special_day_with(wrap)), "overlapping");
 
         // 00:00–00:00 = open 24 h; any other zero-length interval is a mistake.
-        create_special_day_with(json!({ "date": "2026-12-24", "name": "Eve", "is_closed": false,
-            "intervals": [ { "open_time": "00:00", "close_time": "00:00" } ] }))
-            .expect("24 h must be accepted");
+        create_special_day_with(
+            json!({ "date": "2026-12-24", "name": "Eve", "is_closed": false,
+            "intervals": [ { "open_time": "00:00", "close_time": "00:00" } ] }),
+        )
+        .expect("24 h must be accepted");
         let zero = json!({ "date": "2026-12-24", "name": "Eve", "is_closed": false,
             "intervals": [ { "open_time": "10:00", "close_time": "10:00" } ] });
         assert_eq!(err_code(create_special_day_with(zero)), "invalid_hours");
 
         // An open exception with an empty interval list is a mistake, not «open all day».
-        let none = json!({ "date": "2026-12-24", "name": "Eve", "is_closed": false, "intervals": [] });
+        let none =
+            json!({ "date": "2026-12-24", "name": "Eve", "is_closed": false, "intervals": [] });
         assert_eq!(err_code(create_special_day_with(none)), "missing_hours");
     }
 
@@ -1300,8 +1952,10 @@ mod tests {
 
     #[test]
     fn a_closed_special_day_writes_no_interval_at_all() {
-        let out = create_special_day_with(json!({ "date": "2026-12-25", "name": "Christmas", "is_closed": true }))
-            .expect("ok");
+        let out = create_special_day_with(
+            json!({ "date": "2026-12-25", "name": "Christmas", "is_closed": true }),
+        )
+        .expect("ok");
         let ops = ops_of(&out);
         assert_eq!(ops.len(), 1);
         assert_eq!(ops[0].0, "schedules._insert_special_day");
@@ -1314,7 +1968,8 @@ mod tests {
             "is_closed": false,
             "intervals": [ { "open_time": "10:00", "close_time": "13:30" },
                            { "open_time": "18:00", "close_time": "21:00" } ] });
-        let out = create_override_pure(ctx_with_ids(payload)).expect("a split-shift override is legal");
+        let out =
+            create_override_pure(ctx_with_ids(payload)).expect("a split-shift override is legal");
         let ops = ops_of(&out);
         assert_eq!(ops.len(), 3);
         assert_eq!(ops[0].0, "schedules._insert_override");
@@ -1325,7 +1980,10 @@ mod tests {
         assert_eq!(ops[1].1["position"], 0);
         assert_eq!(ops[2].1["position"], 1);
         assert_eq!(ops[2].1["open_time"], "18:00");
-        assert_eq!(out["events"][0]["payload"]["intervals"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            out.events[0].payload["intervals"].as_array().unwrap().len(),
+            2
+        );
     }
 
     #[test]
@@ -1334,7 +1992,10 @@ mod tests {
             "is_closed": false,
             "intervals": [ { "open_time": "10:00", "close_time": "14:00" },
                            { "open_time": "12:00", "close_time": "20:00" } ] });
-        assert_eq!(err_code(create_override_pure(ctx_with_ids(overlap))), "overlapping");
+        assert_eq!(
+            err_code(create_override_pure(ctx_with_ids(overlap))),
+            "overlapping"
+        );
 
         let closed = json!({ "start_date": "2026-08-01", "end_date": "2026-08-31", "reason": "Holidays", "is_closed": true });
         let out = create_override_pure(ctx_with_ids(closed)).expect("ok");
@@ -1346,7 +2007,10 @@ mod tests {
         for (k, v) in extra.as_object().expect("object") {
             payload[k] = v.clone();
         }
-        is_open_pure(input(payload)).expect("ok")["result"].clone()
+        is_open_pure(input(payload))
+            .expect("ok")
+            .result
+            .expect("verdict")
     }
 
     #[test]
@@ -1357,15 +2021,24 @@ mod tests {
             "exception_intervals": [
                 { "id": "i1", "exception_kind": "special_day", "exception_id": "sd", "position": 0, "open_time": "10:00", "close_time": "13:00" },
                 { "id": "i2", "exception_kind": "special_day", "exception_id": "sd", "position": 1, "open_time": "17:00", "close_time": "19:00" } ] });
-        assert_eq!(open_with_exceptions("2026-12-24T11:00", extra.clone())["is_open"], true);
+        assert_eq!(
+            open_with_exceptions("2026-12-24T11:00", extra.clone())["is_open"],
+            true
+        );
         // The gap between the two intervals is CLOSED — before schedules#23 it read as open.
         let midday = open_with_exceptions("2026-12-24T15:00", extra.clone());
         assert_eq!(midday["is_open"], false);
         assert_eq!(midday["source"], "special_day");
         assert_eq!(midday["rule_id"], "sd");
         // …and the second interval is open again.
-        assert_eq!(open_with_exceptions("2026-12-24T18:00", extra.clone())["is_open"], true);
-        assert_eq!(open_with_exceptions("2026-12-24T20:00", extra)["is_open"], false);
+        assert_eq!(
+            open_with_exceptions("2026-12-24T18:00", extra.clone())["is_open"],
+            true
+        );
+        assert_eq!(
+            open_with_exceptions("2026-12-24T20:00", extra)["is_open"],
+            false
+        );
     }
 
     #[test]
@@ -1376,8 +2049,14 @@ mod tests {
             "exception_intervals": [
                 { "id": "i1", "exception_kind": "override", "exception_id": "ov", "position": 0, "open_time": "10:00", "close_time": "13:30" },
                 { "id": "i2", "exception_kind": "override", "exception_id": "ov", "position": 1, "open_time": "18:00", "close_time": "21:00" } ] });
-        assert_eq!(open_with_exceptions("2026-08-05T12:00", extra.clone())["is_open"], true);
-        assert_eq!(open_with_exceptions("2026-08-05T16:00", extra.clone())["is_open"], false);
+        assert_eq!(
+            open_with_exceptions("2026-08-05T12:00", extra.clone())["is_open"],
+            true
+        );
+        assert_eq!(
+            open_with_exceptions("2026-08-05T16:00", extra.clone())["is_open"],
+            false
+        );
         let evening = open_with_exceptions("2026-08-05T19:00", extra);
         assert_eq!(evening["is_open"], true);
         assert_eq!(evening["source"], "override");
@@ -1394,8 +2073,14 @@ mod tests {
             "exception_intervals": [
                 { "id": "i1", "exception_kind": "special_day", "exception_id": "other", "position": 0, "open_time": "17:00", "close_time": "19:00" },
                 { "id": "i2", "exception_kind": "override", "exception_id": "sd", "position": 0, "open_time": "17:00", "close_time": "19:00" } ] });
-        assert_eq!(open_with_exceptions("2026-12-24T11:00", extra.clone())["is_open"], true);
-        assert_eq!(open_with_exceptions("2026-12-24T18:00", extra)["is_open"], false);
+        assert_eq!(
+            open_with_exceptions("2026-12-24T11:00", extra.clone())["is_open"],
+            true
+        );
+        assert_eq!(
+            open_with_exceptions("2026-12-24T18:00", extra)["is_open"],
+            false
+        );
     }
 
     // ── schedules#10: the answer travels in the host's result channel, and DST is a non-event ──
@@ -1408,13 +2093,19 @@ mod tests {
         // back into an `Output` carrying the verdict.
         let payload = json!({ "when": "2026-08-17T11:00",
             "business_hours": [ { "id": "a", "day_of_week": 0, "open_time": "10:00", "close_time": "14:00", "is_closed": 0 } ] });
-        let raw = is_open_pure(input(payload)).expect("ok");
-        let out: Output = serde_json::from_value(raw).expect("the host deserialises the Output");
-        let result = out.result.expect("the verdict is a result, not an operation");
+        let wire =
+            serde_json::to_value(is_open_pure(input(payload)).expect("ok")).expect("serialises");
+        let out: Output = serde_json::from_value(wire).expect("the host deserialises the Output");
+        let result = out
+            .result
+            .expect("the verdict is a result, not an operation");
         assert_eq!(result["is_open"], true);
         assert_eq!(result["source"], "business_hours");
         assert_eq!(result["rule_id"], "a");
-        assert!(out.operations.is_empty(), "a read-only handler writes nothing");
+        assert!(
+            out.operations.is_empty(),
+            "a read-only handler writes nothing"
+        );
         assert!(out.events.is_empty(), "and emits nothing");
     }
 
@@ -1423,9 +2114,14 @@ mod tests {
         let payload = json!({ "special_days": [
             { "date": "2026-02-31", "name": "Impossible", "is_closed": true },
             { "date": "2026-03-01", "name": "Fine", "is_closed": true } ]});
-        let raw = bulk_create_special_days_pure(input(payload)).expect("the bulk is fault-tolerant");
-        let out: Output = serde_json::from_value(raw).expect("the host deserialises the Output");
-        let result = out.result.expect("the partial summary is the point of the bulk");
+        let wire = serde_json::to_value(
+            bulk_create_special_days_pure(input(payload)).expect("the bulk is fault-tolerant"),
+        )
+        .expect("serialises");
+        let out: Output = serde_json::from_value(wire).expect("the host deserialises the Output");
+        let result = out
+            .result
+            .expect("the partial summary is the point of the bulk");
         assert_eq!(result["created"], 1);
         assert_eq!(result["errors"].as_array().unwrap().len(), 1);
         assert_eq!(out.operations.len(), 1, "only the valid item is written");
@@ -1441,15 +2137,39 @@ mod tests {
         let bh = json!([ { "id": "a", "day_of_week": 6, "open_time": "10:00", "close_time": "20:00", "is_closed": 0 } ]);
         // 2026-03-29 and 2026-10-25 are both Sundays (dow 6) and both DST switch days in Europe.
         for day in ["2026-03-29", "2026-10-25"] {
-            assert_eq!(open_at(&format!("{day}T09:59"), bh.clone())["is_open"], false, "{day}");
-            assert_eq!(open_at(&format!("{day}T10:00"), bh.clone())["is_open"], true, "{day}");
-            assert_eq!(open_at(&format!("{day}T19:59"), bh.clone())["is_open"], true, "{day}");
-            assert_eq!(open_at(&format!("{day}T20:00"), bh.clone())["is_open"], false, "{day}");
+            assert_eq!(
+                open_at(&format!("{day}T09:59"), bh.clone())["is_open"],
+                false,
+                "{day}"
+            );
+            assert_eq!(
+                open_at(&format!("{day}T10:00"), bh.clone())["is_open"],
+                true,
+                "{day}"
+            );
+            assert_eq!(
+                open_at(&format!("{day}T19:59"), bh.clone())["is_open"],
+                true,
+                "{day}"
+            );
+            assert_eq!(
+                open_at(&format!("{day}T20:00"), bh.clone())["is_open"],
+                false,
+                "{day}"
+            );
         }
         // And the hour that is skipped (02:00–03:00 in March) is simply outside the schedule.
         let night = json!([ { "id": "n", "day_of_week": 6, "open_time": "01:00", "close_time": "04:00", "is_closed": 0 } ]);
-        assert_eq!(open_at("2026-03-29T02:30", night.clone())["is_open"], true, "a skipped wall-clock hour still reads as open");
-        assert_eq!(open_at("2026-10-25T02:30", night)["is_open"], true, "a repeated one too");
+        assert_eq!(
+            open_at("2026-03-29T02:30", night.clone())["is_open"],
+            true,
+            "a skipped wall-clock hour still reads as open"
+        );
+        assert_eq!(
+            open_at("2026-10-25T02:30", night)["is_open"],
+            true,
+            "a repeated one too"
+        );
     }
 
     #[test]
@@ -1457,15 +2177,27 @@ mod tests {
         let all_day = json!({
             "special_days": [ { "id": "sd", "date": "2026-12-24", "name": "Eve", "is_closed": 0 } ],
             "exception_intervals": [ { "id": "i1", "exception_kind": "special_day", "exception_id": "sd", "position": 0, "open_time": "00:00", "close_time": "00:00" } ] });
-        assert_eq!(open_with_exceptions("2026-12-24T03:00", all_day.clone())["is_open"], true);
-        assert_eq!(open_with_exceptions("2026-12-24T23:59", all_day)["is_open"], true);
+        assert_eq!(
+            open_with_exceptions("2026-12-24T03:00", all_day.clone())["is_open"],
+            true
+        );
+        assert_eq!(
+            open_with_exceptions("2026-12-24T23:59", all_day)["is_open"],
+            true
+        );
 
         // Overnight (22:00–02:00) is honoured on the exception's OWN date, up to midnight; the
         // small hours of the next day are governed by the next day's rules (documented boundary).
         let night = json!({
             "special_days": [ { "id": "sd", "date": "2026-12-31", "name": "New Year's Eve", "is_closed": 0 } ],
             "exception_intervals": [ { "id": "i1", "exception_kind": "special_day", "exception_id": "sd", "position": 0, "open_time": "22:00", "close_time": "02:00" } ] });
-        assert_eq!(open_with_exceptions("2026-12-31T23:30", night.clone())["is_open"], true);
-        assert_eq!(open_with_exceptions("2026-12-31T21:00", night)["is_open"], false);
+        assert_eq!(
+            open_with_exceptions("2026-12-31T23:30", night.clone())["is_open"],
+            true
+        );
+        assert_eq!(
+            open_with_exceptions("2026-12-31T21:00", night)["is_open"],
+            false
+        );
     }
 }

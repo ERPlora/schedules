@@ -140,6 +140,37 @@ function erplora(): ErploraClientLike {
   return c;
 }
 
+/** The `errors` catalog of `locales/{en,es}.json`, resolved by the active language.
+ *
+ *  It is NOT reachable through `erplora().t()`: that helper splits the key on dots to walk the
+ *  catalog, and the `errors` block is FLAT — the whole namespaced code is ONE key
+ *  (`"schedules.overlapping"`), the same shape `appointments` and `reservations` ship. */
+function catalogError(code: string): string {
+  for (const lang of [erplora().locale, 'en']) {
+    const dict = (CATALOG[lang] as { errors?: Record<string, string> } | undefined)?.errors;
+    const text = dict?.[code];
+    if (typeof text === 'string' && text) return text;
+  }
+  return '';
+}
+
+/** A business refusal (hub#139) travels as a stable `schedules.*` code plus the handler's
+ *  English fallback sentence: paint the code's TRANSLATION, and keep the sentence for codes the
+ *  catalog has not learned yet — same idea as `reservations` (`erp-reservations-list.ts`).
+ *
+ *  schedules#28: until the handlers refused with `DomainError`, EVERY rejection surfaced as
+ *  `e.message` — the runtime's plumbing («error de handler WASM: wasm call to … failed:») around
+ *  a half-English sentence. */
+function domainErrorText(e: unknown, fallbackKey: string): string {
+  const code = (e as { code?: unknown } | null)?.code;
+  const message = e instanceof Error ? e.message : '';
+  if (typeof code === 'string' && code.startsWith('schedules.')) {
+    const text = catalogError(code);
+    if (text) return text;
+  }
+  return message || erplora().t(CATALOG, fallbackKey);
+}
+
 // TODO-LIT: componente multi-vista (varios métodos render) — revisar composición.
 
 export class ErpSchedulesHours extends LitElement {
@@ -509,8 +540,8 @@ export class ErpSchedulesHours extends LitElement {
       this.dataTable('tbl-hours')?.close();
       await this.loadHours();
     } catch (e) {
-      // Runtime validation errors (invalid_hours / overlapping / invalid_day / missing_hours).
-      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorSaveHours');
+      // A business refusal paints as the translated `schedules.*` sentence (schedules#28).
+      this.formError = domainErrorText(e, 'ui.errorSaveHours');
     } finally {
       this.saving = false;
     }
@@ -563,7 +594,7 @@ export class ErpSchedulesHours extends LitElement {
       this.dataTable('tbl-special')?.close();
       await Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorCreateSpecialDay');
+      this.formError = domainErrorText(e, 'ui.errorCreateSpecialDay');
     } finally {
       this.saving = false;
     }
@@ -599,7 +630,7 @@ export class ErpSchedulesHours extends LitElement {
       this.dataTable('tbl-override')?.close();
       await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorCreateOverride');
+      this.formError = domainErrorText(e, 'ui.errorCreateOverride');
     } finally {
       this.saving = false;
     }
@@ -618,7 +649,7 @@ export class ErpSchedulesHours extends LitElement {
       });
       await this.loadSettings();
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorSaveSettings');
+      this.formError = domainErrorText(e, 'ui.errorSaveSettings');
     } finally {
       this.saving = false;
     }
@@ -651,7 +682,7 @@ export class ErpSchedulesHours extends LitElement {
         await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
       }
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errorDelete');
+      this.formError = domainErrorText(e, 'ui.errorDelete');
     }
   }
 

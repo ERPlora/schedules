@@ -9,7 +9,7 @@ var __decorateClass = (decorators, target, key, kind) => {
   return result;
 };
 
-// node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
+// ../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
 var ElementInternalsShim = class ElementInternals {
   get shadowRoot() {
     return this.__host.__shadowRoot;
@@ -88,7 +88,7 @@ var ElementInternalsShim = class ElementInternals {
   }
 };
 
-// node_modules/@lit-labs/ssr-dom-shim/lib/events.js
+// ../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/events.js
 var __classPrivateFieldSet = function(receiver, state, value, kind, f3) {
   if (kind === "m") throw new TypeError("Private method is not writable");
   if (kind === "a" && !f3) throw new TypeError("Private accessor was defined without a setter");
@@ -246,7 +246,7 @@ Object.defineProperties(CustomEventShim.prototype, {
 var EventShimWithRealType = EventShim;
 var CustomEventShimWithRealType = CustomEventShim;
 
-// node_modules/@lit-labs/ssr-dom-shim/lib/css.js
+// ../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/lib/css.js
 var _a2;
 var CSSRuleShim = (_a2 = class CSSRule {
   constructor() {
@@ -277,7 +277,7 @@ var CSSRuleShim = (_a2 = class CSSRule {
   }
 }, _a2.STYLE_RULE = 1, _a2.CHARSET_RULE = 2, _a2.IMPORT_RULE = 3, _a2.MEDIA_RULE = 4, _a2.FONT_FACE_RULE = 5, _a2.PAGE_RULE = 6, _a2.NAMESPACE_RULE = 10, _a2.KEYFRAMES_RULE = 7, _a2.KEYFRAME_RULE = 8, _a2.SUPPORTS_RULE = 12, _a2.COUNTER_STYLE_RULE = 11, _a2.FONT_FEATURE_VALUES_RULE = 14, _a2.MARGIN_RULE = 9, _a2);
 
-// node_modules/@lit-labs/ssr-dom-shim/index.js
+// ../module-toolkit/node_modules/@lit-labs/ssr-dom-shim/index.js
 globalThis.Event ??= EventShimWithRealType;
 globalThis.CustomEvent ??= CustomEventShimWithRealType;
 var constructionToken = Symbol();
@@ -674,7 +674,7 @@ var CustomElementRegistryShimWithRealType = CustomElementRegistry;
 var customElements2 = new CustomElementRegistryShimWithRealType();
 var windowShim = new WindowShim(constructionToken);
 
-// node_modules/@lit/reactive-element/node/css-tag.js
+// ../module-toolkit/node_modules/@lit/reactive-element/node/css-tag.js
 var t = globalThis;
 var e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
 var s = Symbol();
@@ -719,7 +719,7 @@ var c = e || void 0 === t.CSSStyleSheet ? (t5) => t5 : (t5) => t5 instanceof CSS
   return r(e5);
 })(t5) : t5;
 
-// node_modules/@lit/reactive-element/node/reactive-element.js
+// ../module-toolkit/node_modules/@lit/reactive-element/node/reactive-element.js
 var { is: h, defineProperty: r2, getOwnPropertyDescriptor: o2, getOwnPropertyNames: n2, getOwnPropertySymbols: a, getPrototypeOf: c2 } = Object;
 var l = globalThis;
 l.customElements ??= customElements2;
@@ -942,7 +942,7 @@ var g = class extends (globalThis.HTMLElement ?? HTMLElementShimWithRealType) {
 };
 g.elementStyles = [], g.shadowRootOptions = { mode: "open" }, g[f("elementProperties")] = /* @__PURE__ */ new Map(), g[f("finalized")] = /* @__PURE__ */ new Map(), u?.({ ReactiveElement: g }), (l.reactiveElementVersions ??= []).push("2.1.2");
 
-// ../modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/lit-html.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/lit-html.js
 var t2 = globalThis;
 var i2 = (t5) => t5;
 var s2 = t2.trustedTypes;
@@ -1197,7 +1197,7 @@ var D = (t5, i7, s5) => {
   return h4._$AI(t5), h4;
 };
 
-// ../modules-workspace/node_modules/.pnpm/lit-element@4.2.2/node_modules/lit-element/lit-element.js
+// node_modules/.pnpm/lit-element@4.2.2/node_modules/lit-element/lit-element.js
 var s3 = globalThis;
 var i3 = class extends g {
   constructor() {
@@ -1226,7 +1226,7 @@ var o4 = s3.litElementPolyfillSupport;
 o4?.({ LitElement: i3 });
 (s3.litElementVersions ??= []).push("4.2.2");
 
-// node_modules/@lit/reactive-element/node/decorators/property.js
+// ../module-toolkit/node_modules/@lit/reactive-element/node/decorators/property.js
 var o5 = { attribute: true, type: String, converter: b, reflect: false, hasChanged: m };
 var r4 = (t5 = o5, e5, r6) => {
   const { kind: n6, metadata: i7 } = r6;
@@ -1256,7 +1256,7 @@ function n4(t5) {
   })(t5, e5, o7);
 }
 
-// node_modules/@lit/reactive-element/node/decorators/state.js
+// ../module-toolkit/node_modules/@lit/reactive-element/node/decorators/state.js
 function r5(r6) {
   return n4({ ...r6, state: true, attribute: false });
 }
@@ -1268,7 +1268,7 @@ function define(tag, ctor) {
   }
 }
 
-// ../modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive.js
 var t3 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
 var e4 = (t5) => (...e5) => ({ _$litDirective$: t5, values: e5 });
 var i4 = class {
@@ -1288,7 +1288,7 @@ var i4 = class {
   }
 };
 
-// ../modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive-helpers.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive-helpers.js
 var { I: t4 } = j;
 var i5 = (o7) => o7;
 var s4 = () => document.createComment("");
@@ -1321,7 +1321,7 @@ var h3 = (o7) => {
   o7._$AR(), o7._$AA.remove();
 };
 
-// ../modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/repeat.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/repeat.js
 var u4 = (e5, s5, t5) => {
   const r6 = /* @__PURE__ */ new Map();
   for (let l3 = s5; l3 <= t5; l3++) r6.set(e5[l3], l3);
@@ -1374,7 +1374,7 @@ var c4 = e4(class extends i4 {
   }
 });
 
-// ../modules-workspace/node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/style-map.js
+// node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/style-map.js
 var n5 = "important";
 var i6 = " !" + n5;
 var o6 = e4(class extends i4 {
@@ -3428,7 +3428,7 @@ function createListController(client, queryName, onChange = () => {
   return new ListController(client, queryName, onChange, opts);
 }
 
-// ../modules-workspace/modules/schedules/locales/es.json
+// modules/schedules/locales/es.json
 var es_default = {
   name: "Horarios",
   description: "Horarios de apertura del negocio, d\xEDas especiales y excepciones al horario habitual.",
@@ -3516,10 +3516,22 @@ var es_default = {
     addInterval: "+ A\xF1adir tramo",
     removeInterval: "Quitar tramo",
     intervalsHint: "Jornada partida: una l\xEDnea por tramo (10:00\u201314:00 y 17:00\u201320:00). Un cierre anterior a la apertura pasa de medianoche (22:00\u201302:00)."
+  },
+  errors: {
+    "schedules.invalid_hours": "Esas horas no son v\xE1lidas: el formato es HH:MM y el cierre debe ser posterior a la apertura (00:00\u201300:00 significa abierto 24 horas).",
+    "schedules.invalid_break": "Ese descanso no es v\xE1lido: necesita hora de inicio y de fin, dentro del horario de apertura.",
+    "schedules.invalid_date": "Esa fecha no es v\xE1lida: debe ser una fecha real del calendario (AAAA-MM-DD).",
+    "schedules.invalid_day": "El d\xEDa de la semana debe estar entre lunes y domingo.",
+    "schedules.invalid_range": "La fecha de fin no puede ser anterior a la de inicio.",
+    "schedules.missing_hours": "Un d\xEDa abierto necesita al menos un tramo horario.",
+    "schedules.missing_name": "Falta el nombre (o el motivo): es obligatorio.",
+    "schedules.missing_items": "La lista de d\xEDas especiales no puede estar vac\xEDa.",
+    "schedules.already_exists": "Ya existe un d\xEDa especial en esa fecha.",
+    "schedules.overlapping": "Dos tramos se solapan (o uno cruza la medianoche sobre otro); ajusta las horas para que no se pisen."
   }
 };
 
-// ../modules-workspace/modules/schedules/locales/en.json
+// modules/schedules/locales/en.json
 var en_default = {
   name: "Schedules",
   navigation: {
@@ -3606,10 +3618,22 @@ var en_default = {
     addInterval: "+ Add interval",
     removeInterval: "Remove interval",
     intervalsHint: "Split shifts: one line per interval (10:00\u201314:00 and 17:00\u201320:00). A closing time earlier than the opening one runs past midnight (22:00\u201302:00)."
+  },
+  errors: {
+    "schedules.invalid_hours": "Those opening hours are not valid: times are HH:MM and close must come after open (00:00\u201300:00 means open 24 hours).",
+    "schedules.invalid_break": "That break is not valid: it needs a start and an end, inside the opening hours.",
+    "schedules.invalid_date": "That date is not valid: it must be a real calendar date (YYYY-MM-DD).",
+    "schedules.invalid_day": "The day of the week must be between Monday and Sunday.",
+    "schedules.invalid_range": "The end date cannot be before the start date.",
+    "schedules.missing_hours": "An open day needs at least one opening interval.",
+    "schedules.missing_name": "A name (or reason) is required.",
+    "schedules.missing_items": "The list of special days cannot be empty.",
+    "schedules.already_exists": "There is already a special day on that date.",
+    "schedules.overlapping": "Two intervals overlap (or one runs past midnight into another); adjust the times so they do not clash."
   }
 };
 
-// ../modules-workspace/modules/schedules/ui/components/erp-schedules-hours/erp-schedules-hours.ts
+// modules/schedules/ui/components/erp-schedules-hours/erp-schedules-hours.ts
 var CATALOG = { es: es_default, en: en_default };
 var DAY_KEYS = ["ui.monday", "ui.tuesday", "ui.wednesday", "ui.thursday", "ui.friday", "ui.saturday", "ui.sunday"];
 var ALL_DAY = { open_time: "00:00", close_time: "00:00" };
@@ -3638,6 +3662,23 @@ function erplora() {
   const c5 = globalThis.erplora;
   if (!c5) throw new Error("erplora SDK no inicializado por el shell");
   return c5;
+}
+function catalogError(code) {
+  for (const lang of [erplora().locale, "en"]) {
+    const dict = CATALOG[lang]?.errors;
+    const text = dict?.[code];
+    if (typeof text === "string" && text) return text;
+  }
+  return "";
+}
+function domainErrorText(e5, fallbackKey) {
+  const code = e5?.code;
+  const message = e5 instanceof Error ? e5.message : "";
+  if (typeof code === "string" && code.startsWith("schedules.")) {
+    const text = catalogError(code);
+    if (text) return text;
+  }
+  return message || erplora().t(CATALOG, fallbackKey);
 }
 var ErpSchedulesHours = class extends i3 {
   constructor() {
@@ -3941,7 +3982,7 @@ var ErpSchedulesHours = class extends i3 {
       this.dataTable("tbl-hours")?.close();
       await this.loadHours();
     } catch (e5) {
-      this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorSaveHours");
+      this.formError = domainErrorText(e5, "ui.errorSaveHours");
     } finally {
       this.saving = false;
     }
@@ -3992,7 +4033,7 @@ var ErpSchedulesHours = class extends i3 {
       this.dataTable("tbl-special")?.close();
       await Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e5) {
-      this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorCreateSpecialDay");
+      this.formError = domainErrorText(e5, "ui.errorCreateSpecialDay");
     } finally {
       this.saving = false;
     }
@@ -4027,7 +4068,7 @@ var ErpSchedulesHours = class extends i3 {
       this.dataTable("tbl-override")?.close();
       await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e5) {
-      this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorCreateOverride");
+      this.formError = domainErrorText(e5, "ui.errorCreateOverride");
     } finally {
       this.saving = false;
     }
@@ -4045,7 +4086,7 @@ var ErpSchedulesHours = class extends i3 {
       });
       await this.loadSettings();
     } catch (e5) {
-      this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorSaveSettings");
+      this.formError = domainErrorText(e5, "ui.errorSaveSettings");
     } finally {
       this.saving = false;
     }
@@ -4075,7 +4116,7 @@ var ErpSchedulesHours = class extends i3 {
         await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
       }
     } catch (e5) {
-      this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errorDelete");
+      this.formError = domainErrorText(e5, "ui.errorDelete");
     }
   }
   // ≤834 px opens in cards: status, effective hours and the row actions stay visible without

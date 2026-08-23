@@ -375,7 +375,7 @@
         "function": "is_open"
       },
       "ai": {
-        "description": "Checks whether the business is open at a given moment. Precedence: exact-date special day > yearly recurring special day > override range > weekly intervals > nothing (fail_open decides). The result says which rule won (source + rule_id). Pass the rows from schedules.business_hours.list / special_days.list / overrides.list / exception_intervals.list in the payload"
+        "description": "Checks whether the business is open at a given moment. Precedence: exact-date special day > yearly recurring special day > override range > weekly intervals > nothing (fail_open decides). The result says which rule won (source + rule_id) and WHY as a stable code (exception_closed, exception_hours, open_interval, on_break, closed_today, overnight_open, outside_hours, no_hours, no_hours_fail_open) with intervals[] (HH:MM-HH:MM spans) to phrase it in the caller language; reason carries only user data (the winning special day name or override reason). Rejections arrive as schedules.* domain error codes Pass the rows from schedules.business_hours.list / special_days.list / overrides.list / exception_intervals.list in the payload"
       }
     },
     "schedules._insert_special_day": {
