@@ -84,5 +84,17 @@
     "addInterval": "+ Add interval",
     "removeInterval": "Remove interval",
     "intervalsHint": "Split shifts: one line per interval (10:00–14:00 and 17:00–20:00). A closing time earlier than the opening one runs past midnight (22:00–02:00)."
+  },
+  "errors": {
+    "schedules.invalid_hours": "Those opening hours are not valid: times are HH:MM and close must come after open (00:00–00:00 means open 24 hours).",
+    "schedules.invalid_break": "That break is not valid: it needs a start and an end, inside the opening hours.",
+    "schedules.invalid_date": "That date is not valid: it must be a real calendar date (YYYY-MM-DD).",
+    "schedules.invalid_day": "The day of the week must be between Monday and Sunday.",
+    "schedules.invalid_range": "The end date cannot be before the start date.",
+    "schedules.missing_hours": "An open day needs at least one opening interval.",
+    "schedules.missing_name": "A name (or reason) is required.",
+    "schedules.missing_items": "The list of special days cannot be empty.",
+    "schedules.already_exists": "There is already a special day on that date.",
+    "schedules.overlapping": "Two intervals overlap (or one runs past midnight into another); adjust the times so they do not clash."
   }
 }

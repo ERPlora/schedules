@@ -85,5 +85,17 @@
     "addInterval": "+ Añadir tramo",
     "removeInterval": "Quitar tramo",
     "intervalsHint": "Jornada partida: una línea por tramo (10:00–14:00 y 17:00–20:00). Un cierre anterior a la apertura pasa de medianoche (22:00–02:00)."
+  },
+  "errors": {
+    "schedules.invalid_hours": "Esas horas no son válidas: el formato es HH:MM y el cierre debe ser posterior a la apertura (00:00–00:00 significa abierto 24 horas).",
+    "schedules.invalid_break": "Ese descanso no es válido: necesita hora de inicio y de fin, dentro del horario de apertura.",
+    "schedules.invalid_date": "Esa fecha no es válida: debe ser una fecha real del calendario (AAAA-MM-DD).",
+    "schedules.invalid_day": "El día de la semana debe estar entre lunes y domingo.",
+    "schedules.invalid_range": "La fecha de fin no puede ser anterior a la de inicio.",
+    "schedules.missing_hours": "Un día abierto necesita al menos un tramo horario.",
+    "schedules.missing_name": "Falta el nombre (o el motivo): es obligatorio.",
+    "schedules.missing_items": "La lista de días especiales no puede estar vacía.",
+    "schedules.already_exists": "Ya existe un día especial en esa fecha.",
+    "schedules.overlapping": "Dos tramos se solapan (o uno cruza la medianoche sobre otro); ajusta las horas para que no se pisen."
   }
 }
