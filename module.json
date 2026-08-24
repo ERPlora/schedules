@@ -369,13 +369,32 @@
     },
     "schedules.is_open": {
       "permission": "schedules.view_schedule",
+      "schema": "schemas/is_open.json",
       "handler": {
         "type": "wasm",
         "file": "dist/handler.wasm",
         "function": "is_open"
       },
+      "reads": [
+        {
+          "query": "schedules.business_hours.list",
+          "required": true
+        },
+        {
+          "query": "schedules.special_days.list",
+          "required": true
+        },
+        {
+          "query": "schedules.overrides.list",
+          "required": true
+        },
+        {
+          "query": "schedules.exception_intervals.list",
+          "required": true
+        }
+      ],
       "ai": {
-        "description": "Checks whether the business is open at a given moment. Precedence: exact-date special day > yearly recurring special day > override range > weekly intervals > nothing (fail_open decides). The result says which rule won (source + rule_id) and WHY as a stable code (exception_closed, exception_hours, open_interval, on_break, closed_today, overnight_open, outside_hours, no_hours, no_hours_fail_open) with intervals[] (HH:MM-HH:MM spans) to phrase it in the caller language; reason carries only user data (the winning special day name or override reason). Rejections arrive as schedules.* domain error codes Pass the rows from schedules.business_hours.list / special_days.list / overrides.list / exception_intervals.list in the payload"
+        "description": "Checks whether the business is open at a given moment. Takes only when (optional): an RFC3339 instant, which is converted to the business timezone, or a bare YYYY-MM-DDTHH:MM, which already is the shop's own wall clock; with no when it answers for right now. The rules are read from the hub itself, never from the payload. Precedence: exact-date special day > yearly recurring special day > override range > weekly intervals > nothing configured. The result says which rule won (source + rule_id), the timezone it was computed in, the local today / current_time, and WHY as a stable code (exception_closed, exception_hours, open_interval, on_break, closed_today, overnight_open, outside_hours, no_hours) with intervals[] (HH:MM-HH:MM spans) to phrase it in the caller language; reason carries only user data (the winning special day name or override reason). Rejections arrive as schedules.* domain error codes"
       }
     },
     "schedules._insert_special_day": {

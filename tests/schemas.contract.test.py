@@ -76,9 +76,11 @@ def accepts(command: str, payload: dict) -> bool:
 
 # ── 1. Every public command with a payload has a CLOSED schema ────────────────────────────
 
-# `schedules.is_open` takes a read-only payload of rows (the caller passes the lists it read), so
-# it declares no schema — everything else that writes must.
-NO_SCHEMA_ON_PURPOSE = {"schedules.is_open"}
+# Nothing is exempt any more. `schedules.is_open` used to be: its payload carried the rows the
+# caller had read, so no closed contract could describe it. Since schedules#1 the rules come from
+# the runtime (`reads`) and the payload is just the moment — so it gets a closed schema like
+# everything else, and a caller can no longer smuggle in a schedule, nor a `fail_open`.
+NO_SCHEMA_ON_PURPOSE: set[str] = set()
 
 
 def test_every_public_command_declares_a_closed_schema() -> None:
@@ -211,6 +213,36 @@ def test_the_payloads_the_ui_sends_are_accepted() -> None:
     for command, payloads in UI_PAYLOADS.items():
         for i, payload in enumerate(payloads):
             check(f"{command} accepts UI payload #{i}", True, accepts(command, payload))
+
+
+# ── 2b. `schedules.is_open` takes the MOMENT and nothing else (schedules#1) ────────────────
+
+IS_OPEN_ACCEPTED = [
+    ("nothing at all — «is it open right now»", {}),
+    ("an RFC3339 instant", {"when": "2026-08-18T08:00:00Z"}),
+    ("an instant with an offset", {"when": "2026-08-18T10:00:00+02:00"}),
+    ("the shop's own wall clock", {"when": "2026-08-18T10:00"}),
+]
+
+# The rows and the switch the caller used to send. They are refused AT THE DOOR now: the schedule
+# is read from the hub (`reads`), and «nothing configured» is the module's answer, not a flag the
+# consumer picks — two callers used to get opposite verdicts for the same hub and instant.
+IS_OPEN_REFUSED = [
+    ("forged weekly hours", {"business_hours": [{"day_of_week": 0}]}),
+    ("forged special days", {"special_days": [{"date": "2026-12-25"}]}),
+    ("forged overrides", {"overrides": [{"start_date": "2026-08-01"}]}),
+    ("forged exception intervals", {"exception_intervals": [{"position": 0}]}),
+    ("the `fail_open` switch", {"fail_open": True}),
+    ("a `when` that is not a date-time", {"when": "tomorrow"}),
+]
+
+
+def test_is_open_takes_the_moment_and_nothing_else() -> None:
+    print("\n· schedules.is_open: only `when`, and the rules come from the hub")
+    for label, payload in IS_OPEN_ACCEPTED:
+        check(f"is_open accepts {label}", True, accepts("schedules.is_open", payload))
+    for label, payload in IS_OPEN_REFUSED:
+        check(f"is_open refuses {label}", False, accepts("schedules.is_open", payload))
 
 
 # ── 3. Violations the schema MUST refuse ──────────────────────────────────────────────────
@@ -401,6 +433,7 @@ def test_the_handlers_rules_are_not_faked_by_the_schema() -> None:
 def main() -> int:
     test_every_public_command_declares_a_closed_schema()
     test_the_payloads_the_ui_sends_are_accepted()
+    test_is_open_takes_the_moment_and_nothing_else()
     test_the_violations_are_refused()
     test_the_handlers_rules_are_not_faked_by_the_schema()
     print()

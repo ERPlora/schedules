@@ -4,11 +4,12 @@
 > pieza 5), **3** (validación pre-INSERT: `set_business_hours` / `create_special_day` /
 > `create_override`) y **4** (`bulk_create_special_days`) están **implementadas y compiladas**
 > en `handler/src/lib.rs` → `dist/handler.wasm`. Matices vs. el plan original: las filas de
-> `is_open` viajan en el payload (de las queries `schedules.*.list`); `already_exists` y el
+> `is_open` las pre-carga el runtime (`reads` de `schedules.*.list`, schedules#1) y se evalúan en la
+> zona horaria del negocio (`context.timezone`); `already_exists` y el
 > solape de overrides se validan contra **reads autoritativas** del runtime (ADR-0069:
 > `special_days.by_date` / `special_days.dates` / `overrides.overlapping`, schedules#7/#2 — el
 > índice único queda de backstop) y el resultado solo-lectura va en el campo extra `result` del
-> Output (ignorado por el host hasta que el runtime exponga el canal). Quedan pendientes la pieza
+> Output, que el host ya devuelve al caller (hub#70). Quedan pendientes la pieza
 > **2** (`is_open_at`/`get_slots`) y la **6** (sin trabajo WASM).
 
 El CRUD plano
@@ -40,11 +41,11 @@ decide:
  - aplica `is_open_at(ahora)`: cerrado si `is_closed`; abierto si `open <= ahora < close`
  **y** fuera del descanso (`break_start <= ahora < break_end` ⇒ cerrado).
 4. **Sin configuración** para hoy → `is_open=false`, `reason="No hours configured"`.
- - OJO matiz `is_business_hour` (usado por OTROS módulos vía contrato): cuando **no hay
- BusinessHours** para ese día hace **fail-open** (devuelve abierto, no bloquea). Conservar
- este comportamiento fail-open en la variante "consultada por otro módulo"; la vista de
- dashboard usa fail-closed. Exponer ambos como parámetro (`fail_open: bool`).
-- Devolver `{is_open, reason, today, current_time}`.
+ - ⚠️ **Superado por schedules#1**: el `fail_open: bool` que este plan pedía se RETIRÓ. Dejaba
+ elegir la respuesta a quien preguntaba, así que el mismo hub estaba abierto para un módulo y
+ cerrado para otro en el mismo instante. Hoy hay una sola respuesta —no abierto— con el código
+ estable `no_hours`, que un consumidor distingue de `closed_today` y trata como quiera.
+- Devolver `{is_open, code, reason, source, rule_id, intervals, timezone, today, current_time}`.
 
 ## 2. `is_open_at` / generación de slots
 Origen: `BusinessHours.is_open_at` y `BusinessHours.get_slots`.

@@ -20,14 +20,17 @@ versión instalada y cita la de TU versión, no la de la última publicada. En i
 | ------- | -------- |
 | [`docs/overview.md`](docs/overview.md) | Qué hace y qué NO hace; la precedencia de las tres capas |
 | [`docs/screens.md`](docs/screens.md) | Hours / Special Days / Settings y cómo se pregunta si está abierto |
-| [`docs/concepts.md`](docs/concepts.md) | Día especial (fecha) vs override (rango), `recurring_yearly` casa MM-DD, `fail_open` lo decide QUIEN PREGUNTA, 0 = lunes |
-| [`docs/limits.md`](docs/limits.md) | Los 8 códigos de validación, la limitación del canal de resultado y permisos por acción |
+| [`docs/concepts.md`](docs/concepts.md) | Día especial (fecha) vs override (rango), `recurring_yearly` casa MM-DD, «sin configurar» = `no_hours` (lo decide el MÓDULO), el reloj es el del negocio, 0 = lunes |
+| [`docs/limits.md`](docs/limits.md) | Los 8 códigos de validación, lo que sigue sin existir y permisos por acción |
 
 ## Precedencia del motor
 
 ```
-SpecialDay (fecha exacta > recurring MM-DD)  →  Override (rango)  →  BusinessHours (con descanso)  →  fail_open
+SpecialDay (fecha exacta > recurring MM-DD)  →  Override (rango)  →  BusinessHours (con descanso)  →  no_hours
 ```
+
+Todo se evalúa en la **zona horaria del negocio** (`context.timezone`, del core) y sobre las filas
+que el runtime **pre-carga** (`reads`): el caller solo dice **cuándo**.
 
 ## Qué expone hoy
 
@@ -61,9 +64,10 @@ docs/                         # documentación de usuario + corpus del asistente
 
 ## Estado y trabajo abierto
 
-El estado vive en las **Issues de este repo**, no aquí. Limitaciones documentadas en
-`docs/limits.md`: el runtime **no pre-carga lecturas** (las filas de `is_open` viajan en el payload) y
-**no hay canal de resultado** para un handler de solo lectura, así que el veredicto de `is_open` no
-llega al caller. Pendientes sin command propio: `is_open_at` puntual y generación de slots.
+El estado vive en las **Issues de este repo**, no aquí. `schedules.is_open` es autoritativo de
+punta a punta (schedules#1): el runtime **pre-carga** las cuatro listas (`reads`, ADR-0069), evalúa
+en la **zona horaria del negocio** (`context.timezone`, hub#731/hub#1022) y devuelve el veredicto
+por el canal `result` (hub#70). El caller solo dice **cuándo**. Limitaciones vigentes en
+`docs/limits.md`. Pendientes sin command propio: `is_open_at` puntual y generación de slots.
 
 Doc de arquitectura: `architecture/modules/schedules.md` (cargarlo antes de tocar el módulo).

@@ -98,11 +98,11 @@ Viewing needs `schedules.view_schedule`; saving needs `schedules.manage_settings
 The module exposes an `is_open` engine. Give it the moment (or let it use now) and it answers with a
 verdict **and a reason** — which of the four layers decided.
 
-Two things to know about how it is wired today:
+Two things to know about how it is wired:
 
-- **You must pass it the rows.** The runtime does not pre-load them, so the caller reads the three
-  lists first and sends them in.
-- **Its answer does not currently reach the caller.** The engine computes the verdict, but the host
-  returns only "ok" and how many operations ran; there is no channel yet for a read-only result.
+- **You only pass the moment.** The rules are read from this hub by the runtime, so a caller cannot
+  send a schedule of its own — and everyone gets the same answer for the same instant.
+- **It answers on the shop's clock.** The hub's timezone is applied before the rules are read, DST
+  included, and the verdict names the timezone it used along with the local date and time.
 
 Requires `schedules.view_schedule`.

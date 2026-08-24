@@ -51,7 +51,8 @@ Precedence, highest first:
    month and day.
 2. **Override** whose range covers that date.
 3. **Business hours** for that weekday — any of its intervals (split shifts, overnight, 24 h).
-4. **Nothing configured** — the answer depends on the `fail_open` flag the caller passes.
+4. **Nothing configured** — the business is not declared open, and the answer carries the code
+   `no_hours` so a caller can tell "nobody set the hours yet" from "closed today".
 
 A special day beats everything. That is the point of it.
 

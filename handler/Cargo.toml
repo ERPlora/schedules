@@ -25,6 +25,14 @@ erplora-guest-sdk = { path = "../../../../hub/crates/guest-sdk" }
 extism-pdk = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# EL RELOJ DEL NEGOCIO (schedules#1). `is_open` evalúa las reglas en la zona horaria del hub, que
+# el runtime entrega ya resuelta como nombre IANA en `context.timezone` (hub#731, hub#1022):
+# convertir bien el instante exige las reglas de DST reales, no un desplazamiento fijo. Misma
+# versión de `chrono-tz` que el host (`hub/crates/runtime`), así que guest y host conocen
+# exactamente el mismo juego de zonas. Sin `std` ni `clock`: el guest no tiene reloj propio ni lo
+# necesita — la hora se la da el host.
+chrono = { version = "0.4", default-features = false, features = ["alloc"] }
+chrono-tz = { version = "0.10", default-features = false }
 
 # Sin lto/strip: interfieren con los wrappers de export de extism-pdk.
 [profile.release]
