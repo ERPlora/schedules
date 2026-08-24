@@ -60,5 +60,7 @@ A special day beats everything. That is the point of it.
 
 - **Times are text, `HH:MM`.** Dates are text, `YYYY-MM-DD`.
 - **Days of the week are 0 = Monday … 6 = Sunday.**
-- **Default timezone** is `Europe/Madrid`, the week starts on Monday, and the default slot duration
-  is 30 minutes.
+- **The timezone is the hub's**, not this module's: declared in the hub settings or deduced from the
+  country of the business, and applied — daylight saving included — before any rule is read.
+- **The week starts on Monday** by default; the setting also offers Sunday, and the weekly table
+  follows it.

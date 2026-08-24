@@ -592,50 +592,35 @@ def test_every_read_and_write_is_scoped_by_hub(db: ScratchDb) -> None:
 
 def test_settings_is_a_singleton_per_hub(db: ScratchDb) -> None:
     print("\n· settings: upsert, one row per hub")
-    db.run_command(
-        "schedules.settings.save",
-        {
-            "timezone": "Europe/Madrid",
-            "week_starts_on": 1,
-            "slot_duration": 30,
-            "auto_close_enabled": 0,
-        },
-    )
-    db.run_command(
-        "schedules.settings.save",
-        {
-            "timezone": "Atlantic/Canary",
-            "week_starts_on": 7,
-            "slot_duration": 15,
-            "auto_close_enabled": 1,
-        },
-    )
+    db.run_command("schedules.settings.save", {"week_starts_on": 1})
+    db.run_command("schedules.settings.save", {"week_starts_on": 7})
     rows = db.run_query("schedules.settings.get")
     check("still ONE row after two saves", 1, len(rows))
+    check("and it holds the last value", 7, rows[0]["week_starts_on"])
+
+    # schedules#9: the business timezone is the CORE's (hub#731/hub#1022). This command must not
+    # write it — a second stored zone competing with the one the engine actually reads is the bug
+    # the issue closed. The column stays (dropping it is destructive) with whatever it had.
+    seeded = "Atlantic/Canary"
+    db.psql(
+        [
+            "-c",
+            f"UPDATE schedules_settings SET timezone = '{seeded}' WHERE hub_id = '{HUB}'",
+        ],
+        db=db.name,
+    )
+    db.run_command("schedules.settings.save", {"week_starts_on": 1})
     check(
-        "and it holds the last values",
-        ("Atlantic/Canary", 7, 15, 1),
-        (
-            rows[0]["timezone"],
-            rows[0]["week_starts_on"],
-            rows[0]["slot_duration"],
-            rows[0]["auto_close_enabled"],
-        ),
+        "saving the settings leaves the timezone alone",
+        seeded,
+        db.run_query("schedules.settings.get")[0]["timezone"],
     )
-    db.run_command(
-        "schedules.settings.save",
-        {
-            "timezone": "Europe/Lisbon",
-            "week_starts_on": 1,
-            "slot_duration": 60,
-            "auto_close_enabled": 0,
-        },
-        hub=OTHER_HUB,
-    )
+
+    db.run_command("schedules.settings.save", {"week_starts_on": 7}, hub=OTHER_HUB)
     check(
         "the neighbour has its own singleton",
-        "Atlantic/Canary",
-        db.run_query("schedules.settings.get")[0]["timezone"],
+        1,
+        db.run_query("schedules.settings.get")[0]["week_starts_on"],
     )
 
 

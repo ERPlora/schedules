@@ -5,7 +5,8 @@
 - **Point-in-time checks and slot generation are not implemented.** There is no command to ask
   "generate the list of open slots"; `is_open` does answer any single moment (`when`).
 - **No holiday calendar is seeded.** Every special day is entered by you.
-- **Nothing acts on the auto-close setting.** It is stored, not enforced.
+- **There is no slot generation and no auto-close.** Both settings were removed in schedules#9:
+  they were stored and never read. The length of an appointment belongs to the service.
 - **An overnight interval of an exception stops at midnight.** `22:00–02:00` on a special day is
   honoured on that date until 24:00; the small hours of the following day are answered by the
   following day's rules. The weekly hours DO reach into the next morning.
@@ -100,5 +101,9 @@ and an end.
 **"The bulk import said it created fewer than I sent."** Invalid items and duplicate dates are
 skipped, and the failures come back listed. Read the errors.
 
-**"Nothing closed automatically at closing time."** The auto-close setting is stored but nothing acts
-on it.
+**"Nothing closed automatically at closing time."** There is no auto-close. The setting that
+promised it was removed in schedules#9 because nothing ever acted on it.
+
+**"I cannot find the timezone field any more."** It was never this module's: the schedule is read
+with the **hub's** clock (its Settings, or the country of the business). The Settings tab shows the
+one in force and links to where it is changed.

@@ -250,7 +250,7 @@
       "permission": "schedules.view_schedule",
       "sql": "queries/settings_get.sql",
       "ai": {
-        "description": "Retrieves the general settings of the schedules module"
+        "description": "Retrieves the settings of the schedules module (week_starts_on). The row still carries legacy columns — timezone, slot_duration, auto_close_enabled — that nothing reads: the business timezone is the hub's"
       }
     }
   },
@@ -349,7 +349,7 @@
         "schedules.settings.saved"
       ],
       "ai": {
-        "description": "Saves the general settings of the schedules module"
+        "description": "Saves the settings of the schedules module. Only week_starts_on (1 = Monday, 7 = Sunday), which orders the weekly table: the business timezone belongs to the hub (it is read from the core, never stored here) and the former slot_duration / auto_close_enabled were removed because nothing consumed them"
       }
     },
     "schedules.bulk_create_special_days": {
