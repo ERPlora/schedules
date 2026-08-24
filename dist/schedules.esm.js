@@ -3479,6 +3479,10 @@ var es_default = {
     fieldBreakStart: "Descanso desde",
     fieldBreakEnd: "Descanso hasta",
     fieldWeekStart: "Semana empieza",
+    timezoneEffective: "Zona horaria del negocio",
+    timezoneFromHub: "Se toma del hub: se declara en Ajustes o se deduce del pa\xEDs del negocio. Es el \xFAnico reloj con el que se lee el horario: aqu\xED se muestra y all\xED se cambia.",
+    timezoneUnknown: "Este hub todav\xEDa no la publica",
+    timezoneGoSettings: "Abrir ajustes del hub",
     saving: "Guardando\u2026",
     saveDay: "Guardar d\xEDa",
     addDay: "A\xF1adir d\xEDa",
@@ -3487,12 +3491,9 @@ var es_default = {
     placeholderName: "Nombre (p.ej. Navidad)",
     placeholderStatus: "Estado\u2026",
     placeholderReason: "Motivo",
-    placeholderTimezone: "Zona horaria",
     placeholderWeekStart: "Semana empieza\u2026",
-    placeholderSlotDuration: "Duraci\xF3n slot (min)",
     searchSpecialDay: "Buscar d\xEDa especial\u2026",
     searchOverride: "Buscar cambio temporal\u2026",
-    autoClose: "Cierre autom\xE1tico",
     loading: "Cargando\u2026",
     emptyHours: "Sin horario configurado.",
     emptySpecialDays: "Sin d\xEDas especiales.",
@@ -3581,6 +3582,10 @@ var en_default = {
     fieldBreakStart: "Break from",
     fieldBreakEnd: "Break to",
     fieldWeekStart: "Week starts",
+    timezoneEffective: "Business timezone",
+    timezoneFromHub: "Taken from the hub: it is declared in Settings, or deduced from the country of the business. It is the single clock the schedule is read with, so it is shown here and changed there.",
+    timezoneUnknown: "Not published by this hub yet",
+    timezoneGoSettings: "Open hub settings",
     saving: "Saving\u2026",
     saveDay: "Save day",
     addDay: "Add day",
@@ -3589,12 +3594,9 @@ var en_default = {
     placeholderName: "Name (e.g. Christmas)",
     placeholderStatus: "Status\u2026",
     placeholderReason: "Reason",
-    placeholderTimezone: "Timezone",
     placeholderWeekStart: "Week starts\u2026",
-    placeholderSlotDuration: "Slot duration (min)",
     searchSpecialDay: "Search special day\u2026",
     searchOverride: "Search override\u2026",
-    autoClose: "Auto close",
     loading: "Loading\u2026",
     emptyHours: "No schedule configured.",
     emptySpecialDays: "No special days.",
@@ -3637,8 +3639,8 @@ var en_default = {
 var CATALOG = { es: es_default, en: en_default };
 var DAY_KEYS = ["ui.monday", "ui.tuesday", "ui.wednesday", "ui.thursday", "ui.friday", "ui.saturday", "ui.sunday"];
 var ALL_DAY = { open_time: "00:00", close_time: "00:00" };
-function foldWeek(rows) {
-  return DAY_KEYS.map((_2, day) => {
+function foldWeek(rows, weekStartsOn = 1) {
+  const folded = DAY_KEYS.map((_2, day) => {
     const mine = rows.filter((r6) => Number(r6.day_of_week) === day).sort((a3, b3) => Number(a3.position ?? 0) - Number(b3.position ?? 0) || String(a3.open_time).localeCompare(String(b3.open_time)));
     const closed = mine.some((r6) => Number(r6.is_closed) === 1);
     const intervals = closed ? [] : mine.flatMap(
@@ -3646,6 +3648,7 @@ function foldWeek(rows) {
     );
     return { day_of_week: day, is_closed: closed ? 1 : 0, configured: mine.length ? 1 : 0, intervals };
   });
+  return Number(weekStartsOn) === 7 ? [folded[6], ...folded.slice(0, 6)] : folded;
 }
 function intervalsOf(rows, kind, id) {
   return rows.filter((r6) => r6.exception_kind === kind && String(r6.exception_id) === String(id)).sort((a3, b3) => Number(a3.position ?? 0) - Number(b3.position ?? 0)).map((r6) => ({ open_time: r6.open_time, close_time: r6.close_time }));
@@ -3685,12 +3688,7 @@ var ErpSchedulesHours = class extends i3 {
     super(...arguments);
     this.tab = "hours";
     this.pendingDelete = null;
-    this.settings = {
-      timezone: "Europe/Madrid",
-      week_starts_on: 1,
-      slot_duration: 30,
-      auto_close_enabled: 0
-    };
+    this.settings = { week_starts_on: 1 };
     this.formError = "";
     this.saving = false;
     this.sdDate = "";
@@ -3728,6 +3726,10 @@ var ErpSchedulesHours = class extends i3 {
     .interval ion-input { flex:1 1 6rem; min-width:5rem; }
     .interval ion-button { align-self:center; min-width:44px; min-height:44px; }
     .hint { color:#6b675e; font-size:.85rem; margin:0; }
+    /* schedules#9: the business zone, shown here and changed in the hub's own Settings. */
+    .settings-core { display:flex; flex-direction:column; gap:.5rem; align-items:flex-start; margin-bottom:1rem; }
+    .settings-core .kv { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; }
+    .settings-core .k { font-weight:600; }
     .settings { flex-direction:row; flex-wrap:wrap; align-items:end; }
     .settings ion-input, .settings ion-select { flex:1 1 11rem; min-width:9rem; }
     h3 { margin:.5rem 0 0; font-size:1rem; }
@@ -3754,7 +3756,7 @@ var ErpSchedulesHours = class extends i3 {
     ];
   }
   get weekRows() {
-    return foldWeek(this.hoursRows);
+    return foldWeek(this.hoursRows, this.settings.week_starts_on);
   }
   formatIntervals(r6) {
     const t5 = (k2) => erplora().t(CATALOG, k2);
@@ -3967,7 +3969,8 @@ var ErpSchedulesHours = class extends i3 {
       const answer = await erplora().query("schedules.settings.get");
       const row = Array.isArray(answer) ? answer[0] : answer;
       if (row && typeof row === "object") {
-        this.settings = { ...this.settings, ...row };
+        const stored = Number(row.week_starts_on);
+        this.settings = { week_starts_on: stored === 7 ? 7 : 1 };
       }
     } catch {
     }
@@ -4094,10 +4097,7 @@ var ErpSchedulesHours = class extends i3 {
     this.formError = "";
     try {
       await erplora().command("schedules.settings.save", {
-        timezone: this.settings.timezone,
-        week_starts_on: Number(this.settings.week_starts_on),
-        slot_duration: Number(this.settings.slot_duration),
-        auto_close_enabled: !!this.settings.auto_close_enabled
+        week_starts_on: Number(this.settings.week_starts_on)
       });
       await this.loadSettings();
     } catch (e5) {
@@ -4240,21 +4240,29 @@ var ErpSchedulesHours = class extends i3 {
         </ok-data-table>
       </div>`;
   }
+  /** The hub's Settings, on the tab where the business zone is really decided (its country). */
+  goToHubSettings() {
+    window.history.pushState({}, "", "/settings#hub");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
   // Los ajustes NO son el alta de una fila (son configuración del módulo): su formulario se queda
   // FUERA de cualquier tabla, a propósito.
   renderSettings() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
-    return b2`<form class="form settings" @submit=${(e5) => this.saveSettings(e5)}>
-        <ion-input fill="outline" label-placement="floating" label=${t5("ui.placeholderTimezone")} .value=${this.settings.timezone} @ionInput=${(e5) => this.settings = { ...this.settings, timezone: e5.target.value }}></ion-input>
+    const zone = (erplora().timezone ?? "").trim();
+    return b2`<div class="settings-core">
+        <div class="kv"><span class="k">${t5("ui.timezoneEffective")}</span><code>${zone || t5("ui.timezoneUnknown")}</code></div>
+        <p class="hint">${t5("ui.timezoneFromHub")}</p>
+        <ion-button data-testid="tz-go-settings" size="small" fill="outline" @click=${() => this.goToHubSettings()}>
+          <ion-icon slot="start" name="open-outline"></ion-icon>
+          ${t5("ui.timezoneGoSettings")}
+        </ion-button>
+      </div>
+      <form class="form settings" @submit=${(e5) => this.saveSettings(e5)}>
         <ion-select fill="outline" label-placement="floating" label=${t5("ui.fieldWeekStart")} .value=${this.settings.week_starts_on} @ionChange=${(e5) => this.settings = { ...this.settings, week_starts_on: Number(e5.target.value) }}>
           <ion-select-option .value=${1}>${t5("ui.monday")}</ion-select-option>
           <ion-select-option .value=${7}>${t5("ui.sunday")}</ion-select-option>
         </ion-select>
-        <ion-input fill="outline" label-placement="floating" type="number" min="5" max="120" label=${t5("ui.placeholderSlotDuration")} .value=${this.settings.slot_duration} @ionInput=${(e5) => this.settings = { ...this.settings, slot_duration: Number(e5.target.value) }}></ion-input>
-        <label class="chk">
-          <ion-checkbox ?checked=${!!this.settings.auto_close_enabled} @ionChange=${(e5) => this.settings = { ...this.settings, auto_close_enabled: e5.target.checked ? 1 : 0 }}></ion-checkbox>
-          ${t5("ui.autoClose")}
-        </label>
         <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t5("ui.saving") : t5("ui.save")}</ion-button>
       </form>`;
   }

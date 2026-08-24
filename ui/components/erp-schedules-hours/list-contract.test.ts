@@ -157,14 +157,16 @@ describe('sorting, filtering and searching travel to the SERVER', () => {
 // The SINGLETON shape, which the rest of this file could not check: `schedules.settings.get` is a
 // plain SQL query, so the runtime answers a ROW ARRAY — `[row]` — never the bare object. The screen
 // used to assign that array straight into `this.settings`, so every control on the settings tab
-// (week start, slot duration, auto-close) rendered EMPTY while the server had the values: the bug
-// of schedules#9. The tests mocked a bare object, which is exactly why nothing caught it.
+// rendered EMPTY while the server had the values: the bug of schedules#9. The tests mocked a bare
+// object, which is exactly why nothing caught it.
 //
-// Retiring `timezone` from this screen is the OTHER half of schedules#9 and stays blocked on
-// hub#1022 (the core owns the business zone since hub#731 and has no door to it yet), so it is not
-// asserted here — this is only about reading the answer the runtime really sends.
+// The row still carries columns this screen no longer owns (`timezone`, which belongs to the core
+// since hub#731/hub#1022, and the two nobody reads), so what it does now is NORMALISE the answer
+// instead of spreading it — pinned in `settings-effective.test.ts`. Here: whatever the runtime
+// sends, the week start the form paints is a usable one.
 describe('settings.get answers [row]: the screen unwraps it safely — schedules#9', () => {
-  const STORED = { timezone: 'Europe/Madrid', week_starts_on: 6, slot_duration: 45, auto_close_enabled: 1 };
+  // A REAL row of `schedules_settings`, retired columns included: they must be ignored, not copied.
+  const STORED = { id: 's1', timezone: 'Europe/Madrid', week_starts_on: 7, slot_duration: 45, auto_close_enabled: 1 };
 
   const mountWithSettings = async (answer: unknown) => {
     (globalThis as Record<string, unknown>).erplora = {
@@ -179,32 +181,36 @@ describe('settings.get answers [row]: the screen unwraps it safely — schedules
 
   it('a one-row array is unwrapped into the object the form reads', async () => {
     const el = await mountWithSettings([STORED]);
-    expect(settingsOf(el), 'the row inside the array is what the form must show').toMatchObject(STORED);
+    expect(settingsOf(el).week_starts_on, 'the row INSIDE the array is what the form must show').toBe(7);
   });
 
   it('a bare object still works — the shape is not asserted, it is normalised', async () => {
     const el = await mountWithSettings(STORED);
-    expect(settingsOf(el)).toMatchObject(STORED);
+    expect(settingsOf(el).week_starts_on).toBe(7);
+  });
+
+  it('the columns the screen no longer owns are not copied into the form', async () => {
+    const el = await mountWithSettings([STORED]);
+    const s = settingsOf(el);
+    expect(Object.keys(s), 'a stored timezone must not become a second authority').toEqual(['week_starts_on']);
   });
 
   it('an empty answer leaves the defaults, it does not blank the form', async () => {
     const el = await mountWithSettings([]);
-    const s = settingsOf(el);
-    expect(s.slot_duration, 'no stored row is not a reason to show an empty control').toBe(30);
-    expect(s.week_starts_on).toBe(1);
+    expect(settingsOf(el).week_starts_on, 'no stored row is not a reason to show an empty control').toBe(1);
   });
 
   it('a corrupt answer is ignored instead of poisoning the form', async () => {
-    for (const answer of [null, 'nope', [null], [42]]) {
+    for (const answer of [null, 'nope', [null], [42], [{ week_starts_on: 'martes' }]]) {
       const el = await mountWithSettings(answer);
-      expect(settingsOf(el).slot_duration, `answer ${JSON.stringify(answer)}`).toBe(30);
+      expect(settingsOf(el).week_starts_on, `answer ${JSON.stringify(answer)}`).toBe(1);
     }
   });
 
-  it('the settings tab renders its controls with the stored values, not empty ones', async () => {
+  it('the settings tab renders its control with the stored value, not an empty one', async () => {
     const el = await mountWithSettings([STORED]);
-    const input = el.shadowRoot.querySelector('ion-input[type="number"]') as HTMLElement & { value: unknown };
-    expect(input, 'the settings tab must be the one rendered').toBeTruthy();
-    expect(input.value, 'the control shows what the server stored').toBe(45);
+    const select = el.shadowRoot.querySelector('form.settings ion-select') as HTMLElement & { value: unknown };
+    expect(select, 'the settings tab must be the one rendered').toBeTruthy();
+    expect(select.value, 'the control shows what the server stored').toBe(7);
   });
 });

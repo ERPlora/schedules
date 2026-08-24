@@ -4,9 +4,12 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "timezone": { "type": "string", "maxLength": 50, "default": "Europe/Madrid" },
-    "week_starts_on": { "type": "integer", "minimum": 1, "maximum": 7, "default": 1 },
-    "slot_duration": { "type": "integer", "minimum": 5, "maximum": 120, "default": 30 },
-    "auto_close_enabled": { "type": "boolean", "default": false }
-  }
+    "week_starts_on": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 7,
+      "default": 1
+    }
+  },
+  "description": "The only setting this module owns and something obeys (schedules#9): the business timezone belongs to the core, and slot duration / auto-close were stored but read by nobody."
 }

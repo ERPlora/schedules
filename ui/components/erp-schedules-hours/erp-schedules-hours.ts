@@ -21,6 +21,9 @@ interface ErploraClientLike extends ListClient {
   on(event: string, cb: (payload: unknown) => void): () => void;
   /** i18n del módulo (ADR-0055): idioma activo + traducción del catálogo `ui`. */
   locale: string;
+  /** La zona IANA del NEGOCIO, ya resuelta por el core (hub#731/hub#1022). Opcional a propósito:
+   *  un shell anterior a hub#1022 no la publica, y la pantalla lo dice en vez de inventarla. */
+  timezone?: string;
   t(catalog: Record<string, unknown>, key: string, params?: Record<string, unknown>): string;
 }
 
@@ -57,9 +60,13 @@ interface WeekRow extends Record<string, unknown> {
 
 const ALL_DAY: Interval = { open_time: '00:00', close_time: '00:00' };
 
-/** Folds the interval rows into the seven weekday rows the table paints (schedules#8). */
-export function foldWeek(rows: BusinessHours[]): WeekRow[] {
-  return DAY_KEYS.map((_, day) => {
+/** Folds the interval rows into the seven weekday rows the table paints (schedules#8).
+ *
+ *  `weekStartsOn` (schedules#9) rotates them so the table opens on the day the hub chose —
+ *  1 = Monday (the ISO default), 7 = Sunday. The seven days are always all there; only the
+ *  order changes, exactly as Google Business Profile and Square present them. */
+export function foldWeek(rows: BusinessHours[], weekStartsOn = 1): WeekRow[] {
+  const folded = DAY_KEYS.map((_, day) => {
     const mine = rows
       .filter((r) => Number(r.day_of_week) === day)
       .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0) || String(a.open_time).localeCompare(String(b.open_time)));
@@ -73,6 +80,8 @@ export function foldWeek(rows: BusinessHours[]): WeekRow[] {
         );
     return { day_of_week: day, is_closed: closed ? 1 : 0, configured: mine.length ? 1 : 0, intervals };
   });
+  // 7 = Sunday is the only other start the settings offer; anything else keeps Monday first.
+  return Number(weekStartsOn) === 7 ? [folded[6], ...folded.slice(0, 6)] : folded;
 }
 
 interface SpecialDay {
@@ -189,6 +198,10 @@ export class ErpSchedulesHours extends LitElement {
     .interval ion-input { flex:1 1 6rem; min-width:5rem; }
     .interval ion-button { align-self:center; min-width:44px; min-height:44px; }
     .hint { color:#6b675e; font-size:.85rem; margin:0; }
+    /* schedules#9: the business zone, shown here and changed in the hub's own Settings. */
+    .settings-core { display:flex; flex-direction:column; gap:.5rem; align-items:flex-start; margin-bottom:1rem; }
+    .settings-core .kv { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; }
+    .settings-core .k { font-weight:600; }
     .settings { flex-direction:row; flex-wrap:wrap; align-items:end; }
     .settings ion-input, .settings ion-select { flex:1 1 11rem; min-width:9rem; }
     h3 { margin:.5rem 0 0; font-size:1rem; }
@@ -201,12 +214,10 @@ export class ErpSchedulesHours extends LitElement {
   // Pending destructive action (special day / override): confirmed through an ion-alert first.
   @state() private pendingDelete: { kind: 'special_day' | 'override'; id: string; label: string } | null = null;
 
-  @state() settings: { timezone: string; week_starts_on: number; slot_duration: number; auto_close_enabled: number } = {
-    timezone: 'Europe/Madrid',
-    week_starts_on: 1,
-    slot_duration: 30,
-    auto_close_enabled: 0,
-  };
+  // schedules#9: the only setting this module owns AND something obeys. The business timezone is
+  // the core's (shown read-only below), and `slot_duration` / `auto_close_enabled` were saved and
+  // painted while NOTHING read them — a control with no effect is indistinguishable from a bug.
+  @state() settings: { week_starts_on: number } = { week_starts_on: 1 };
 
   @state() formError = '';
 
@@ -278,7 +289,7 @@ export class ErpSchedulesHours extends LitElement {
   }
 
   get weekRows(): WeekRow[] {
-    return foldWeek(this.hoursRows);
+    return foldWeek(this.hoursRows, this.settings.week_starts_on);
   }
 
   private formatIntervals(r: Record<string, unknown>): string {
@@ -518,10 +529,15 @@ export class ErpSchedulesHours extends LitElement {
    *  fields keeps the defaults instead of blanking the form. */
   private async loadSettings() {
     try {
+      // `schedules.settings.get` is plain SQL, so the runtime answers a ROW ARRAY (`[row]`) —
+      // assigning that straight in left every control empty (PR #26). And the row still carries
+      // columns this screen no longer owns, so it is NORMALISED, not spread: only a week start
+      // the form can actually show survives.
       const answer = await erplora().query<unknown>('schedules.settings.get');
       const row = Array.isArray(answer) ? answer[0] : answer;
       if (row && typeof row === 'object') {
-        this.settings = { ...this.settings, ...(row as Partial<typeof this.settings>) };
+        const stored = Number((row as { week_starts_on?: unknown }).week_starts_on);
+        this.settings = { week_starts_on: stored === 7 ? 7 : 1 };
       }
     } catch {
       /* optional settings: a missing row is not an error, the defaults stand */
@@ -658,10 +674,7 @@ export class ErpSchedulesHours extends LitElement {
     this.formError = '';
     try {
       await erplora().command('schedules.settings.save', {
-        timezone: this.settings.timezone,
         week_starts_on: Number(this.settings.week_starts_on),
-        slot_duration: Number(this.settings.slot_duration),
-        auto_close_enabled: !!this.settings.auto_close_enabled,
       });
       await this.loadSettings();
     } catch (e) {
@@ -825,21 +838,34 @@ export class ErpSchedulesHours extends LitElement {
       </div>`;
   }
 
+  /** The hub's Settings, on the tab where the business zone is really decided (its country). */
+  private goToHubSettings(): void {
+    window.history.pushState({}, '', '/settings#hub');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }
+
   // Los ajustes NO son el alta de una fila (son configuración del módulo): su formulario se queda
   // FUERA de cualquier tabla, a propósito.
   private renderSettings() {
     const t = (k: string): string => erplora().t(CATALOG, k);
-    return html`<form class="form settings" @submit=${(e: Event) => this.saveSettings(e)}>
-        <ion-input fill="outline" label-placement="floating" label=${t('ui.placeholderTimezone')} .value=${this.settings.timezone} @ionInput=${(e: any) => (this.settings = { ...this.settings, timezone: e.target.value })}></ion-input>
+    // THE BUSINESS TIMEZONE IS THE CORE'S (schedules#9). It is declared in the hub settings or
+    // deduced from the country, and the runtime hands the SAME resolved name to this screen
+    // (`erplora.timezone`) and to the engine (`context.timezone`). Shown here, changed there:
+    // a second field to type it in was an authority nothing obeyed.
+    const zone = (erplora().timezone ?? '').trim();
+    return html`<div class="settings-core">
+        <div class="kv"><span class="k">${t('ui.timezoneEffective')}</span><code>${zone || t('ui.timezoneUnknown')}</code></div>
+        <p class="hint">${t('ui.timezoneFromHub')}</p>
+        <ion-button data-testid="tz-go-settings" size="small" fill="outline" @click=${() => this.goToHubSettings()}>
+          <ion-icon slot="start" name="open-outline"></ion-icon>
+          ${t('ui.timezoneGoSettings')}
+        </ion-button>
+      </div>
+      <form class="form settings" @submit=${(e: Event) => this.saveSettings(e)}>
         <ion-select fill="outline" label-placement="floating" label=${t('ui.fieldWeekStart')} .value=${this.settings.week_starts_on} @ionChange=${(e: any) => (this.settings = { ...this.settings, week_starts_on: Number(e.target.value) })}>
           <ion-select-option .value=${1}>${t('ui.monday')}</ion-select-option>
           <ion-select-option .value=${7}>${t('ui.sunday')}</ion-select-option>
         </ion-select>
-        <ion-input fill="outline" label-placement="floating" type="number" min="5" max="120" label=${t('ui.placeholderSlotDuration')} .value=${this.settings.slot_duration} @ionInput=${(e: any) => (this.settings = { ...this.settings, slot_duration: Number(e.target.value) })}></ion-input>
-        <label class="chk">
-          <ion-checkbox ?checked=${!!this.settings.auto_close_enabled} @ionChange=${(e: any) => (this.settings = { ...this.settings, auto_close_enabled: e.target.checked ? 1 : 0 })}></ion-checkbox>
-          ${t('ui.autoClose')}
-        </label>
         <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.save')}</ion-button>
       </form>`;
   }

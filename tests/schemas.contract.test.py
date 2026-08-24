@@ -177,14 +177,11 @@ UI_PAYLOADS = {
             ],
         },
     ],
-    # `saveSettings`, and the two destructive row actions.
+    # `saveSettings` (schedules#9: the only setting this module owns), and the two destructive
+    # row actions.
     "schedules.settings.save": [
-        {
-            "timezone": "Europe/Madrid",
-            "week_starts_on": 1,
-            "slot_duration": 30,
-            "auto_close_enabled": False,
-        },
+        {"week_starts_on": 1},
+        {"week_starts_on": 7},
     ],
     "schedules.special_days.delete": [{"special_day_id": "sd1"}],
     "schedules.overrides.delete": [{"override_id": "ov1"}],
@@ -337,10 +334,23 @@ REFUSED = [
         "an unknown key",
         {"day_of_week": 0, "intervals": [], "note": "x"},
     ),
+    # schedules#9: the business timezone belongs to the core (hub#731/hub#1022) and the two inert
+    # settings are gone. The schema is closed, so sending any of them is refused at the door — a
+    # second stored zone competing with the one the engine reads cannot come back through a caller.
     (
         "schedules.settings.save",
-        "a slot duration below the floor",
-        {"slot_duration": 1},
+        "a timezone of its own (the core owns it)",
+        {"week_starts_on": 1, "timezone": "Europe/Madrid"},
+    ),
+    (
+        "schedules.settings.save",
+        "a slot duration nobody reads",
+        {"week_starts_on": 1, "slot_duration": 30},
+    ),
+    (
+        "schedules.settings.save",
+        "the auto-close flag nothing enforces",
+        {"week_starts_on": 1, "auto_close_enabled": True},
     ),
     ("schedules.settings.save", "a week starting on day 8", {"week_starts_on": 8}),
     ("schedules.bulk_create_special_days", "an empty batch", {"special_days": []}),

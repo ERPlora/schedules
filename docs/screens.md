@@ -86,10 +86,16 @@ The per-hub configuration, read with `schedules.settings.get` and saved with
 
 | Setting | Meaning | Default |
 |---|---|---|
-| Timezone | The timezone the hours are expressed in | `Europe/Madrid` |
-| Week starts on | Which day the week begins | Monday |
-| Slot duration | Minutes per slot | 30 |
-| Auto close | Whether closing is automated | off |
+| Week starts on | Which day the weekly table begins with — Monday or Sunday | Monday |
+
+Above it, **read-only**, the screen shows the **business timezone**: the clock the whole schedule is
+read with. It belongs to the hub — declared in its Settings or deduced from the country of the
+business — so it is shown here and changed there, with a button that takes you to it. There is no
+timezone of "the module": a second one would be a value nothing obeys.
+
+Two settings were **removed** in schedules#9 because nothing read them: *slot duration* (the length
+of an appointment belongs to the service, and Reservations has its own) and *auto close* (nothing
+ever closed anything). A control with no effect is worse than a missing one.
 
 Viewing needs `schedules.view_schedule`; saving needs `schedules.manage_settings`.
 
