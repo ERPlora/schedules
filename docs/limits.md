@@ -2,12 +2,8 @@
 
 ## Known limitations you should know about
 
-- **The `is_open` verdict does not reach the caller.** The engine computes it, but the host returns
-  only success and an operation count; there is no result channel for a read-only handler yet.
-- **The engine does not read the database.** The caller must pass in the special days, overrides and
-  business hours.
-- **Point-in-time checks and slot generation are not implemented.** There is no command to ask "will
-  we be open at 18:30 next Thursday" or to generate a list of open slots.
+- **Point-in-time checks and slot generation are not implemented.** There is no command to ask
+  "generate the list of open slots"; `is_open` does answer any single moment (`when`).
 - **No holiday calendar is seeded.** Every special day is entered by you.
 - **Nothing acts on the auto-close setting.** It is stored, not enforced.
 - **An overnight interval of an exception stops at midnight.** `22:00–02:00` on a special day is

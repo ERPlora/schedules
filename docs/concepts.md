@@ -12,7 +12,8 @@ The things people get wrong on their first day.
 3. **Business hours** for that weekday — open if the moment falls in **any** of its intervals
    (a split shift is two intervals; `22:00–02:00` runs past midnight into the next day;
    `00:00–00:00` is open 24 hours).
-4. **Nothing configured** — the answer falls back to the `fail_open` flag.
+4. **Nothing configured** — not open, with the code `no_hours` so the caller can tell it apart
+   from a day that is deliberately closed.
 
 The verdict says **which rule won**: `source` (`special_day` / `override` / `business_hours` /
 `none`) and `rule_id`. Precedence, spelled out: **exact-date special day > yearly recurring special
@@ -26,8 +27,8 @@ nine".
 
 A bar that opens `10–14` and `17–20` has **two intervals** on that day, not "one day with a break".
 Each interval is a row; saving a day replaces all its rows. Intervals must not overlap. A closed
-day is a single closed row; a day with no rows is *not set* (the engine treats it as unknown, and
-`fail_open` decides).
+day is a single closed row; a day with no rows is *not set* — the engine answers `no_hours`, which
+is «nobody configured this», not «closed today».
 
 ## An exception has 0..N intervals too
 
@@ -67,26 +68,27 @@ must not be marked recurring, or it will come back forever.
 Creating a special day without times means **closed**. If you want different hours instead of a
 closure, you must give both the opening and the closing time — a half-specified day is rejected.
 
-## `fail_open` is the caller's decision, not a setting
+## "Nothing configured" has one answer, and it is the module's
 
-When nothing is configured for a day, the engine does not guess. The caller says what "no
-information" means:
+The caller used to choose it (a `fail_open` flag), so the same hub at the same instant could be
+open for one screen and closed for another. It does not any more: with no rule for that day the
+business is **not** declared open, and the verdict carries the code `no_hours` — «nobody has set
+the hours yet», which is not the same as «closed today» (`closed_today`). A booking screen can act
+on that by offering to set the hours, instead of showing a shut door.
 
-- **fail open** — assume open. Used by other modules asking about availability, so a missing
-  configuration never blocks a booking.
-- **fail closed** — assume closed. Used by dashboards, so an unconfigured hub does not claim to be
-  open.
+## The engine reads the hub's own rules, and the shop's own clock
 
-The same data therefore gives two different answers depending on who asks, and that is intentional.
+The caller says **when**, and nothing else. The weekly hours, the special days, the overrides and
+their intervals are pre-loaded by the runtime from this hub (`reads`), so no caller can invent a
+schedule it does not have — and two callers cannot get different answers for the same instant.
 
-## The engine needs its data handed to it
+And the moment is read on **the business's clock**: the hub's timezone (Hub settings, deduced from
+the country when nobody set it) reaches the engine already resolved, and the conversion honours
+daylight saving. At 23:30 UTC a shop in Madrid is already answering with **tomorrow's** hours. The
+verdict says which timezone it used.
 
-The `is_open` engine is a pure calculation: it does **not** read the database. The caller reads the
-three lists and passes the rows in.
-
-And today **its verdict does not come back to the caller**: the host returns only whether the call
-succeeded and how many writes happened, and there is no channel yet for a read-only result. The
-engine works; plumbing it back out is pending.
+`when` follows one rule: with an offset (`2026-08-18T08:00:00Z`, `…+02:00`) it is an instant and
+gets converted; without one (`2026-08-18T10:00`) it already is the shop's own wall clock.
 
 ## Duplicate detection is checked against what you send
 
@@ -104,7 +106,9 @@ and **one settings row per hub**.
 ## Times and dates are plain text
 
 Times are `HH:MM` and dates are `YYYY-MM-DD`, stored as text. There is no timezone attached to an
-individual row — the hub's timezone in the settings is the context for all of them.
+individual row: they are all read in **the timezone of the hub**, which belongs to the core (Hub
+settings) and reaches the engine already resolved. "We open at 09:00" means 09:00 in the shop,
+whatever the clock of the server or of the device asking.
 
 ## Weekdays start at Monday
 

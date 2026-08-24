@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "schedules.is_open",
+  "description": "The moment to ask about, and nothing else (schedules#1): the schedule itself is read from the hub by the runtime (`reads`), never sent by the caller.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "when": {
+      "type": "string",
+      "description": "Optional. With an offset (`2026-08-18T08:00:00Z`, `…+02:00`) it is an INSTANT and gets converted to the business timezone; without one (`2026-08-18T10:00`) it already is the shop's own wall clock. Absent = right now.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?(Z|[+-]\\d{2}:\\d{2})?$"
+    }
+  }
+}

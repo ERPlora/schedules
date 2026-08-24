@@ -456,6 +456,14 @@ const SPECIAL_DAY_DATES_READ: &str = "schedules.special_days.dates";
 /// Live overrides whose range intersects `[payload.start_date, payload.end_date]` (schedules#2).
 const OVERRIDES_OVERLAPPING_READ: &str = "schedules.overrides.overlapping";
 
+/// The hub's own weekly hours, special days, overrides and exception intervals, pre-loaded by the
+/// runtime for `schedules.is_open` (schedules#1). Before this the caller passed them in the
+/// payload, so two consumers could get different answers for the same hub and instant.
+const BUSINESS_HOURS_READ: &str = "schedules.business_hours.list";
+const SPECIAL_DAYS_READ: &str = "schedules.special_days.list";
+const OVERRIDES_READ: &str = "schedules.overrides.list";
+const EXCEPTION_INTERVALS_READ: &str = "schedules.exception_intervals.list";
+
 /// Rows of a pre-loaded read, if the runtime delivered it (present even when empty).
 fn read_rows<'a>(input: &'a Value, name: &str) -> Option<&'a Vec<Value>> {
     input
@@ -945,6 +953,61 @@ pub fn bulk_create_special_days_pure(input: Value) -> Result<Output, String> {
 
 // ── schedules.is_open (fn is_open, solo-lectura) ───────────────────────────
 
+/// Rows the engine evaluates: the runtime's pre-loaded read when it is there — authoritative,
+/// the hub's own rows — and the payload only while a hub still runs a manifest without `reads`.
+/// The moment the read arrives (even empty) the payload copy is ignored: a caller says WHEN, not
+/// what the schedule is.
+fn engine_rows<'a>(input: &'a Value, payload: &'a Value, read: &str, key: &str) -> &'a [Value] {
+    if let Some(rows) = read_rows(input, read) {
+        return rows.as_slice();
+    }
+    payload
+        .get(key)
+        .and_then(|v| v.as_array())
+        .map(|rows| rows.as_slice())
+        .unwrap_or(&[])
+}
+
+/// THE BUSINESS CLOCK (schedules#1, hub#731, hub#1022). The core owns the hub's zone — declared
+/// in its settings or deduced from country/region — and hands it to the handler already resolved
+/// as an IANA name in `context.timezone`.
+///
+/// Anything the calendar does not know (an old runtime that sends nothing, a forged context)
+/// degrades to UTC, the same fallback the core itself makes. The degradation is never silent:
+/// the verdict carries the zone it was computed with.
+fn business_timezone(context: &Value) -> chrono_tz::Tz {
+    context
+        .get("timezone")
+        .map(as_str)
+        .unwrap_or_default()
+        .parse()
+        .unwrap_or(chrono_tz::UTC)
+}
+
+/// The wall clock the rules are read with, as `(YYYY-MM-DD, HH:MM)` of the business.
+///
+/// Two shapes, one rule each — this is the module's public contract:
+/// * with an offset (`…Z`, `…+02:00`) `when` is an **instant** and gets converted to `tz`;
+/// * without one it already IS the shop's wall clock («next Thursday at 18:30») and is read as
+///   written, so a caller can ask about a moment without doing timezone arithmetic itself.
+///
+/// `None` for anything else: the caller gets `invalid_date` instead of a verdict computed on a
+/// date nobody meant.
+fn wall_clock(when: &str, tz: chrono_tz::Tz) -> Option<(String, String)> {
+    if let Ok(instant) = chrono::DateTime::parse_from_rfc3339(when) {
+        let local = instant.with_timezone(&tz);
+        return Some((
+            local.format("%Y-%m-%d").to_string(),
+            local.format("%H:%M").to_string(),
+        ));
+    }
+    // `get` and not `[..]`: a slice through the middle of a multi-byte character panics, and this
+    // string comes from outside.
+    let date = when.get(..10)?.to_string();
+    let time = when.get(11..16)?.to_string();
+    (valid_date(&date) && valid_time(&time)).then_some((date, time))
+}
+
 /// Motor "¿está abierto ahora?" (WASM-TODO §1). Precedencia estricta:
 /// SpecialDay (fecha exacta o `recurring_yearly` por MM-DD) → ScheduleOverride
 /// (rango que cubre hoy) → BusinessHours (día de la semana, con descanso) →
@@ -961,46 +1024,35 @@ pub fn bulk_create_special_days_pure(input: Value) -> Result<Output, String> {
 pub fn is_open_pure(input: Value) -> Result<Output, String> {
     let payload = input.get("payload").cloned().unwrap_or(Value::Null);
     let context = input.get("context").cloned().unwrap_or(Value::Null);
-    let empty: Vec<Value> = Vec::new();
 
-    // `when` opcional ('YYYY-MM-DDTHH:MM[…]'); por defecto context.now (RFC3339 UTC).
+    // THE BUSINESS CLOCK (schedules#1). The zone belongs to the core (hub#731) and reaches the
+    // handler already resolved in `context.timezone` (hub#1022); the caller only says WHEN.
+    let tz = business_timezone(&context);
+    // `when` optional — an RFC3339 instant or a bare `YYYY-MM-DDTHH:MM` of the shop's own clock;
+    // by default `context.now`, which is UTC and therefore always gets converted.
     let when = opt_str(&payload, "when")
         .unwrap_or_else(|| context.get("now").map(as_str).unwrap_or_default());
-    if when.len() < 16 {
-        return Ok(refused(domain(
-            "invalid_date",
-            format!("Invalid 'when' ('{when}', expected YYYY-MM-DDTHH:MM)"),
-        )));
-    }
-    let today = when[..10].to_string();
-    let current_time = when[11..16].to_string();
-    if !valid_date(&today) || !valid_time(&current_time) {
-        return Ok(refused(domain(
-            "invalid_date",
-            format!("Invalid 'when' ('{when}', expected YYYY-MM-DDTHH:MM)"),
-        )));
-    }
-    let fail_open = bool_or(&payload, "fail_open", false);
+    let Some((today, current_time)) = wall_clock(&when, tz) else {
+        let detail =
+            format!("Invalid 'when' ('{when}', expected an RFC3339 instant or YYYY-MM-DDTHH:MM)");
+        return Ok(refused(domain("invalid_date", detail)));
+    };
 
-    let special_days = payload
-        .get("special_days")
-        .and_then(|v| v.as_array())
-        .unwrap_or(&empty);
-    let overrides = payload
-        .get("overrides")
-        .and_then(|v| v.as_array())
-        .unwrap_or(&empty);
-    let business_hours = payload
-        .get("business_hours")
-        .and_then(|v| v.as_array())
-        .unwrap_or(&empty);
+    // THE RULES ARE THE HUB'S, NOT THE CALLER'S (schedules#1). They arrive pre-loaded by the
+    // runtime (`reads`, ADR-0069); the payload rows are only read while a hub still runs a
+    // manifest without them, and a caller can no longer forge a schedule it does not have.
+    let special_days = engine_rows(&input, &payload, SPECIAL_DAYS_READ, "special_days");
+    let overrides = engine_rows(&input, &payload, OVERRIDES_READ, "overrides");
+    let business_hours = engine_rows(&input, &payload, BUSINESS_HOURS_READ, "business_hours");
     // schedules#23: rows of `schedules.exception_intervals.list` — the 0..N intervals of the
-    // special days and overrides above. Absent (old caller, exception written before migration
-    // 003, day created by the bulk) → the pair on the exception row still decides.
-    let exception_intervals = payload
-        .get("exception_intervals")
-        .and_then(|v| v.as_array())
-        .unwrap_or(&empty);
+    // special days and overrides above. Absent (exception written before migration 003, day
+    // created by the bulk) → the pair on the exception row still decides.
+    let exception_intervals = engine_rows(
+        &input,
+        &payload,
+        EXCEPTION_INTERVALS_READ,
+        "exception_intervals",
+    );
 
     let t = current_time.as_str();
     let now_min = minutes(t);
@@ -1016,7 +1068,10 @@ pub fn is_open_pure(input: Value) -> Result<Output, String> {
                 intervals: &[String]|
      -> Result<Output, String> {
         let mut verdict = json!({ "is_open": is_open, "code": code, "intervals": intervals,
-                "today": today, "current_time": current_time, "source": source, "rule_id": rule_id });
+                "today": today, "current_time": current_time, "source": source, "rule_id": rule_id,
+                // The clock the verdict was computed with, so a caller (and a support ticket)
+                // never has to guess which zone answered.
+                "timezone": tz.name() });
         if !reason.is_empty() {
             verdict["reason"] = json!(reason);
         }
@@ -1246,12 +1301,11 @@ pub fn is_open_pure(input: Value) -> Result<Output, String> {
         );
     }
 
-    // 4) Sin configuración para hoy: fail-open (contrato cross-módulo) o fail-closed (dashboard).
-    if fail_open {
-        done(true, "no_hours_fail_open", "", "none", Value::Null, &[])
-    } else {
-        done(false, "no_hours", "", "none", Value::Null, &[])
-    }
+    // 4) Nothing configured for today. The answer is the DOMAIN's, not the caller's (schedules#1):
+    //    with no rule for that day the business is not declared open, and the stable code
+    //    `no_hours` tells a consumer that this is «nothing configured», not «closed today» — so
+    //    an appointments screen can offer to set the hours instead of showing a shut door.
+    done(false, "no_hours", "", "none", Value::Null, &[])
 }
 
 #[cfg(test)]
@@ -1487,14 +1541,15 @@ mod tests {
         let r = is_open_pure(input(sd)).unwrap().result.expect("verdict");
         assert_eq!(r["code"], "exception_closed");
         assert_eq!(r["reason"], "Navidad");
-        // fail_open is its own code too.
-        let r = is_open_pure(input(
-            json!({ "when": "2026-08-17T10:00", "fail_open": true }),
-        ))
-        .unwrap()
-        .result
-        .expect("verdict");
-        assert_eq!(r["code"], "no_hours_fail_open");
+        // «Nothing configured» has its own code, and only one (schedules#1): `fail_open` used to
+        // give the caller a second one (`no_hours_fail_open`) and with it the power to choose the
+        // answer for someone else's hub. Pinned by
+        // `nothing_configured_is_the_modules_own_answer_and_the_caller_cannot_flip_it`.
+        let r = is_open_pure(input(json!({ "when": "2026-08-17T10:00" })))
+            .unwrap()
+            .result
+            .expect("verdict");
+        assert_eq!(r["code"], "no_hours");
     }
 
     // ── schedules#7: special day duplicate check is server-authoritative (reads) ──
@@ -2199,5 +2254,224 @@ mod tests {
             open_with_exceptions("2026-12-31T21:00", night)["is_open"],
             false
         );
+    }
+
+    // ── schedules#1: the verdict is computed on the BUSINESS clock ────────────────────────
+    //
+    // The engine used to slice the date and the time out of `context.now`, which is UTC, so a
+    // business in Madrid was answered with the clock of the server: at 23:30 UTC it was still
+    // asked about YESTERDAY, and at 03:30 local (CEST) it was asked about 01:30. The zone of the
+    // business is the core's (hub#731) and reaches the handler in `context.timezone` since
+    // hub#1022 — a resolved IANA name. These tests pin that the wall clock the rules are read
+    // with is the SHOP's, DST included.
+
+    /// Input as the runtime builds it for a hub whose business clock is `tz`.
+    fn input_in(tz: &str, now: &str, payload: Value) -> Value {
+        json!({ "payload": payload, "context": { "hub_id": "h1", "now": now,
+            "timezone": tz, "new_ids": ids(4) } })
+    }
+
+    fn verdict(r: Result<Output, String>) -> Value {
+        r.unwrap().result.expect("verdict")
+    }
+
+    /// Mon–Fri 09:00–14:00 and 16:00–20:00; Tuesday also opens 09:00–18:00 in one go.
+    fn weekly_hours() -> Value {
+        json!([
+            { "id": "mon", "day_of_week": 0, "open_time": "09:00", "close_time": "14:00", "is_closed": 0 },
+            { "id": "tue", "day_of_week": 1, "open_time": "09:00", "close_time": "18:00", "is_closed": 0 } ])
+    }
+
+    #[test]
+    fn the_same_instant_answers_differently_in_each_business_zone() {
+        // 20:00 UTC is 22:00 of Monday in Madrid (closed: Monday ends at 14:00) and 10:00 of
+        // TUESDAY in Kiritimati (+14, open). Same instant, same rules, two businesses.
+        let payload = json!({ "business_hours": weekly_hours() });
+        let madrid = verdict(is_open_pure(input_in(
+            "Europe/Madrid",
+            "2026-08-17T20:00:00Z",
+            payload.clone(),
+        )));
+        assert_eq!(madrid["today"], "2026-08-17");
+        assert_eq!(madrid["current_time"], "22:00");
+        assert_eq!(madrid["is_open"], false);
+
+        let kiritimati = verdict(is_open_pure(input_in(
+            "Pacific/Kiritimati",
+            "2026-08-17T20:00:00Z",
+            payload,
+        )));
+        assert_eq!(kiritimati["today"], "2026-08-18");
+        assert_eq!(kiritimati["current_time"], "10:00");
+        assert_eq!(kiritimati["is_open"], true);
+    }
+
+    #[test]
+    fn the_business_day_rolls_over_on_the_business_clock() {
+        // 23:30 UTC of Monday is already 01:30 of TUESDAY in Madrid: the rules that answer are
+        // Tuesday's, and the weekday is recomputed from the local date, not from the UTC one.
+        let v = verdict(is_open_pure(input_in(
+            "Europe/Madrid",
+            "2026-08-17T23:30:00Z",
+            json!({ "business_hours": weekly_hours() }),
+        )));
+        assert_eq!(v["today"], "2026-08-18");
+        assert_eq!(v["current_time"], "01:30");
+        assert_eq!(v["code"], "outside_hours");
+        assert_eq!(v["rule_id"], "tue");
+    }
+
+    #[test]
+    fn the_spring_forward_moves_the_wall_clock_inside_the_same_day() {
+        // 2026-03-29, Madrid: at 01:00 UTC the clocks jump from 02:00 CET to 03:00 CEST. Half an
+        // hour before the change it is 01:30 local; half an hour after, 03:30 — a business open
+        // 03:00–05:00 that Sunday is CLOSED in the first case and OPEN in the second. Evaluated
+        // in UTC both are closed, which is the bug.
+        let sunday = json!({ "business_hours": [
+            { "id": "sun", "day_of_week": 6, "open_time": "03:00", "close_time": "05:00", "is_closed": 0 } ] });
+        let before = verdict(is_open_pure(input_in(
+            "Europe/Madrid",
+            "2026-03-29T00:30:00Z",
+            sunday.clone(),
+        )));
+        assert_eq!(before["current_time"], "01:30");
+        assert_eq!(before["is_open"], false);
+
+        let after = verdict(is_open_pure(input_in(
+            "Europe/Madrid",
+            "2026-03-29T01:30:00Z",
+            sunday,
+        )));
+        assert_eq!(after["current_time"], "03:30");
+        assert_eq!(after["is_open"], true);
+    }
+
+    #[test]
+    fn the_repeated_hour_of_the_autumn_change_is_resolved_by_the_zone_not_by_a_fixed_offset() {
+        // 2026-10-25, Madrid: 02:00–03:00 local happens TWICE (03:00 CEST falls back to 02:00
+        // CET). Both 00:30 UTC and 01:30 UTC are 02:30 local, so a business open 02:00–03:00 is
+        // open at both instants. A hardcoded +02:00 would answer 02:30 and 03:30 (open, closed).
+        let sunday = json!({ "business_hours": [
+            { "id": "sun", "day_of_week": 6, "open_time": "02:00", "close_time": "03:00", "is_closed": 0 } ] });
+        for now in ["2026-10-25T00:30:00Z", "2026-10-25T01:30:00Z"] {
+            let v = verdict(is_open_pure(input_in("Europe/Madrid", now, sunday.clone())));
+            assert_eq!(v["current_time"], "02:30", "{now}");
+            assert_eq!(v["is_open"], true, "{now}");
+        }
+    }
+
+    #[test]
+    fn an_instant_is_converted_and_a_bare_wall_clock_is_taken_as_the_shops_own() {
+        // `when` with an offset (or `Z`) is an INSTANT and gets converted to the business zone;
+        // `when` without one already IS the shop's wall clock ("next Thursday at 18:30") and is
+        // read as written. Both rules are the module's public contract.
+        let payload = |when: &str| json!({ "when": when, "business_hours": weekly_hours() });
+        let instant = verdict(is_open_pure(input_in(
+            "Europe/Madrid",
+            "2026-08-17T20:00:00Z",
+            payload("2026-08-18T08:00:00Z"),
+        )));
+        assert_eq!(instant["today"], "2026-08-18");
+        assert_eq!(instant["current_time"], "10:00");
+        assert_eq!(instant["is_open"], true);
+
+        let bare = verdict(is_open_pure(input_in(
+            "Europe/Madrid",
+            "2026-08-17T20:00:00Z",
+            payload("2026-08-18T10:00"),
+        )));
+        assert_eq!(bare["today"], "2026-08-18");
+        assert_eq!(bare["current_time"], "10:00");
+        assert_eq!(bare["is_open"], true);
+    }
+
+    #[test]
+    fn the_verdict_names_the_zone_it_was_computed_in() {
+        // The applied zone travels with the answer: a caller (and a support ticket) can tell
+        // WHICH clock produced the verdict instead of guessing.
+        let v = verdict(is_open_pure(input_in(
+            "Atlantic/Canary",
+            "2026-08-17T20:00:00Z",
+            json!({ "business_hours": weekly_hours() }),
+        )));
+        assert_eq!(v["timezone"], "Atlantic/Canary");
+        assert_eq!(v["current_time"], "21:00");
+
+        // No zone in the context (an old runtime) is UTC — the same fallback the core makes when
+        // it cannot resolve the hub's zone. Never a silent lie: the verdict says UTC.
+        let utc = verdict(is_open_pure(input(
+            json!({ "business_hours": weekly_hours() }),
+        )));
+        assert_eq!(utc["timezone"], "UTC");
+    }
+
+    #[test]
+    fn a_zone_the_calendar_does_not_know_degrades_to_utc_and_says_so() {
+        // The core validates the name before storing it, so this can only reach the handler from
+        // a forged context. It must not take the shop's schedule down: answer in UTC and name it.
+        let v = verdict(is_open_pure(input_in(
+            "Mars/Olympus_Mons",
+            "2026-08-17T20:00:00Z",
+            json!({ "business_hours": weekly_hours() }),
+        )));
+        assert_eq!(v["timezone"], "UTC");
+        assert_eq!(v["current_time"], "20:00");
+    }
+
+    // ── schedules#1: the rules come from the RUNTIME, not from the caller ─────────────────
+
+    #[test]
+    fn is_open_reads_the_stored_rules_from_the_preloaded_reads() {
+        // `reads` (ADR-0069) hands the handler the hub's own rows. The caller only says WHEN.
+        let reads = json!({
+            "schedules.business_hours.list": weekly_hours(),
+            "schedules.special_days.list": [],
+            "schedules.overrides.list": [],
+            "schedules.exception_intervals.list": [] });
+        let mut input = input_in("Europe/Madrid", "2026-08-18T08:00:00Z", json!({}));
+        input["context"]["reads"] = reads;
+        let v = verdict(is_open_pure(input));
+        assert_eq!(v["code"], "open_interval");
+        assert_eq!(v["rule_id"], "tue");
+    }
+
+    #[test]
+    fn a_forged_payload_cannot_flip_the_verdict_the_stored_rules_decided() {
+        // The rows in the payload are ignored the moment the runtime delivered the reads: a
+        // caller cannot invent opening hours, nor a special day, nor claim there is nothing
+        // configured. Without this, `is_open` answered whatever it was told.
+        let reads = json!({
+            "schedules.business_hours.list": [
+                { "id": "mon", "day_of_week": 0, "open_time": "09:00", "close_time": "14:00", "is_closed": 1 } ],
+            "schedules.special_days.list": [],
+            "schedules.overrides.list": [],
+            "schedules.exception_intervals.list": [] });
+        let forged = json!({
+            "business_hours": [ { "id": "fake", "day_of_week": 0, "open_time": "00:00", "close_time": "00:00", "is_closed": 0 } ],
+            "special_days": [ { "id": "fake", "date": "2026-08-17", "name": "Forged", "is_closed": 0 } ],
+            "overrides": [ { "id": "fake", "start_date": "2026-08-01", "end_date": "2026-12-31", "reason": "Forged", "is_closed": 0 } ] });
+        let mut input = input_in("Europe/Madrid", "2026-08-17T08:00:00Z", forged);
+        input["context"]["reads"] = reads;
+        let v = verdict(is_open_pure(input));
+        assert_eq!(v["source"], "business_hours");
+        assert_eq!(v["code"], "closed_today");
+        assert_eq!(v["is_open"], false);
+    }
+
+    #[test]
+    fn nothing_configured_is_the_modules_own_answer_and_the_caller_cannot_flip_it() {
+        // `fail_open` let each caller choose the answer for the same hub, so two consumers
+        // disagreed about the same instant. The policy is the domain's: with no rule for that
+        // day the business is NOT declared open, and the stable code `no_hours` tells a consumer
+        // that this is «nothing configured», not «closed today».
+        for payload in [json!({}), json!({ "fail_open": true })] {
+            let v = verdict(is_open_pure(input_in(
+                "Europe/Madrid",
+                "2026-08-16T08:00:00Z",
+                payload,
+            )));
+            assert_eq!(v["code"], "no_hours");
+            assert_eq!(v["is_open"], false);
+        }
     }
 }
