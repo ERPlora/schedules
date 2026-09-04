@@ -78,6 +78,12 @@ WHY = {
 #: Empty on purpose: no box here writes a key other than its own. If one starts to — a
 #: `setFilter(col === 'x' ? 'y' : col)` in the handler — it belongs HERE, or the gate reads the
 #: promise the manifest never got asked for.
+#:
+#: And «belongs here» is ENFORCED, both ways, against the component (see `remaps`): a box the code
+#: reroutes without an entry here fails, and an entry here whose remap the code no longer performs
+#: fails too. Measured in review (hub#1182, the same hole as sales#261 and tables#81): with an empty
+#: table and no check, writing `e.detail.col === 'name' ? 'title' : e.detail.col` into the handler
+#: left this gate green while the box started sending `f_title`, which no query declares.
 REMAPPED: dict[tuple[str, str], tuple[str, ...]] = {}
 
 #: `(query, column) -> {filterType: why}`. A column that chooses its control at render time can
@@ -120,6 +126,28 @@ def balanced_slice(src: str, open_at: int) -> str:
     return src[open_at:]
 
 
+def enclosing_brace(src: str, pos: int) -> int:
+    """Index of the innermost `{` still open at `pos`, or -1 when `pos` sits inside no object."""
+    open_braces: list[int] = []
+    for i in range(pos):
+        if src[i] == "{":
+            open_braces.append(i)
+        elif src[i] == "}" and open_braces:
+            open_braces.pop()
+    return open_braces[-1] if open_braces else -1
+
+
+def remaps(src: str) -> dict[str, str]:
+    """`painted column -> filter column` for every box the code reroutes before `setFilter`.
+
+    The shape is the one the screens use (`e.detail.col === 'created_at' ? 'erp_date' : …` inline,
+    `col === 'zone' ? 'zone_id' : col` in a handler). A remap written any other way is not seen
+    here, and then `REMAPPED` reports it as gone — which is the right failure: the gate refuses to
+    excuse a box it cannot see being routed.
+    """
+    return dict(re.findall(r"\bcol\s*===\s*'(\w+)'\s*\?\s*'(\w+)'", src))
+
+
 def column_getters(src: str) -> dict[str, str]:
     """`getter name -> its body`, for every `private get <name>(): DataTableColumn[]`."""
     bodies = {}
@@ -128,12 +156,16 @@ def column_getters(src: str) -> dict[str, str]:
     return bodies
 
 
-def tables(src: str) -> list[tuple[str, str]]:
-    """`(query, columns getter)` for every `ok-data-table` the component paints.
+def tables(src: str) -> list[tuple[str, str, dict[str, str]]]:
+    """`(query, columns getter, remaps)` for every `ok-data-table` the component paints.
 
     Both halves come from the element itself: `.rows=${this.<field>?.rows}` names the controller,
     and the controller was built with its query. One file with two tables therefore pairs each set
     of columns with ITS query, which is the whole reason this gate exists here.
+
+    The remaps are scoped the same way: an inline `@filterChange` handler is read from its own
+    element, so a reroute in the special days cannot be charged to the overrides (both paint
+    `is_closed`); a handler that delegates to a method is read from the whole file.
     """
     controllers = dict(
         re.findall(
@@ -153,7 +185,13 @@ def tables(src: str) -> list[tuple[str, str]]:
         if query is None:
             # A client-side table (no controller) paints no `f_*`: nothing to promise.
             continue
-        found.append((query, getter.group(1)))
+        handler = re.search(r"@filterChange=\$(\{)", element)
+        routed = (
+            remaps(balanced_slice(element, handler.start(1)))
+            if handler and "setFilter(" in balanced_slice(element, handler.start(1))
+            else remaps(src)
+        )
+        found.append((query, getter.group(1), routed))
     return found
 
 
@@ -165,8 +203,11 @@ def declared_columns(body: str):
     """
     out = []
     for m in re.finditer(r"key: '([^']+)'", body):
-        # The column object is the innermost `{` that is still open at this `key:`.
-        start = body.rfind("{", 0, m.start())
+        # The column object is the innermost `{` that is still OPEN at this `key:` — walked, not
+        # `rfind`: the nearest brace to the left may belong to a sibling already closed (a
+        # `format: (r) => { … }` written before `key:`), and cutting there drops the column's own
+        # `filterable`/`filterType`, which turns it invisible to this gate.
+        start = enclosing_brace(body, m.start())
         chunk = balanced_slice(body, start) if start != -1 else body[m.start() :]
         out.append(
             (
@@ -179,7 +220,7 @@ def declared_columns(body: str):
     return out
 
 
-def check(screen: pathlib.Path, query: str, columns) -> None:
+def check(screen: pathlib.Path, query: str, columns, routed: dict[str, str]) -> None:
     spec = (MANIFEST.get("queries") or {}).get(query)
     if spec is None:
         fail(f"{screen} drives `{query}`, which the manifest does not declare")
@@ -193,8 +234,29 @@ def check(screen: pathlib.Path, query: str, columns) -> None:
 
     for column, kinds, filterable, sortable in columns:
         remap = REMAPPED.get((query, column))
+        if filterable and column in routed and not remap:
+            fail(
+                f"{screen} reroutes the `{column}` box to `{routed[column]}` but this gate does not know "
+                f"that remap: write it down in `REMAPPED` so the target is checked like a direct column"
+            )
         if remap:
-            # The box does not feed its own key: check the columns it really writes instead.
+            # The box does not feed its own key: check the columns it really writes instead —
+            # after checking that the code STILL writes them. An entry that outlives its remap
+            # would excuse a box that now sends its own, undeclared key (hub#1182 all over again).
+            if routed.get(column) not in remap and column in filters:
+                fail(
+                    f"{screen} no longer routes the `{column}` box to {' / '.join(remap)}, and `{query}` "
+                    f"declares `{column}` directly: the `REMAPPED` entry is stale — delete it, so the box "
+                    f"is checked like the direct column it now is (an allowance that outlives its code "
+                    f"hides the next one)"
+                )
+            elif routed.get(column) not in remap:
+                fail(
+                    f"{screen} no longer routes the `{column}` box to {' / '.join(remap)}: the box now "
+                    f"sends `f_{column}` itself, which `{query}` does not declare, so the runtime drops it "
+                    f"and the choice does nothing — restore the remap, or declare `{column}` and delete "
+                    f"the `REMAPPED` entry"
+                )
             for target in remap:
                 if target not in filters:
                     fail(
@@ -256,7 +318,7 @@ def main() -> int:
             continue
         src = path.read_text(encoding="utf-8")
         getters = column_getters(src)
-        for query, getter in tables(src):
+        for query, getter, routed in tables(src):
             body = getters.get(getter)
             if body is None:
                 fail(
@@ -265,7 +327,7 @@ def main() -> int:
                 )
                 continue
             seen.append((path.relative_to(MODULE_DIR), query, getter))
-            check(path.relative_to(MODULE_DIR), query, declared_columns(body))
+            check(path.relative_to(MODULE_DIR), query, declared_columns(body), routed)
 
     if len(seen) < TABLES_TODAY:
         print(
