@@ -33,6 +33,10 @@ interface ErploraClientLike extends ListClient {
 // Claves i18n de los días (lunes→domingo). El índice coincide con `day_of_week` (0 = lunes).
 const DAY_KEYS = ['ui.monday', 'ui.tuesday', 'ui.wednesday', 'ui.thursday', 'ui.friday', 'ui.saturday', 'ui.sunday'];
 
+// The audit author `apply_module_seed` stamps on the week it plants at install time
+// (`crates/runtime/src/seed.rs` — the only place in the runtime that uses this sentinel).
+const SEED_AUTHOR = 'system';
+
 interface BusinessHours {
   id: string;
   day_of_week: number;
@@ -42,6 +46,9 @@ interface BusinessHours {
   is_closed: number;
   break_start: string | null;
   break_end: string | null;
+  /** Who wrote the row. `SEED_AUTHOR` means the installer, i.e. nobody has confirmed it yet
+   *  (schedules#36). Optional: a hub whose runtime predates the column simply never warns. */
+  created_by?: string;
 }
 
 interface Interval {
@@ -290,6 +297,22 @@ export class ErpSchedulesHours extends LitElement {
 
   get weekRows(): WeekRow[] {
     return foldWeek(this.hoursRows, this.settings.week_starts_on);
+  }
+
+  /**
+   * True while the week on screen is still the one WE guessed at install time (schedules#36).
+   *
+   * Seeding a default week is what lets `appointments` finally refuse a booking out of hours, but
+   * it also means the door starts refusing against hours nobody chose. So the screen names the
+   * guess while it is still a guess — and stops the moment a person saves any day, because
+   * `schedules.business_hours.set` clears the day and re-inserts it stamped with the real user.
+   *
+   * «Every live row», not «some row»: once the owner has saved one day they have seen the week
+   * day by day, and a notice that outlives that reading is noise. A hub with no rows at all is
+   * older than the seed — there is no default to confirm and the table's own empty state speaks.
+   */
+  private get weekIsUnconfirmed(): boolean {
+    return this.hoursRows.length > 0 && this.hoursRows.every((r) => r.created_by === SEED_AUTHOR);
   }
 
   private formatIntervals(r: Record<string, unknown>): string {
@@ -748,6 +771,12 @@ export class ErpSchedulesHours extends LitElement {
     const t = (k: string): string => erplora().t(CATALOG, k);
     const isAllDay = this.bhIntervals.length === 1 && this.bhIntervals[0].open_time === '00:00' && this.bhIntervals[0].close_time === '00:00';
     return html`<div class="pane">
+        <!-- The week we planted at install time says so out loud until somebody confirms it
+             (schedules#36). It sits above the table because it is about the whole week, and only
+             here: the Hours tab is where a week gets confirmed. -->
+        ${this.weekIsUnconfirmed
+          ? html`<ok-inline-feedback data-role="default-week" tone="warning" icon="alert-circle-outline">${t('ui.defaultWeekNotice')}</ok-inline-feedback>`
+          : nothing}
         <!-- Seven fixed rows (one per weekday), no «+»: a day is EDITED, never added (schedules#8).
              No rows-per-page selector either (schedules#29): this view paints ALL seven weekdays and
              never pages, and an empty dropdown that does nothing is a control that lies. -->

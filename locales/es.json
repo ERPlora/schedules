@@ -65,6 +65,7 @@
     "searchOverride": "Buscar cambio temporal…",
     "loading": "Cargando…",
     "emptyHours": "Sin horario configurado.",
+    "defaultWeekNotice": "Este es un horario por defecto que hemos puesto por ti. Comprueba que coincide con el de tu negocio: las reservas fuera de él se rechazan.",
     "emptySpecialDays": "Sin días especiales.",
     "emptyOverrides": "Sin cambios temporales.",
     "errorSaveHours": "No se pudo guardar el horario",

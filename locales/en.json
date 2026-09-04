@@ -64,6 +64,7 @@
     "searchOverride": "Search override…",
     "loading": "Loading…",
     "emptyHours": "No schedule configured.",
+    "defaultWeekNotice": "These are default opening hours we set up for you. Check they match your business — bookings outside them are refused.",
     "emptySpecialDays": "No special days.",
     "emptyOverrides": "No overrides.",
     "errorSaveHours": "Could not save the schedule",

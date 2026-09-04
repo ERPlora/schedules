@@ -13,7 +13,11 @@ What is reproduced of the dispatcher, and only that:
   * a command's `sql[]` runs inside one BEGIN/COMMIT with the system params (`hub_id`,
     `current_user_id`, `now`, one `new_id` per statement) injected;
   * `run_command` returns the rows AFFECTED by the command's `sql[]`, so a test can check the
-    `expect_rows` gate the way the runtime evaluates it (sum of affected rows vs `n`).
+    `expect_rows` gate the way the runtime evaluates it (sum of affected rows vs `n`);
+  * `apply_seed` runs the manifest's `seed.postgres` block the way `apply_module_seed` does
+    (crates/runtime/src/seed.rs): after the migrations, statement by statement, with `:hub_id`,
+    `:now` and `:current_user_id` = `system` bound — the seed is written by the installer, not by
+    a person. Idempotency is the SQL's own job there and here: the runtime adds no guard.
 
 What is NOT reproduced, on purpose:
   * JSON Schema validation of the payload — that is `tests/schemas.contract.test.py`, statically,
@@ -39,6 +43,9 @@ MANIFEST = json.loads((MODULE_DIR / "module.json").read_text())
 HUB = "hub-under-test"
 OTHER_HUB = "hub-next-door"
 USER = "u-owner"
+# What `apply_module_seed` binds as `:current_user_id`: «la semilla la escribe el sistema, no un
+# usuario» (crates/runtime/src/seed.rs).
+SEED_USER = "system"
 NOW = "2026-08-18T10:00:00Z"
 
 PARAM = re.compile(r":([a-z_][a-z0-9_]*)", re.IGNORECASE)
@@ -147,6 +154,20 @@ class ScratchDb:
         rel = MANIFEST["migrations"]["postgres"][index]
         self.psql([], db=self.name, stdin=(MODULE_DIR / rel).read_text())
 
+    def apply_seed(self, hub: str = HUB, now: str = NOW) -> None:
+        """Apply the manifest's `seed.postgres` block, like `apply_module_seed` does after
+        migrating: every declared file, with `:hub_id`/`:now`/`:current_user_id` bound. A module
+        with no `seed` block is a no-op, exactly as the installer treats it."""
+        for rel in MANIFEST.get("seed", {}).get("postgres", []):
+            sql = (MODULE_DIR / rel).read_text()
+            self.psql(
+                [],
+                db=self.name,
+                stdin=bind(
+                    sql, {"hub_id": hub, "now": now, "current_user_id": SEED_USER}
+                ),
+            )
+
     def drop(self) -> None:
         try:
             self.psql(["-c", f'DROP DATABASE IF EXISTS "{self.name}" WITH (FORCE)'])
@@ -224,3 +245,44 @@ class ScratchDb:
         p.setdefault("hub_id", hub)
         sql = (MODULE_DIR / q["sql"]).read_text().rstrip().rstrip(";")
         return self.rows(bind(sql, p))
+
+
+def set_hours_ops(
+    day: int, intervals: list[tuple[str, str]], ids: list[str], closed: bool = False
+):
+    """`set_business_hours` → clear the day + one insert per interval (or one closed row).
+    Pinned by `set_hours_with_two_intervals_clears_the_day_and_inserts_one_row_per_interval`."""
+    ops = [("schedules._clear_business_hours_day", {"day_of_week": day})]
+    if closed:
+        return ops + [
+            (
+                "schedules._insert_business_hours",
+                {
+                    "id": ids[0],
+                    "day_of_week": day,
+                    "position": 0,
+                    "open_time": "00:00",
+                    "close_time": "00:00",
+                    "is_closed": 1,
+                    "break_start": None,
+                    "break_end": None,
+                },
+            )
+        ]
+    for i, (o, c) in enumerate(intervals):
+        ops.append(
+            (
+                "schedules._insert_business_hours",
+                {
+                    "id": ids[i],
+                    "day_of_week": day,
+                    "position": i,
+                    "open_time": o,
+                    "close_time": c,
+                    "is_closed": 0,
+                    "break_start": None,
+                    "break_end": None,
+                },
+            )
+        )
+    return ops
