@@ -34,7 +34,14 @@ Usage: tests/engine.postgres.test.py   (exit 0 = green; SKIPPED without the cont
 
 import sys
 
-from pg_harness import HUB, NOW, OTHER_HUB, ScratchDb, container_available
+from pg_harness import (
+    HUB,
+    NOW,
+    OTHER_HUB,
+    ScratchDb,
+    container_available,
+    set_hours_ops,
+)
 
 failures: list[str] = []
 
@@ -50,47 +57,6 @@ def check(label: str, expected, actual) -> None:
 
 
 # ── The intentions the WASM handlers return. Pinned by the Rust tests named on each one. ──
-
-
-def set_hours_ops(
-    day: int, intervals: list[tuple[str, str]], ids: list[str], closed: bool = False
-):
-    """`set_business_hours` → clear the day + one insert per interval (or one closed row).
-    Pinned by `set_hours_with_two_intervals_clears_the_day_and_inserts_one_row_per_interval`."""
-    ops = [("schedules._clear_business_hours_day", {"day_of_week": day})]
-    if closed:
-        return ops + [
-            (
-                "schedules._insert_business_hours",
-                {
-                    "id": ids[0],
-                    "day_of_week": day,
-                    "position": 0,
-                    "open_time": "00:00",
-                    "close_time": "00:00",
-                    "is_closed": 1,
-                    "break_start": None,
-                    "break_end": None,
-                },
-            )
-        ]
-    for i, (o, c) in enumerate(intervals):
-        ops.append(
-            (
-                "schedules._insert_business_hours",
-                {
-                    "id": ids[i],
-                    "day_of_week": day,
-                    "position": i,
-                    "open_time": o,
-                    "close_time": c,
-                    "is_closed": 0,
-                    "break_start": None,
-                    "break_end": None,
-                },
-            )
-        )
-    return ops
 
 
 def create_special_day_ops(

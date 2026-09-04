@@ -65,6 +65,11 @@
       "migrations/postgres/003_exception_intervals.sql"
     ]
   },
+  "seed": {
+    "postgres": [
+      "seed/install.postgres.sql"
+    ]
+  },
   "queries": {
     "schedules.business_hours.list": {
       "permission": "schedules.view_schedule",
