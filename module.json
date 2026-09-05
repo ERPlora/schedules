@@ -439,6 +439,18 @@
       ]
     }
   },
+  "errors": {
+    "schedules.already_exists": {},
+    "schedules.invalid_break": {},
+    "schedules.invalid_date": {},
+    "schedules.invalid_day": {},
+    "schedules.invalid_hours": {},
+    "schedules.invalid_range": {},
+    "schedules.missing_hours": {},
+    "schedules.missing_items": {},
+    "schedules.missing_name": {},
+    "schedules.overlapping": {}
+  },
   "events": {
     "listen": {},
     "emits": [
