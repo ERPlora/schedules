@@ -28,6 +28,11 @@ PRODUCTION half of the handler (everything before `#[cfg(test)]`, so a test fixt
 demands that every `domain("…")` call site is declared, and that every declared code carries its
 `en` (source) and `es` text — ADR-0055, because the UI translates by code.
 
+And it refuses the one shape that would slip past BOTH guards: a refusal whose code is not a
+snake_case literal at the call site — `domain(code, …)`, or a `DomainError::…` built anywhere but
+inside the helper. Check 1 cannot read a variable any more than `erplora validate` can, so the rule
+is the same one ADR-0127 §1 gives events: the identifier is a literal, or it is an error.
+
 Usage: tests/errors_catalog.contract.test.py   (exit 0 = green)
 """
 
@@ -56,6 +61,25 @@ def emitted_codes() -> dict[str, int]:
         code = f"{MODULE_ID}.{m.group(1)}"
         found.setdefault(code, PRODUCTION[: m.start()].count("\n") + 1)
     return found
+
+
+def non_literal_refusals() -> list[tuple[int, str]]:
+    """(line, why) for every refusal whose code check 1 cannot read: a `domain(` call whose first
+    argument is not a `"snake_case"` literal, or a `DomainError::` constructed outside `fn domain`."""
+    found: list[tuple[int, str]] = []
+    helper = re.search(r"^fn domain\(.*?^}", PRODUCTION, re.M | re.S)
+    helper_span = (helper.start(), helper.end()) if helper else (-1, -1)
+
+    def line_of(pos: int) -> int:
+        return PRODUCTION[:pos].count("\n") + 1
+
+    for m in re.finditer(r'(?<!fn )(?<![.\w])domain\((?!\s*"[a-z][a-z0-9_]*")', PRODUCTION):
+        found.append((line_of(m.start()), "`domain(` whose code is not a snake_case string literal"))
+    for m in re.finditer(r"\bDomainError::", PRODUCTION):
+        if helper_span[0] <= m.start() < helper_span[1]:
+            continue
+        found.append((line_of(m.start()), "`DomainError::` built outside `fn domain`"))
+    return sorted(found)
 
 
 def expect_rows_codes() -> dict[str, str]:
@@ -101,6 +125,14 @@ def main() -> int:
                 f"commands.{command}: `expect_rows.error` raises `{code}`, which the `errors` "
                 f"catalog does not declare (ADR-0398)"
             )
+
+    # 1b · Every code is a literal at its call site, or neither this test nor `erplora validate`
+    # can see it — and with the catalog present the runtime is strict (ADR-0127 §1 rule).
+    for line, why in non_literal_refusals():
+        failures.append(
+            f"handler/src/lib.rs:{line}: {why} — this refusal is invisible to the catalog guards "
+            f"and reaches the hub as `unexpected`; raise it as `domain(\"<snake_case>\", …)`"
+        )
 
     # 2 · Declared must be translatable, source and Spanish (ADR-0055).
     for lang in REQUIRED_LOCALES:
