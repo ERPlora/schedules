@@ -72,6 +72,12 @@ pub fn set_business_hours(input: Json<erplora_guest_sdk::Input>) -> FnResult<Jso
 
 #[cfg(feature = "guest")]
 #[plugin_fn]
+pub fn confirm_business_hours(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Output>> {
+    to_fn_result(confirm_business_hours_pure(input.0.into_value()))
+}
+
+#[cfg(feature = "guest")]
+#[plugin_fn]
 pub fn create_special_day(input: Json<erplora_guest_sdk::Input>) -> FnResult<Json<Output>> {
     to_fn_result(create_special_day_pure(input.into_inner().into_value()))
 }
@@ -744,6 +750,135 @@ pub fn set_business_hours_pure(input: Value) -> Result<Output, String> {
         }),
     ));
     Ok(out)
+}
+
+/// schedules#43 — the business SIGNS the week it is already looking at, in one gesture.
+///
+/// `queries/setup_status.sql` ticks the onboarding step «Confirm your opening hours» by counting
+/// the live rows whose `created_by` is NOT the installer's `system`. A salon whose real week IS the
+/// one schedules#36 seeded therefore had nothing to press: the only way to sign the week was to
+/// open some day and save it back UNCHANGED, which is exactly the gesture nobody understands.
+///
+/// So this command does what saving the seven days one by one does — `_clear_business_hours_day`
+/// + one `_insert_business_hours` per interval, stamped by the host with the real
+/// `:current_user_id` — for the WHOLE week and in ONE transaction. Seven chained dispatches from
+/// the browser would leave a half-signed week behind the first failure.
+///
+/// **It changes nothing but the signature.** Every value of every row travels over verbatim
+/// (hours, `is_closed`, and the legacy break of a pre-schedules#8 row); only `position` is
+/// renumbered from 0 so the editor paints the day in order. The rows come from
+/// `context.reads` (ADR-0069), never from the payload: the browser cannot dictate the week it is
+/// about to sign.
+pub fn confirm_business_hours_pure(input: Value) -> Result<Output, String> {
+    let new_ids = new_ids_of(&input);
+    let empty: Vec<Value> = Vec::new();
+    let rows = read_rows(&input, BUSINESS_HOURS_READ).unwrap_or(&empty);
+
+    // Nothing to sign. Answering «done» over an empty table would tick the checklist step on a hub
+    // with NO hours — the very state the seed of schedules#36 exists to make unreachable.
+    if rows.is_empty() {
+        return Ok(refused(domain(
+            "missing_hours",
+            "There are no weekly opening hours to confirm",
+        )));
+    }
+
+    // `business_hours_list.sql` carries no ORDER BY and the list engine only sorts by
+    // `day_of_week`, so the intervals of one day arrive in whatever order the planner chose.
+    let mut live: Vec<&Value> = rows.iter().collect();
+    live.sort_by_key(|r| {
+        (
+            as_i64(r.get("day_of_week").unwrap_or(&Value::Null), -1),
+            as_i64(r.get("position").unwrap_or(&Value::Null), 0),
+        )
+    });
+    if let Some(bad) = live
+        .iter()
+        .map(|r| as_i64(r.get("day_of_week").unwrap_or(&Value::Null), -1))
+        .find(|d| !(0..=6).contains(d))
+    {
+        return Ok(refused(domain(
+            "invalid_day",
+            format!("the week holds a row whose day_of_week is {bad}, outside 0 (Monday)–6 (Sunday)"),
+        )));
+    }
+
+    let mut out = Output::new();
+    let mut taken = 0usize;
+    let mut confirmed_days = 0i64;
+    let mut start = 0usize;
+    while start < live.len() {
+        let day = as_i64(live[start].get("day_of_week").unwrap_or(&Value::Null), -1);
+        let mut end = start;
+        while end < live.len()
+            && as_i64(live[end].get("day_of_week").unwrap_or(&Value::Null), -1) == day
+        {
+            end += 1;
+        }
+
+        let mut clear = Map::new();
+        clear.insert("day_of_week".into(), json!(day));
+        out = out.with_operation(Operation::sql("schedules._clear_business_hours_day", clear));
+
+        let mut intervals: Vec<Value> = Vec::new();
+        let mut day_is_closed = false;
+        for (position, row) in live[start..end].iter().enumerate() {
+            // The guest is not an authority of ids (§5.3): inventing one would collide on the
+            // primary key and roll the whole confirmation back with a plumbing error.
+            let id = new_ids.get(taken).cloned().ok_or_else(|| {
+                "missing_id: the host's batch is shorter than the week to confirm".to_string()
+            })?;
+            taken += 1;
+            let closed = as_bool(row.get("is_closed").unwrap_or(&Value::Null));
+            let open = str_or(row, "open_time", "00:00");
+            let close = str_or(row, "close_time", "00:00");
+            let mut p = Map::new();
+            p.insert("id".into(), id);
+            p.insert("day_of_week".into(), json!(day));
+            p.insert("position".into(), json!(position as i64));
+            p.insert("open_time".into(), json!(open));
+            p.insert("close_time".into(), json!(close));
+            p.insert("is_closed".into(), json!(closed as i64));
+            // The legacy pair still holds the break of a row written before schedules#8. Writing
+            // NULL here would take a lunch break away from a business that only said «yes».
+            p.insert(
+                "break_start".into(),
+                opt_str(row, "break_start").map_or(Value::Null, Value::String),
+            );
+            p.insert(
+                "break_end".into(),
+                opt_str(row, "break_end").map_or(Value::Null, Value::String),
+            );
+            out = out.with_operation(Operation::sql("schedules._insert_business_hours", p));
+            if closed {
+                day_is_closed = true;
+            } else {
+                intervals.push(json!({ "open_time": open, "close_time": close }));
+            }
+        }
+
+        // One `updated` event per day: a listener must not be able to tell confirming the week
+        // from saving its seven days by hand, which is what this command is.
+        out = out.with_event(Event::new(
+            "schedules.business_hours.updated",
+            json!({
+                "sender": "schedules",
+                "day_of_week": day,
+                "is_closed": day_is_closed as i64,
+                "intervals": intervals,
+                // Legacy fields (first/last bound) for listeners that still read them.
+                "open_time": intervals.first().map(|i| as_str(&i["open_time"])).unwrap_or_default(),
+                "close_time": intervals.last().map(|i| as_str(&i["close_time"])).unwrap_or_default(),
+            }),
+        ));
+        confirmed_days += 1;
+        start = end;
+    }
+
+    Ok(output_with_result(
+        out,
+        json!({ "confirmed_days": confirmed_days }),
+    ))
 }
 
 // ── schedules.special_days.create (fn create_special_day) ─────────────────
@@ -2473,5 +2608,279 @@ mod tests {
             assert_eq!(v["code"], "no_hours");
             assert_eq!(v["is_open"], false);
         }
+    }
+
+    // ── schedules#43: confirming the week the installer guessed, in ONE gesture ────────────
+    //
+    // The onboarding step «Confirm your opening hours» is ticked by `queries/setup_status.sql`,
+    // which counts the live rows a PERSON signed (`created_by IS DISTINCT FROM 'system'`). For a
+    // business whose real week IS the one schedules#36 seeded there was nothing to press: the only
+    // way to sign it was to open some day and save it back UNCHANGED. `confirm_business_hours` is
+    // that gesture — it replaces every live row with an identical one signed by the caller.
+    //
+    // THE INVARIANT: a consumer must not be able to tell confirming from saving the seven days one
+    // by one. Same operations, same event per day, and not one opening hour different. The rows
+    // come from `context.reads` (server-authoritative, ADR-0069): the browser cannot dictate the
+    // week it is about to sign.
+
+    fn week_reads(rows: Value) -> Value {
+        json!({ "schedules.business_hours.list": rows })
+    }
+
+    /// One live row of the weekly table, as `queries/business_hours_list.sql` returns it.
+    fn live_row(day: i64, position: i64, open: &str, close: &str, closed: i64) -> Value {
+        json!({ "id": format!("seed-{day}-{position}"), "day_of_week": day, "position": position,
+            "open_time": open, "close_time": close, "is_closed": closed,
+            "break_start": Value::Null, "break_end": Value::Null, "created_by": "system" })
+    }
+
+    /// The week `seed/install.postgres.sql` plants, with a split shift on Wednesday so the test
+    /// cannot pass by assuming one row per day.
+    fn seeded_week() -> Value {
+        json!([
+            live_row(0, 0, "09:00", "18:00", 0),
+            live_row(1, 0, "09:00", "18:00", 0),
+            live_row(2, 0, "10:00", "14:00", 0),
+            live_row(2, 1, "17:00", "20:00", 0),
+            live_row(3, 0, "09:00", "18:00", 0),
+            live_row(4, 0, "09:00", "18:00", 0),
+            live_row(5, 0, "00:00", "00:00", 1),
+            live_row(6, 0, "00:00", "00:00", 1),
+        ])
+    }
+
+    fn ops_named<'a>(out: &'a Output, command: &str) -> Vec<&'a Operation> {
+        out.operations
+            .iter()
+            .filter(|o| o.command == command)
+            .collect()
+    }
+
+    #[test]
+    fn confirming_rewrites_every_live_row_identical_and_signed_by_the_caller() {
+        let out = confirm_business_hours_pure(input_with_reads(
+            json!({}),
+            week_reads(seeded_week()),
+        ))
+        .expect("ok");
+
+        // One clear per DAY, one insert per ROW: a day is REPLACED, never accumulated — the same
+        // shape `set_business_hours` returns for a single day.
+        let clears = ops_named(&out, "schedules._clear_business_hours_day");
+        let inserts = ops_named(&out, "schedules._insert_business_hours");
+        assert_eq!(clears.len(), 7, "one clear per weekday with live rows");
+        assert_eq!(inserts.len(), 8, "one insert per live row (Wednesday has two)");
+        assert_eq!(
+            out.operations.len(),
+            15,
+            "nothing else is written: no extra table, no settings row"
+        );
+        let cleared: Vec<i64> = clears
+            .iter()
+            .map(|o| o.params["day_of_week"].as_i64().unwrap())
+            .collect();
+        assert_eq!(cleared, vec![0, 1, 2, 3, 4, 5, 6]);
+
+        // NOT ONE HOUR MOVES. This is the whole promise of the button: the person is saying «yes,
+        // this is my week», not editing it.
+        let seen: Vec<(i64, i64, String, String, i64)> = inserts
+            .iter()
+            .map(|o| {
+                (
+                    o.params["day_of_week"].as_i64().unwrap(),
+                    o.params["position"].as_i64().unwrap(),
+                    as_str(&o.params["open_time"]),
+                    as_str(&o.params["close_time"]),
+                    o.params["is_closed"].as_i64().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            seen,
+            vec![
+                (0, 0, "09:00".into(), "18:00".into(), 0),
+                (1, 0, "09:00".into(), "18:00".into(), 0),
+                (2, 0, "10:00".into(), "14:00".into(), 0),
+                (2, 1, "17:00".into(), "20:00".into(), 0),
+                (3, 0, "09:00".into(), "18:00".into(), 0),
+                (4, 0, "09:00".into(), "18:00".into(), 0),
+                (5, 0, "00:00".into(), "00:00".into(), 1),
+                (6, 0, "00:00".into(), "00:00".into(), 1),
+            ]
+        );
+
+        // Ids come from the host's batch, in order and never reused: the guest is not an authority
+        // of ids, and two rows sharing one would collide on the primary key.
+        let ids: Vec<String> = inserts.iter().map(|o| as_str(&o.params["id"])).collect();
+        assert_eq!(
+            ids,
+            vec!["id-0", "id-1", "id-2", "id-3", "id-4", "id-5", "id-6", "id-7"]
+        );
+
+        // The clear of a day is emitted BEFORE its inserts, or the day would be wiped after being
+        // rewritten and the week would come back empty.
+        for day in 0..=6 {
+            let clear_at = out
+                .operations
+                .iter()
+                .position(|o| {
+                    o.command == "schedules._clear_business_hours_day"
+                        && o.params["day_of_week"] == json!(day)
+                })
+                .unwrap();
+            let first_insert = out
+                .operations
+                .iter()
+                .position(|o| {
+                    o.command == "schedules._insert_business_hours"
+                        && o.params["day_of_week"] == json!(day)
+                })
+                .unwrap();
+            assert!(clear_at < first_insert, "day {day}: clear must come first");
+        }
+
+        // One `updated` event per day — indistinguishable from saving the seven days by hand.
+        assert_eq!(out.events.len(), 7);
+        assert!(out
+            .events
+            .iter()
+            .all(|e| e.name == "schedules.business_hours.updated"));
+        let days: Vec<i64> = out
+            .events
+            .iter()
+            .map(|e| e.payload["day_of_week"].as_i64().unwrap())
+            .collect();
+        assert_eq!(days, vec![0, 1, 2, 3, 4, 5, 6]);
+        let wednesday = &out.events[2];
+        assert_eq!(
+            wednesday.payload["intervals"].as_array().unwrap().len(),
+            2,
+            "the split shift travels whole"
+        );
+        assert_eq!(wednesday.payload["open_time"], "10:00");
+        assert_eq!(wednesday.payload["close_time"], "20:00");
+        assert_eq!(out.events[5].payload["is_closed"], 1);
+        assert_eq!(
+            out.events[5].payload["intervals"].as_array().unwrap().len(),
+            0,
+            "a closed day announces no interval"
+        );
+
+        assert_eq!(out.result.as_ref().unwrap()["confirmed_days"], 7);
+        assert!(out.error.is_none());
+    }
+
+    #[test]
+    fn confirming_sorts_the_week_the_read_may_hand_over_unordered() {
+        // `business_hours_list.sql` carries no ORDER BY: the list engine sorts by `day_of_week`
+        // only (`default_sort`), so two intervals of the same day arrive in whatever order the
+        // planner chose. Writing them back in that order would renumber `position` at random and
+        // the day editor would show the afternoon shift first.
+        let jumbled = json!([
+            live_row(2, 1, "17:00", "20:00", 0),
+            live_row(0, 0, "09:00", "18:00", 0),
+            live_row(2, 0, "10:00", "14:00", 0),
+        ]);
+        let out =
+            confirm_business_hours_pure(input_with_reads(json!({}), week_reads(jumbled))).expect("ok");
+
+        let inserts = ops_named(&out, "schedules._insert_business_hours");
+        let seen: Vec<(i64, i64, String)> = inserts
+            .iter()
+            .map(|o| {
+                (
+                    o.params["day_of_week"].as_i64().unwrap(),
+                    o.params["position"].as_i64().unwrap(),
+                    as_str(&o.params["open_time"]),
+                )
+            })
+            .collect();
+        assert_eq!(
+            seen,
+            vec![
+                (0, 0, "09:00".into()),
+                (2, 0, "10:00".into()),
+                (2, 1, "17:00".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn confirming_renumbers_position_from_zero_without_gaps() {
+        // A week whose intervals were left with holes (a middle shift deleted long ago) must come
+        // back contiguous: `position` is the order the editor paints, not an id.
+        let gapped = json!([
+            live_row(3, 7, "10:00", "14:00", 0),
+            live_row(3, 9, "17:00", "20:00", 0),
+        ]);
+        let out =
+            confirm_business_hours_pure(input_with_reads(json!({}), week_reads(gapped))).expect("ok");
+
+        let inserts = ops_named(&out, "schedules._insert_business_hours");
+        let positions: Vec<i64> = inserts
+            .iter()
+            .map(|o| o.params["position"].as_i64().unwrap())
+            .collect();
+        assert_eq!(positions, vec![0, 1]);
+    }
+
+    #[test]
+    fn confirming_carries_the_legacy_break_of_an_old_row_over() {
+        // Rows written before schedules#8 still hold the break in its own pair of columns. Writing
+        // NULL there would take a lunch break away from a business that only said «yes, this is my
+        // week» — the one thing this command promises never to do.
+        let old = json!([{ "id": "old-1", "day_of_week": 1, "position": 0, "open_time": "09:00",
+            "close_time": "18:00", "is_closed": 0, "break_start": "13:00", "break_end": "14:00",
+            "created_by": "system" }]);
+        let out =
+            confirm_business_hours_pure(input_with_reads(json!({}), week_reads(old))).expect("ok");
+
+        let insert = ops_named(&out, "schedules._insert_business_hours")[0];
+        assert_eq!(insert.params["break_start"], "13:00");
+        assert_eq!(insert.params["break_end"], "14:00");
+    }
+
+    #[test]
+    fn confirming_a_week_that_is_not_there_is_refused() {
+        // Nothing to sign. Writing nothing and answering «done» would tick the checklist step on a
+        // hub with NO hours — exactly the state schedules#36 seeded the week to make unreachable.
+        let empty =
+            confirm_business_hours_pure(input_with_reads(json!({}), week_reads(json!([])))).unwrap();
+        assert_clean_refusal(&empty, "schedules.missing_hours");
+
+        // The read is declared `required`, so the runtime aborts before us if it fails; if it ever
+        // arrives missing, the answer is still a refusal and never a silent success.
+        let no_read = confirm_business_hours_pure(input(json!({}))).unwrap();
+        assert_clean_refusal(&no_read, "schedules.missing_hours");
+    }
+
+    #[test]
+    fn confirming_re_signs_a_week_a_person_already_saved() {
+        // The button only shows while the week is still ours, but the command is a public door
+        // (the assistant, a flow). Re-signing an already-signed week is a no-op on the hours and
+        // must not be refused: the answer to «is this my week?» is yes either way.
+        let mine = json!([{ "id": "u-1", "day_of_week": 0, "position": 0, "open_time": "10:00",
+            "close_time": "14:00", "is_closed": 0, "break_start": Value::Null,
+            "break_end": Value::Null, "created_by": "u-owner" }]);
+        let out =
+            confirm_business_hours_pure(input_with_reads(json!({}), week_reads(mine))).expect("ok");
+
+        assert!(out.error.is_none());
+        assert_eq!(ops_named(&out, "schedules._insert_business_hours").len(), 1);
+        assert_eq!(out.result.as_ref().unwrap()["confirmed_days"], 1);
+    }
+
+    #[test]
+    fn confirming_never_invents_an_id_when_the_batch_runs_short() {
+        // Same contract as `set_business_hours`: ids come from `context.new_ids` and the guest
+        // stops rather than making one up. A duplicated id would collide on the primary key and
+        // roll the whole confirmation back with a plumbing error.
+        let many: Vec<Value> = (0..3)
+            .flat_map(|day| (0..12).map(move |i| live_row(day, i, "09:00", "10:00", 0)))
+            .collect();
+        let mut input = input_with_reads(json!({}), week_reads(json!(many)));
+        input["context"]["new_ids"] = json!(ids(8));
+        let err = confirm_business_hours_pure(input).expect_err("the host owes us more ids");
+        assert!(err.contains("missing_id"), "unexpected error: {err}");
     }
 }

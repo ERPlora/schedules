@@ -3668,6 +3668,8 @@ var es_default = {
     loading: "Cargando\u2026",
     emptyHours: "Sin horario configurado.",
     defaultWeekNotice: "Este es un horario por defecto que hemos puesto por ti. Comprueba que coincide con el de tu negocio: las reservas fuera de \xE9l se rechazan.",
+    confirmWeek: "S\xED, este es mi horario",
+    errorConfirmWeek: "No se pudo confirmar el horario",
     emptySpecialDays: "Sin d\xEDas especiales.",
     emptyOverrides: "Sin cambios temporales.",
     errorSaveHours: "No se pudo guardar el horario",
@@ -3692,7 +3694,7 @@ var es_default = {
   },
   setup: {
     title: "Confirma tu horario",
-    description: "Hemos puesto un horario por defecto por ti (de lunes a viernes, de 09:00 a 18:00). Comprueba que coincide con el de tu negocio y gu\xE1rdalo: las reservas fuera de tu horario se rechazan."
+    description: "Hemos puesto un horario por defecto por ti (de lunes a viernes, de 09:00 a 18:00). Si coincide con el de tu negocio, conf\xEDrmalo de un toque; si no, edita los d\xEDas que cambien: las reservas fuera de tu horario se rechazan."
   },
   errors: {
     "schedules.invalid_hours": "Esas horas no son v\xE1lidas: el formato es HH:MM y el cierre debe ser posterior a la apertura (00:00\u201300:00 significa abierto 24 horas).",
@@ -3776,6 +3778,8 @@ var en_default = {
     loading: "Loading\u2026",
     emptyHours: "No schedule configured.",
     defaultWeekNotice: "These are default opening hours we set up for you. Check they match your business \u2014 bookings outside them are refused.",
+    confirmWeek: "Yes, these are my hours",
+    errorConfirmWeek: "Could not confirm the opening hours",
     emptySpecialDays: "No special days.",
     emptyOverrides: "No overrides.",
     errorSaveHours: "Could not save the schedule",
@@ -3800,7 +3804,7 @@ var en_default = {
   },
   setup: {
     title: "Confirm your opening hours",
-    description: "We set up a default week for you (Monday to Friday, 09:00\u201318:00). Check it matches your business and save it \u2014 bookings outside your opening hours are refused."
+    description: "We set up a default week for you (Monday to Friday, 09:00\u201318:00). If it matches your business, confirm it in one tap; if not, edit the days that differ \u2014 bookings outside your opening hours are refused."
   },
   errors: {
     "schedules.invalid_hours": "Those opening hours are not valid: times are HH:MM and close must come after open (00:00\u201300:00 means open 24 hours).",
@@ -3873,6 +3877,7 @@ var ErpSchedulesHours = class extends i3 {
     this.settings = { week_starts_on: 1 };
     this.formError = "";
     this.saving = false;
+    this.confirming = false;
     this.sdDate = "";
     this.sdName = "";
     this.sdClosed = true;
@@ -4176,6 +4181,27 @@ var ErpSchedulesHours = class extends i3 {
   dataTable(id) {
     return this.renderRoot.querySelector(`#${id}`);
   }
+  /** schedules#43 — «Yes, these are my hours»: signs the week ALREADY on screen, as it is.
+   *
+   *  The onboarding step «Confirm your opening hours» is ticked by the rows a PERSON saved, so a
+   *  business whose real week is the one we seeded had no way to finish it but to open some day
+   *  and save it back unchanged. One command re-signs the seven days in ONE transaction (seven
+   *  chained dispatches from here would leave a half-signed week behind the first failure), and
+   *  it carries NO hours: the week it signs is the one the runtime pre-loads.
+   */
+  async confirmWeek() {
+    if (this.confirming) return;
+    this.confirming = true;
+    this.formError = "";
+    try {
+      await erplora().command("schedules.business_hours.confirm_week", {});
+      await this.loadHours();
+    } catch (e5) {
+      this.formError = domainErrorText(e5, "ui.errorConfirmWeek");
+    } finally {
+      this.confirming = false;
+    }
+  }
   /** Replaces the day's intervals (`schedules.business_hours.set` with `intervals[]`, schedules#8).
    *  A closed day sends no intervals; an open day needs every interval complete — the handler
    *  validates order, overlaps, overnight and 24 h. */
@@ -4360,7 +4386,14 @@ var ErpSchedulesHours = class extends i3 {
         <!-- The week we planted at install time says so out loud until somebody confirms it
              (schedules#36). It sits above the table because it is about the whole week, and only
              here: the Hours tab is where a week gets confirmed. -->
-        ${this.weekIsUnconfirmed ? b2`<ok-inline-feedback data-role="default-week" tone="warning" icon="alert-circle-outline">${t5("ui.defaultWeekNotice")}</ok-inline-feedback>` : A}
+        ${this.weekIsUnconfirmed ? b2`<ok-inline-feedback data-role="default-week" tone="warning" icon="alert-circle-outline">
+              <!-- The sentence gets its OWN node: the notice now carries an action too, so the
+                   whole banner's text is no longer just the message (schedules#43). -->
+              <span data-role="default-week-message">${t5("ui.defaultWeekNotice")}</span>
+              <!-- The way OUT of the notice, inside the notice: a business the default week fits
+                   confirms it here instead of re-saving a day it never changed (schedules#43). -->
+              <ion-button slot="actions" size="small" data-action="confirm-week" ?disabled=${this.confirming} @click=${() => this.confirmWeek()}>${t5("ui.confirmWeek")}</ion-button>
+            </ok-inline-feedback>` : A}
         <!-- Seven fixed rows (one per weekday), no «+»: a day is EDITED, never added (schedules#8).
              No rows-per-page selector either (schedules#29): this view paints ALL seven weekdays and
              never pages, and an empty dropdown that does nothing is a control that lies. -->
@@ -4503,6 +4536,9 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "saving", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "confirming", 2);
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "sdDate", 2);

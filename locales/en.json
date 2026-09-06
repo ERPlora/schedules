@@ -65,6 +65,8 @@
     "loading": "Loading…",
     "emptyHours": "No schedule configured.",
     "defaultWeekNotice": "These are default opening hours we set up for you. Check they match your business — bookings outside them are refused.",
+    "confirmWeek": "Yes, these are my hours",
+    "errorConfirmWeek": "Could not confirm the opening hours",
     "emptySpecialDays": "No special days.",
     "emptyOverrides": "No overrides.",
     "errorSaveHours": "Could not save the schedule",
@@ -89,7 +91,7 @@
   },
   "setup": {
     "title": "Confirm your opening hours",
-    "description": "We set up a default week for you (Monday to Friday, 09:00–18:00). Check it matches your business and save it — bookings outside your opening hours are refused."
+    "description": "We set up a default week for you (Monday to Friday, 09:00–18:00). If it matches your business, confirm it in one tap; if not, edit the days that differ — bookings outside your opening hours are refused."
   },
   "errors": {
     "schedules.invalid_hours": "Those opening hours are not valid: times are HH:MM and close must come after open (00:00–00:00 means open 24 hours).",

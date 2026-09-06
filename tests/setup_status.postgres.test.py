@@ -46,7 +46,10 @@ from pg_harness import (
     MANIFEST,
     NOW,
     OTHER_HUB,
+    SEED_USER,
+    USER,
     ScratchDb,
+    confirm_week_ops,
     container_available,
     is_configured,
     screen_calls_the_week_ours,
@@ -278,6 +281,109 @@ def hours_a_blueprint_wrote_tick_the_step() -> None:
         db.drop()
 
 
+# ── 7. Saying «yes, this is my week» finishes the step without editing anything ───────────
+
+
+WEEK_COLUMNS = "day_of_week, position, open_time, close_time, is_closed, break_start, break_end"
+
+
+def live_week(db: ScratchDb, hub: str = HUB) -> list[dict]:
+    return db.rows(
+        f"SELECT {WEEK_COLUMNS}, created_by FROM schedules_business_hours "
+        f"WHERE hub_id = '{hub}' AND is_deleted = 0 ORDER BY day_of_week, position"
+    )
+
+
+def hours_only(week: list[dict]) -> list[tuple]:
+    return [tuple(row[c] for c in WEEK_COLUMNS.split(", ")) for row in week]
+
+
+def confirming_the_default_week_ticks_the_step_without_moving_an_hour() -> None:
+    """schedules#43 — the gesture the step was missing.
+
+    Before this, the ONLY way to finish a step that asks «are these your hours?» was to open a day
+    and save it back unchanged: a business the default week fits had to pretend to edit something.
+    `schedules.business_hours.confirm_week` re-signs the seven days in one transaction, and the two
+    readings of the state — the checklist and the screen's «these are default hours» notice — have
+    to flip TOGETHER, or the owner is left with a pending task and nothing on screen asking for it.
+    """
+    db = ScratchDb("schedules_setup_confirm_week")
+    db.create()
+    try:
+        db.apply_seed()
+        before = live_week(db)
+        check("the seeded week is pending", False, is_configured(setup_rows(db)))
+        check("and the screen calls it ours", True, screen_calls_the_week_ours(before))
+
+        ids = [str(uuid.uuid4()) for _ in before]
+        db.run_intents(confirm_week_ops(before, ids))
+
+        after = live_week(db)
+        # THE PROMISE: the person said yes, they did not edit. Every hour, every closed day and
+        # every legacy break column comes back identical — only the signature changed.
+        check("not one opening hour moved", hours_only(before), hours_only(after))
+        check("the week is still seven days", 7, len(after))
+        check(
+            "and every row is now signed by the person",
+            {USER},
+            {row["created_by"] for row in after},
+        )
+        check(
+            "the installer no longer owns a live row",
+            0,
+            sum(1 for row in after if row["created_by"] == SEED_USER),
+        )
+
+        # The two readings flip together, which is the whole reason schedules#42 put the screen's
+        # rule in this harness instead of leaving it in the component.
+        check("the step is done", True, is_configured(setup_rows(db)))
+        check("and the notice goes quiet", False, screen_calls_the_week_ours(after))
+
+        # The seeded rows are soft-deleted, not gone: the audit still holds who wrote what.
+        check(
+            "the week the installer wrote is kept as history",
+            7,
+            int(
+                db.scalar(
+                    f"SELECT COUNT(*) FROM schedules_business_hours "
+                    f"WHERE hub_id = '{HUB}' AND is_deleted = 1 "
+                    f"AND created_by = '{SEED_USER}'"
+                )
+            ),
+        )
+    finally:
+        db.drop()
+
+
+def confirming_never_reaches_the_salon_next_door() -> None:
+    """The command writes seven days with no `day_of_week` filter of its own beyond the one in each
+    intention — the `hub_id` in every statement is the only thing keeping the neighbour's week out
+    of it. A tenancy hole here would re-sign somebody else's hours in their own name."""
+    db = ScratchDb("schedules_confirm_week_tenancy")
+    db.create()
+    try:
+        db.apply_seed(hub=HUB)
+        db.apply_seed(hub=OTHER_HUB)
+        neighbour_before = live_week(db, hub=OTHER_HUB)
+
+        ours = live_week(db)
+        db.run_intents(confirm_week_ops(ours, [str(uuid.uuid4()) for _ in ours]), hub=HUB)
+
+        check("our step is done", True, is_configured(setup_rows(db)))
+        check(
+            "the neighbour's is untouched and still pending",
+            False,
+            is_configured(setup_rows(db, hub=OTHER_HUB)),
+        )
+        check(
+            "and their week is byte for byte the one they had",
+            neighbour_before,
+            live_week(db, hub=OTHER_HUB),
+        )
+    finally:
+        db.drop()
+
+
 def main() -> int:
     if not container_available():
         print("SKIPPED: Postgres container not available")
@@ -291,6 +397,8 @@ def main() -> int:
         clearing_what_the_person_wrote_returns_the_step_to_pending,
         the_salon_next_door_never_ticks_our_step,
         hours_a_blueprint_wrote_tick_the_step,
+        confirming_the_default_week_ticks_the_step_without_moving_an_hour,
+        confirming_never_reaches_the_salon_next_door,
     ):
         print(f"\n{test.__name__}:")
         test()

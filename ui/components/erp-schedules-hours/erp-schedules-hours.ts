@@ -230,6 +230,11 @@ export class ErpSchedulesHours extends LitElement {
 
   @state() saving = false;
 
+  /** True while `schedules.business_hours.confirm_week` is in flight. It disables the button so a
+   *  second tap cannot re-sign the week — every confirmation REPLACES the rows, so two in flight
+   *  race to write the same seven days. */
+  @state() private confirming = false;
+
   @state() sdDate = '';
 
   @state() sdName = '';
@@ -574,6 +579,29 @@ export class ErpSchedulesHours extends LitElement {
       | null;
   }
 
+  /** schedules#43 — «Yes, these are my hours»: signs the week ALREADY on screen, as it is.
+   *
+   *  The onboarding step «Confirm your opening hours» is ticked by the rows a PERSON saved, so a
+   *  business whose real week is the one we seeded had no way to finish it but to open some day
+   *  and save it back unchanged. One command re-signs the seven days in ONE transaction (seven
+   *  chained dispatches from here would leave a half-signed week behind the first failure), and
+   *  it carries NO hours: the week it signs is the one the runtime pre-loads.
+   */
+  private async confirmWeek() {
+    if (this.confirming) return;
+    this.confirming = true;
+    this.formError = '';
+    try {
+      await erplora().command('schedules.business_hours.confirm_week', {});
+      // The notice reads `created_by`, so it only goes quiet once the signed rows are back.
+      await this.loadHours();
+    } catch (e) {
+      this.formError = domainErrorText(e, 'ui.errorConfirmWeek');
+    } finally {
+      this.confirming = false;
+    }
+  }
+
   /** Replaces the day's intervals (`schedules.business_hours.set` with `intervals[]`, schedules#8).
    *  A closed day sends no intervals; an open day needs every interval complete — the handler
    *  validates order, overlaps, overnight and 24 h. */
@@ -775,7 +803,14 @@ export class ErpSchedulesHours extends LitElement {
              (schedules#36). It sits above the table because it is about the whole week, and only
              here: the Hours tab is where a week gets confirmed. -->
         ${this.weekIsUnconfirmed
-          ? html`<ok-inline-feedback data-role="default-week" tone="warning" icon="alert-circle-outline">${t('ui.defaultWeekNotice')}</ok-inline-feedback>`
+          ? html`<ok-inline-feedback data-role="default-week" tone="warning" icon="alert-circle-outline">
+              <!-- The sentence gets its OWN node: the notice now carries an action too, so the
+                   whole banner's text is no longer just the message (schedules#43). -->
+              <span data-role="default-week-message">${t('ui.defaultWeekNotice')}</span>
+              <!-- The way OUT of the notice, inside the notice: a business the default week fits
+                   confirms it here instead of re-saving a day it never changed (schedules#43). -->
+              <ion-button slot="actions" size="small" data-action="confirm-week" ?disabled=${this.confirming} @click=${() => this.confirmWeek()}>${t('ui.confirmWeek')}</ion-button>
+            </ok-inline-feedback>`
           : nothing}
         <!-- Seven fixed rows (one per weekday), no «+»: a day is EDITED, never added (schedules#8).
              No rows-per-page selector either (schedules#29): this view paints ALL seven weekdays and

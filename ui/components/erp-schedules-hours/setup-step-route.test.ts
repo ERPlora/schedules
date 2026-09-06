@@ -79,7 +79,9 @@ async function mountAtStepRoute(width: number): Promise<Wc> {
   return el;
 }
 
-const notice = (el: Wc) => el.shadowRoot.querySelector('ok-inline-feedback[data-role="default-week"]');
+// The MESSAGE, not the whole banner: since schedules#43 the notice also carries the confirm
+// action, whose label is part of the banner's `textContent` but not part of the sentence.
+const notice = (el: Wc) => el.shadowRoot.querySelector('ok-inline-feedback[data-role="default-week"] [data-role="default-week-message"]');
 
 describe('the checklist step lands on the screen that can finish it', () => {
   it('the declared route opens the Hours tab, the only one that carries the week', async () => {

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "schedules.business_hours.confirm_week",
+  "description": "Signs the weekly hours ALREADY STORED as the business's own (schedules#43) — the gesture behind «Yes, these are my hours». It takes no payload on purpose: the week it signs is the one the runtime pre-loads from this hub (`reads`), never one the caller supplies, so nobody can sign hours the business was never shown.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}

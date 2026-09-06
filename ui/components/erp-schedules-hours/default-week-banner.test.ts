@@ -33,6 +33,12 @@ const SEEDED = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
 }));
 
 let hoursRows: Record<string, unknown>[] = [];
+let commandCalls: { name: string; payload: unknown }[] = [];
+let commandImpl: (name: string, payload: unknown) => Promise<unknown> = async () => ({});
+
+/** The week as it comes back once a person has signed it: `set`/`confirm_week` clear the day and
+ *  re-insert it stamped with the real user, so the rows are NEW rows with a NEW author. */
+const SIGNED = SEEDED.map((r, i) => ({ ...r, id: `signed-${i}`, created_by: 'u-owner' }));
 
 function install(locale: 'es' | 'en') {
   // A faithful `t`, like the SDK's: an identity mock would hide the very thing this file checks,
@@ -50,7 +56,10 @@ function install(locale: 'es' | 'en') {
       name === 'schedules.settings.get' ? { timezone: 'Europe/Madrid', week_starts_on: 1, slot_duration: 30, auto_close_enabled: 0 } : [],
     queryAll: async (name: string) => (name === 'schedules.business_hours.list' ? hoursRows : []),
     queryPage: async (name: string) => (name === 'schedules.business_hours.list' ? { rows: hoursRows, total: hoursRows.length } : { rows: [], total: 0 }),
-    command: async () => ({}),
+    command: async (name: string, payload: unknown) => {
+      commandCalls.push({ name, payload });
+      return commandImpl(name, payload);
+    },
     on: () => () => {},
     locale,
     t,
@@ -76,6 +85,8 @@ const banner = (el: Wc) => el.shadowRoot.querySelector('ok-inline-feedback[data-
 beforeEach(() => {
   document.body.innerHTML = '';
   hoursRows = [];
+  commandCalls = [];
+  commandImpl = async () => ({});
   install('es');
 });
 
@@ -142,6 +153,111 @@ describe('the notice is translated, not hardcoded (ADR-0055/0199)', () => {
       const ui = (locale as { ui: Record<string, string> }).ui;
       expect(ui.defaultWeekNotice, `${lang} is missing the notice`).toBeTruthy();
       expect(ui.defaultWeekNotice.length, `${lang}'s notice is a placeholder`).toBeGreaterThan(20);
+    }
+  });
+});
+
+// schedules#43 — and it lets the business say YES to it in one gesture.
+//
+// The step «Confirm your opening hours» is ticked by the rows a PERSON signed, so a salon whose
+// real week IS the default one had nothing to press: the only way out was to open a day and save
+// it back unchanged, which nobody understands. The notice now carries the button that signs it.
+const confirmButton = (el: Wc) => el.shadowRoot.querySelector('ok-inline-feedback[data-role="default-week"] [data-action="confirm-week"]') as HTMLElement | null;
+
+const dangerBanners = (el: Wc) => [...el.shadowRoot.querySelectorAll('ok-inline-feedback[tone="danger"]')].map((n) => n.textContent ?? '');
+
+describe('the business can accept the week it was given, in one gesture', () => {
+  it('offers the button inside the notice, where the week is questioned', async () => {
+    hoursRows = SEEDED;
+    const el = await mount('hours');
+
+    const button = confirmButton(el);
+    expect(button, 'the notice must carry the way out of it, not just the complaint').not.toBeNull();
+    expect(button?.getAttribute('slot'), 'it belongs to the banner’s actions slot').toBe('actions');
+    // ADR-0143: `fill="outline"` is a no-op on form controls in ios mode, and this is the primary
+    // action of the notice — it must not be painted as a ghost.
+    expect(button?.getAttribute('fill')).not.toBe('clear');
+  });
+
+  it('signs the whole week with ONE command that carries no hours of its own', async () => {
+    hoursRows = SEEDED;
+    const el = await mount('hours');
+
+    confirmButton(el)?.click();
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(commandCalls.map((c) => c.name)).toEqual(['schedules.business_hours.confirm_week']);
+    // The week to sign is the one the RUNTIME pre-loads (`reads`); a payload of hours here would
+    // let the browser sign a week nobody was ever shown.
+    expect(commandCalls[0].payload ?? {}).toEqual({});
+  });
+
+  it('drops the notice once the week comes back signed', async () => {
+    hoursRows = SEEDED;
+    commandImpl = async () => {
+      hoursRows = SIGNED;
+      return { confirmed_days: 7 };
+    };
+    const el = await mount('hours');
+
+    confirmButton(el)?.click();
+    await new Promise((r) => setTimeout(r, 0));
+    await el.updateComplete;
+
+    expect(banner(el), 'the week is the business’s now: the warning has nothing left to say').toBeNull();
+    // And not one opening hour moved: confirming is a signature, never an edit.
+    expect(hoursRows.map((r) => [r.day_of_week, r.open_time, r.close_time, r.is_closed])).toEqual(
+      SEEDED.map((r) => [r.day_of_week, r.open_time, r.close_time, r.is_closed]),
+    );
+  });
+
+  it('keeps the notice and says why when the hub refuses', async () => {
+    hoursRows = SEEDED;
+    commandImpl = async () => {
+      const e = new Error('There are no weekly opening hours to confirm') as Error & { code: string };
+      e.code = 'schedules.missing_hours';
+      throw e;
+    };
+    const el = await mount('hours');
+
+    confirmButton(el)?.click();
+    await new Promise((r) => setTimeout(r, 0));
+    await el.updateComplete;
+
+    expect(banner(el), 'nothing was signed, so the week is still ours').not.toBeNull();
+    expect(confirmButton(el)?.hasAttribute('disabled'), 'the button has to be pressable again').toBe(false);
+    const refusal = (esLocale.errors as Record<string, string>)['schedules.missing_hours'];
+    expect(refusal, 'the code must be in the es catalog').toBeTruthy();
+    expect(dangerBanners(el).join(' '), 'a refusal nobody can read is a failure that did not happen').toContain(refusal);
+  });
+
+  it('reaches the shopkeeper in their own language', async () => {
+    hoursRows = SEEDED;
+    const es = (esLocale.ui as Record<string, string>).confirmWeek;
+    const en = (enLocale.ui as Record<string, string>).confirmWeek;
+    expect(es, 'the key must exist in the es catalog').toBeTruthy();
+    expect(en, 'the key must exist in the en catalog').toBeTruthy();
+    expect(es).not.toBe(en);
+
+    const spanish = await mount('hours');
+    expect(confirmButton(spanish)?.textContent?.trim()).toContain(es);
+    expect(confirmButton(spanish)?.textContent, 'the English source must not leak into a Spanish hub').not.toContain(en);
+
+    document.body.innerHTML = '';
+    install('en');
+    const english = await mount('hours');
+    expect(confirmButton(english)?.textContent?.trim()).toContain(en);
+  });
+
+  it('is not offered when there is no week of ours to confirm', async () => {
+    // Already signed, and a hub older than the seed: in both the notice is gone and so is its
+    // button — a «confirm» that writes nothing would tick the checklist over an empty table.
+    for (const rows of [SIGNED, []]) {
+      document.body.innerHTML = '';
+      hoursRows = rows;
+      const el = await mount('hours');
+      expect(confirmButton(el)).toBeNull();
     }
   });
 });
