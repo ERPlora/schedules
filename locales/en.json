@@ -87,6 +87,10 @@
     "removeInterval": "Remove interval",
     "intervalsHint": "Split shifts: one line per interval (10:00–14:00 and 17:00–20:00). A closing time earlier than the opening one runs past midnight (22:00–02:00)."
   },
+  "setup": {
+    "title": "Confirm your opening hours",
+    "description": "We set up a default week for you (Monday to Friday, 09:00–18:00). Check it matches your business and save it — bookings outside your opening hours are refused."
+  },
   "errors": {
     "schedules.invalid_hours": "Those opening hours are not valid: times are HH:MM and close must come after open (00:00–00:00 means open 24 hours).",
     "schedules.invalid_break": "That break is not valid: it needs a start and an end, inside the opening hours.",

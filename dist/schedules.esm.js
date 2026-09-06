@@ -3690,6 +3690,10 @@ var es_default = {
     removeInterval: "Quitar tramo",
     intervalsHint: "Jornada partida: una l\xEDnea por tramo (10:00\u201314:00 y 17:00\u201320:00). Un cierre anterior a la apertura pasa de medianoche (22:00\u201302:00)."
   },
+  setup: {
+    title: "Confirma tu horario",
+    description: "Hemos puesto un horario por defecto por ti (de lunes a viernes, de 09:00 a 18:00). Comprueba que coincide con el de tu negocio y gu\xE1rdalo: las reservas fuera de tu horario se rechazan."
+  },
   errors: {
     "schedules.invalid_hours": "Esas horas no son v\xE1lidas: el formato es HH:MM y el cierre debe ser posterior a la apertura (00:00\u201300:00 significa abierto 24 horas).",
     "schedules.invalid_break": "Ese descanso no es v\xE1lido: necesita hora de inicio y de fin, dentro del horario de apertura.",
@@ -3793,6 +3797,10 @@ var en_default = {
     addInterval: "+ Add interval",
     removeInterval: "Remove interval",
     intervalsHint: "Split shifts: one line per interval (10:00\u201314:00 and 17:00\u201320:00). A closing time earlier than the opening one runs past midnight (22:00\u201302:00)."
+  },
+  setup: {
+    title: "Confirm your opening hours",
+    description: "We set up a default week for you (Monday to Friday, 09:00\u201318:00). Check it matches your business and save it \u2014 bookings outside your opening hours are refused."
   },
   errors: {
     "schedules.invalid_hours": "Those opening hours are not valid: times are HH:MM and close must come after open (00:00\u201300:00 means open 24 hours).",

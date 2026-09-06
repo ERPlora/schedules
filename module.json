@@ -1,7 +1,7 @@
 {
   "id": "schedules",
   "name": "Schedules",
-  "version": "2.0.29",
+  "version": "2.0.30",
   "description": "Business opening hours, special days and schedule overrides.",
   "agent": {
     "description": "Manages business opening hours, special days, and schedule overrides: query and update weekly schedules, create exceptions, and check whether the business is currently open.",
@@ -257,6 +257,13 @@
       "ai": {
         "description": "Retrieves the settings of the schedules module (week_starts_on). The row still carries legacy columns — timezone, slot_duration, auto_close_enabled — that nothing reads: the business timezone is the hub's"
       }
+    },
+    "schedules.setup.status": {
+      "permission": "schedules.view_schedule",
+      "sql": "queries/setup_status.sql",
+      "ai": {
+        "description": "Reports how many weekly opening rows a PERSON has saved (the week the installer seeds carries created_by 'system' and does not count); 0 means nobody has confirmed the business hours yet"
+      }
     }
   },
   "commands": {
@@ -438,6 +445,23 @@
         "commands/_insert_business_hours.sql"
       ]
     }
+  },
+  "setup": {
+    "query": "schedules.setup.status",
+    "configured_when": [
+      {
+        "field": "confirmed_hours",
+        "truthy": true
+      }
+    ],
+    "title": "Confirm your opening hours",
+    "description": "We set up a default week for you (Monday to Friday, 09:00–18:00). Check it matches your business and save it — bookings outside your opening hours are refused.",
+    "icon": "time-outline",
+    "route": "/m/schedules/hours",
+    "permission": "schedules.change_schedule",
+    "countries": [],
+    "order": 101,
+    "required": false
   },
   "errors": {
     "schedules.already_exists": {},

@@ -28,6 +28,11 @@ THE CONTRACT this file pins — the handover between a placeholder and real hour
      module update — must not re-plant the generic week over the salon's.
   4. The screen goes QUIET. Once real hours are in, `weekIsUnconfirmed` (every live row authored by
      `system`) must be false, or the salon would be nagged about a week it did choose.
+  5. AND THE CHECKLIST AGREES WITH IT (schedules#42). The setup step of slot 101 asks the same
+     question as that banner — «has this week been settled?» — through a different code path, so
+     the two have to answer together. A blueprint week that leaves the screen quiet and the step
+     PENDING is the worst of both: nothing on screen asks for anything, and the checklist keeps
+     demanding something the owner has no way to give.
 
 The blueprint statements below are a VERBATIM copy of the hours block of
 `blueprints/starter_catalogs/es/beauty/seed.sql` (a different repo, so it cannot be imported).
@@ -47,7 +52,16 @@ import pathlib
 import re
 import sys
 
-from pg_harness import HUB, NOW, SEED_USER, ScratchDb, container_available
+from pg_harness import (
+    HUB,
+    NOW,
+    SEED_USER,
+    ScratchDb,
+    container_available,
+    is_configured,
+    screen_calls_the_week_ours,
+    setup_rows,
+)
 
 failures: list[str] = []
 
@@ -209,6 +223,28 @@ def the_screen_stops_calling_it_our_guess() -> None:
         db.drop()
 
 
+def the_blueprint_week_settles_the_screen_and_the_checklist_together() -> None:
+    """5 — the two readings of «has this week been settled?», on the same hub, in one breath.
+
+    They are computed apart: the banner is TypeScript over the rows of `business_hours.list`, the
+    step is SQL in `setup_status.sql` behind `configured_when`. The blueprint signs its hours
+    `created_by = NULL` (it is not a person and not the installer), and NULL is exactly where the
+    two can disagree without anybody noticing — `NULL <> 'system'` is NULL, not TRUE, so a step
+    written the obvious way silently stops counting the very week the screen has accepted.
+
+    Asserted together on purpose: separately, both halves pass while the hub is broken."""
+    db = provisioned_salon("schedules_bp_both_surfaces")
+    try:
+        rows = live_hours(db)
+
+        # The screen: quiet, because these hours are not the installer's guess.
+        check("the screen does NOT call the week ours", False, screen_calls_the_week_ours(rows))
+        # The checklist: done, because they are not a guess for the checklist either.
+        check("the checklist step is settled too", True, is_configured(setup_rows(db)))
+    finally:
+        db.drop()
+
+
 def the_fixture_still_matches_the_real_blueprint() -> None:
     """The copy above is only worth something while it is still the truth. When the monorepo is
     checked out around us, re-read the real file and compare the week it declares."""
@@ -271,6 +307,7 @@ def main() -> int:
         the_salons_real_hours_survive_the_generic_seed,
         a_module_update_does_not_replant_the_generic_week,
         the_screen_stops_calling_it_our_guess,
+        the_blueprint_week_settles_the_screen_and_the_checklist_together,
     ):
         print(f"\n{test.__name__}:")
         test()
