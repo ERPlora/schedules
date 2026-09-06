@@ -279,6 +279,24 @@
         "description": "Replaces the opening intervals of a weekday: pass intervals[] (split shifts, overnight when close < open, 00:00–00:00 for 24 h) or is_closed. The handler validates and sorts them, rejects overlaps and emits schedules.business_hours.updated"
       }
     },
+    "schedules.business_hours.confirm_week": {
+      "permission": "schedules.change_schedule",
+      "schema": "schemas/business_hours_confirm_week.json",
+      "handler": {
+        "type": "wasm",
+        "file": "dist/handler.wasm",
+        "function": "confirm_business_hours"
+      },
+      "reads": [
+        {
+          "query": "schedules.business_hours.list",
+          "required": true
+        }
+      ],
+      "ai": {
+        "description": "Confirms the weekly opening hours the hub already has as the business's OWN, without changing a single hour: it re-writes every live row signed by the caller so the onboarding step «Confirm your opening hours» can be completed by a business whose real week is the default one. Takes no payload"
+      }
+    },
     "schedules.special_days.create": {
       "permission": "schedules.add_schedule",
       "schema": "schemas/special_day_create.json",
@@ -455,7 +473,7 @@
       }
     ],
     "title": "Confirm your opening hours",
-    "description": "We set up a default week for you (Monday to Friday, 09:00–18:00). Check it matches your business and save it — bookings outside your opening hours are refused.",
+    "description": "We set up a default week for you (Monday to Friday, 09:00–18:00). If it matches your business, confirm it in one tap; if not, edit the days that differ — bookings outside your opening hours are refused.",
     "icon": "time-outline",
     "route": "/m/schedules/hours",
     "permission": "schedules.change_schedule",

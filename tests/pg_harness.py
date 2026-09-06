@@ -288,6 +288,40 @@ def set_hours_ops(
     return ops
 
 
+def confirm_week_ops(rows: list[dict], ids: list[str]):
+    """`confirm_business_hours` → for every weekday with live rows, clear the day and re-insert
+    each of its intervals UNCHANGED, so the batch is signed by the caller instead of the installer
+    (schedules#43). `rows` is what `schedules.business_hours.list` returns.
+
+    The op shape is pinned by the handler's own unit test
+    `confirming_rewrites_every_live_row_identical_and_signed_by_the_caller`; what THIS harness adds
+    is running it against real SQL, which is the only place the flip from «pending» to «done» —
+    and the fact that not one opening hour moved — can actually be observed."""
+    ordered = sorted(rows, key=lambda r: (int(r["day_of_week"]), int(r["position"])))
+    ops: list[tuple[str, dict]] = []
+    taken = 0
+    for day in sorted({int(r["day_of_week"]) for r in ordered}):
+        ops.append(("schedules._clear_business_hours_day", {"day_of_week": day}))
+        for position, row in enumerate(r for r in ordered if int(r["day_of_week"]) == day):
+            ops.append(
+                (
+                    "schedules._insert_business_hours",
+                    {
+                        "id": ids[taken],
+                        "day_of_week": day,
+                        "position": position,
+                        "open_time": row["open_time"],
+                        "close_time": row["close_time"],
+                        "is_closed": int(row["is_closed"]),
+                        "break_start": row.get("break_start"),
+                        "break_end": row.get("break_end"),
+                    },
+                )
+            )
+            taken += 1
+    return ops
+
+
 # ── The runtime's setup-check evaluator, in miniature (schedules#42) ──────────────────────
 #
 # Mirrors `truthy` / `passes` / `is_configured` in hub/crates/runtime/src/setup_status.rs. It lives

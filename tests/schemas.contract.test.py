@@ -183,6 +183,9 @@ UI_PAYLOADS = {
         {"week_starts_on": 1},
         {"week_starts_on": 7},
     ],
+    # `confirmWeek` — «Yes, these are my hours» (schedules#43). It sends NOTHING: the week it
+    # signs is the one the runtime pre-loads (`reads`), never one the browser supplies.
+    "schedules.business_hours.confirm_week": [{}],
     "schedules.special_days.delete": [{"special_day_id": "sd1"}],
     "schedules.overrides.delete": [{"override_id": "ov1"}],
     # The assistant / importers path.
@@ -261,6 +264,19 @@ REFUSED = [
         "schedules.special_days.create",
         "a misspelled key",
         {"date": "2026-12-25", "name": "Christmas", "recurring": True},
+    ),
+    # schedules#43: the confirmation carries no hours of its own. A payload that could smuggle a
+    # week in would let the browser SIGN hours the business was never shown — the one thing the
+    # authoritative `reads` exists to prevent.
+    (
+        "schedules.business_hours.confirm_week",
+        "a week smuggled into the confirmation",
+        {"intervals": [{"open_time": "00:00", "close_time": "23:59"}]},
+    ),
+    (
+        "schedules.business_hours.confirm_week",
+        "a single day smuggled into the confirmation",
+        {"day_of_week": 0},
     ),
     ("schedules.special_days.create", "no name", {"date": "2026-12-25"}),
     (
