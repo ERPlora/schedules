@@ -4387,7 +4387,9 @@ var ErpSchedulesHours = class extends i3 {
              (schedules#36). It sits above the table because it is about the whole week, and only
              here: the Hours tab is where a week gets confirmed. -->
         ${this.weekIsUnconfirmed ? b2`<ok-inline-feedback data-role="default-week" tone="warning" icon="alert-circle-outline">
-              ${t5("ui.defaultWeekNotice")}
+              <!-- The sentence gets its OWN node: the notice now carries an action too, so the
+                   whole banner's text is no longer just the message (schedules#43). -->
+              <span data-role="default-week-message">${t5("ui.defaultWeekNotice")}</span>
               <!-- The way OUT of the notice, inside the notice: a business the default week fits
                    confirms it here instead of re-saving a day it never changed (schedules#43). -->
               <ion-button slot="actions" size="small" data-action="confirm-week" ?disabled=${this.confirming} @click=${() => this.confirmWeek()}>${t5("ui.confirmWeek")}</ion-button>

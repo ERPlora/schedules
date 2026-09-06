@@ -804,7 +804,9 @@ export class ErpSchedulesHours extends LitElement {
              here: the Hours tab is where a week gets confirmed. -->
         ${this.weekIsUnconfirmed
           ? html`<ok-inline-feedback data-role="default-week" tone="warning" icon="alert-circle-outline">
-              ${t('ui.defaultWeekNotice')}
+              <!-- The sentence gets its OWN node: the notice now carries an action too, so the
+                   whole banner's text is no longer just the message (schedules#43). -->
+              <span data-role="default-week-message">${t('ui.defaultWeekNotice')}</span>
               <!-- The way OUT of the notice, inside the notice: a business the default week fits
                    confirms it here instead of re-saving a day it never changed (schedules#43). -->
               <ion-button slot="actions" size="small" data-action="confirm-week" ?disabled=${this.confirming} @click=${() => this.confirmWeek()}>${t('ui.confirmWeek')}</ion-button>

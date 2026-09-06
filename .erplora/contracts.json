@@ -11,6 +11,7 @@
     ],
     "optional_queries": [],
     "commands": [
+      "schedules.business_hours.confirm_week",
       "schedules.business_hours.set",
       "schedules.overrides.create",
       "schedules.overrides.delete",
