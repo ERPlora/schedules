@@ -8,12 +8,21 @@
 -- therefore be ticked the moment the module lands and would never ask the business anything —
 -- which is exactly the salon that opens at 10:00 taking 09:00 Monday bookings it never agreed to.
 --
--- WHAT TELLS THE TWO APART IS THE AUTHOR. `apply_module_seed` binds `:current_user_id` = 'system'
--- (crates/runtime/src/seed.rs, `SEEDED_BY`), so the seeded week carries `created_by` = 'system';
--- `schedules.business_hours.set` clears the day and re-inserts it stamped with the real user
--- (`commands/_insert_business_hours.sql`), so anything a person saved carries their id. This is the
--- SAME line the Hours screen already draws for its «these are default hours» banner
+-- WHAT TELLS THE TWO APART IS THE AUTHOR. `apply_module_seed` binds `:current_user_id` to the
+-- literal 'system' (crates/runtime/src/seed.rs), so the seeded week carries `created_by` =
+-- 'system'; `schedules.business_hours.set` clears the day and re-inserts it stamped with the real
+-- user (`commands/_insert_business_hours.sql`), so anything a person saved carries their id. This
+-- is the SAME line the Hours screen already draws for its «these are default hours» banner
 -- (`erp-schedules-hours.ts`, `SEED_AUTHOR`), on purpose: screen and checklist must not drift.
+--
+-- ANYTHING THAT IS NOT THE INSTALLER COUNTS — hence `IS DISTINCT FROM` and not `<>`. A starter
+-- catalog is a third author: it is not a person, but it is not our guess either, and it signs its
+-- rows `created_by = NULL` (`blueprints/starter_catalogs/es/beauty/seed.sql` takes over the
+-- placeholder with `SET … created_by = NULL`). `NULL <> 'system'` is NULL, not TRUE, so `<>` drops
+-- the blueprint week and leaves the step pending FOREVER on a hub whose hours are already the
+-- salon's — while the screen, asking the same question with `created_by === 'system'`, has already
+-- gone quiet. Nothing would ask the owner for anything and the step would never clear. The two
+-- readings of this state are pinned together in `tests/blueprint_handover.postgres.test.py` §5.
 --
 -- SOFT-DELETED ROWS ARE GONE. The checklist reports the hub as it is now, not a milestone it once
 -- passed — a hub that wiped the hours it had written has the work to do again.
@@ -27,4 +36,4 @@
 -- nothing is what keeps «nobody has confirmed yet» distinguishable from «the check failed».
 SELECT COUNT(*) AS confirmed_hours
 FROM schedules_business_hours
-WHERE hub_id = :hub_id AND is_deleted = 0 AND created_by <> 'system'
+WHERE hub_id = :hub_id AND is_deleted = 0 AND created_by IS DISTINCT FROM 'system'

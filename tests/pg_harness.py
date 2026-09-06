@@ -286,3 +286,74 @@ def set_hours_ops(
             )
         )
     return ops
+
+
+# ── The runtime's setup-check evaluator, in miniature (schedules#42) ──────────────────────
+#
+# Mirrors `truthy` / `passes` / `is_configured` in hub/crates/runtime/src/setup_status.rs. It lives
+# in the harness, not in one battery, because the checklist step and the Hours screen's «these are
+# default hours» banner are TWO READINGS OF THE SAME STATE and must never drift: whoever asserts
+# one has to be able to assert the other in the same breath.
+#
+# What is under test through these helpers is the DECLARED CONTRACT — the query AND its
+# `configured_when` — not the SELECT on its own: a query that answers perfectly under a
+# `configured_when` that can never pass is still a step nobody ever gets to tick.
+
+
+def truthy(value) -> bool:
+    if value is None or value is False:
+        return False
+    if value is True:
+        return True
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        s = value.strip()
+        return bool(s) and s != "0" and s.lower() != "false"
+    if isinstance(value, (list, dict)):
+        return bool(value)
+    return True
+
+
+def as_text(value) -> str:
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    return json.dumps(value)
+
+
+def passes(row: dict, spec: dict) -> bool:
+    value = row.get(spec["field"])
+    if "truthy" in spec:
+        return truthy(value) == spec["truthy"]
+    if "equals" in spec:
+        return as_text(value) == as_text(spec["equals"])
+    return False
+
+
+def setup_rows(db, hub: str = HUB) -> list[dict]:
+    setup = MANIFEST.get("setup") or {}
+    name = setup.get("query")
+    if not name:
+        raise AssertionError("module.json declares no `setup.query`")
+    return db.run_query(name, dict(setup.get("params") or {}), hub=hub)
+
+
+def is_configured(rows: list[dict]) -> bool:
+    """Configured ⇔ there IS a row and every declared check passes on it (ADR-0063)."""
+    setup = MANIFEST.get("setup") or {}
+    if not rows:
+        return False
+    return all(passes(rows[0], c) for c in setup.get("configured_when", []))
+
+
+def screen_calls_the_week_ours(rows: list[dict]) -> bool:
+    """`weekIsUnconfirmed` from `erp-schedules-hours.ts`, over the rows the SCREEN reads
+    (`schedules.business_hours.list`): «there are rows and the installer wrote every one of them».
+
+    The banner and the checklist step answer the same question — «has a person settled these
+    hours?» — through two different code paths, so a test that pins one without the other lets
+    them drift apart, which is a hub that either nags about a week it was given or stays silent
+    about a week nobody chose."""
+    return bool(rows) and all(r.get("created_by") == SEED_USER for r in rows)

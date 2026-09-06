@@ -13,7 +13,7 @@ This harness is where they go red.
 SEEDS a default week (Mon–Fri 09:00–18:00, weekend closed), so a check shaped like every other
 module's — «are there rows?» — would be ticked the instant the module is installed and would never
 ask anybody anything. What distinguishes the two is who wrote the row: `apply_module_seed` stamps
-`created_by` = 'system' (crates/runtime/src/seed.rs, `SEEDED_BY`), while saving a day through
+`created_by` with the literal 'system' (crates/runtime/src/seed.rs), while saving a day through
 `schedules.business_hours.set` stamps the real user. That is the same line the Hours screen already
 draws for its «these are default hours» banner, so screen and checklist cannot drift apart.
 
@@ -30,11 +30,14 @@ The contract under test:
   4. IT IS STATE, NOT A MILESTONE. A hub that soft-deletes what it wrote is back to pending, the
      same way the floor plan of `tables` goes back to pending when the last table is removed.
   5. THE TENANT BOUNDARY. The salon next door confirming its week never ticks our step.
+  6. THE INSTALLER IS THE ONLY AUTHOR THAT DOES NOT COUNT. A starter catalog signs its hours
+     `created_by = NULL`, and NULL is where SQL quietly disagrees with the screen: `NULL <>
+     'system'` is NULL, not TRUE. A provisioned salon must tick the step, or it is left with a
+     pending item and a silent screen — nothing asking for the very thing being demanded.
 
 Usage: tests/setup_status.postgres.test.py   (exit 0 = green; SKIPPED without the container)
 """
 
-import json
 import sys
 import uuid
 
@@ -45,7 +48,10 @@ from pg_harness import (
     OTHER_HUB,
     ScratchDb,
     container_available,
+    is_configured,
+    screen_calls_the_week_ours,
     set_hours_ops,
+    setup_rows,
 )
 
 failures: list[str] = []
@@ -57,62 +63,6 @@ def check(label: str, expected, actual) -> None:
     else:
         failures.append(f"{label}: expected {expected!r}, got {actual!r}")
         print(f"  FAIL: {label} — expected {expected!r}, got {actual!r}")
-
-
-# ── The runtime's evaluator, in miniature ────────────────────────────────────────────────
-#
-# Mirrors `truthy` / `passes` / `is_configured` in hub/crates/runtime/src/setup_status.rs. What is
-# under test is the DECLARED CONTRACT — the query AND its `configured_when` — not the SELECT on its
-# own: a query that answers perfectly under a `configured_when` that can never pass is still a step
-# nobody ever gets to tick.
-
-
-def truthy(value) -> bool:
-    if value is None or value is False:
-        return False
-    if value is True:
-        return True
-    if isinstance(value, (int, float)):
-        return value != 0
-    if isinstance(value, str):
-        s = value.strip()
-        return bool(s) and s != "0" and s.lower() != "false"
-    if isinstance(value, (list, dict)):
-        return bool(value)
-    return True
-
-
-def as_text(value) -> str:
-    if isinstance(value, str):
-        return value
-    if value is None:
-        return ""
-    return json.dumps(value)
-
-
-def passes(row: dict, spec: dict) -> bool:
-    value = row.get(spec["field"])
-    if "truthy" in spec:
-        return truthy(value) == spec["truthy"]
-    if "equals" in spec:
-        return as_text(value) == as_text(spec["equals"])
-    return False
-
-
-def setup_rows(db: ScratchDb, hub: str = HUB) -> list[dict]:
-    setup = MANIFEST.get("setup") or {}
-    name = setup.get("query")
-    if not name:
-        raise AssertionError("module.json declares no `setup.query`")
-    return db.run_query(name, dict(setup.get("params") or {}), hub=hub)
-
-
-def is_configured(rows: list[dict]) -> bool:
-    """Configured ⇔ there IS a row and every declared check passes on it (ADR-0063)."""
-    setup = MANIFEST.get("setup") or {}
-    if not rows:
-        return False
-    return all(passes(rows[0], c) for c in setup.get("configured_when", []))
 
 
 def confirm_day(db: ScratchDb, day: int, hub: str = HUB, closed: bool = False) -> None:
@@ -269,6 +219,65 @@ def the_salon_next_door_never_ticks_our_step() -> None:
         db.drop()
 
 
+# ── 6. The week a blueprint wrote ────────────────────────────────────────────────────────
+
+
+def hours_a_blueprint_wrote_tick_the_step() -> None:
+    """A starter catalog is neither the installer nor a person, and it signs its rows
+    `created_by = NULL` (`blueprints/starter_catalogs/es/beauty/seed.sql`: it takes over the
+    placeholder with `SET … created_by = NULL`).
+
+    NULL is where a check written the obvious way goes wrong without failing: in SQL
+    `NULL <> 'system'` is NULL, not TRUE, so the blueprint week counts as ZERO and the step stays
+    pending on a hub whose hours are already the salon's — while the Hours screen, which asks the
+    same question in TypeScript (`created_by === 'system'`), has already gone quiet. Nothing on
+    screen would ask the owner for anything, and the step would never clear.
+
+    The es/beauty week is not generic either — 09:30–20:00 with a 14:00–16:00 break and Saturday
+    morning — so «the business chose these hours» is a statement about the real world, not a
+    technicality about a column."""
+    db = ScratchDb("schedules_setup_blueprint")
+    db.create()
+    try:
+        db.apply_seed()
+        # The takeover statement of the real catalog, in miniature: the blueprint claims the
+        # placeholder the installer planted and stamps the row as its own (NULL author).
+        db.psql(
+            [
+                "-c",
+                f"UPDATE schedules_business_hours SET open_time = '09:30', close_time = '20:00', "
+                f"created_by = NULL, updated_at = '{NOW}' "
+                f"WHERE hub_id = '{HUB}' AND is_deleted = 0 AND created_by = 'system'",
+            ],
+            db=db.name,
+        )
+        check(
+            "the installer's signature is gone from every live row",
+            0,
+            int(
+                db.scalar(
+                    f"SELECT COUNT(*) FROM schedules_business_hours "
+                    f"WHERE hub_id = '{HUB}' AND is_deleted = 0 AND created_by = 'system'"
+                )
+            ),
+        )
+        check(
+            "the week the salon was provisioned with ticks the step",
+            True,
+            is_configured(setup_rows(db)),
+        )
+        # And the two surfaces still agree: the screen is quiet on this same state.
+        check(
+            "the screen is quiet about it too",
+            False,
+            screen_calls_the_week_ours(
+                db.run_query("schedules.business_hours.list", hub=HUB)
+            ),
+        )
+    finally:
+        db.drop()
+
+
 def main() -> int:
     if not container_available():
         print("SKIPPED: Postgres container not available")
@@ -281,6 +290,7 @@ def main() -> int:
         closing_a_day_is_a_decision_too,
         clearing_what_the_person_wrote_returns_the_step_to_pending,
         the_salon_next_door_never_ticks_our_step,
+        hours_a_blueprint_wrote_tick_the_step,
     ):
         print(f"\n{test.__name__}:")
         test()
