@@ -94,7 +94,7 @@ describe('the business timezone is SHOWN here and CHANGED in the hub — schedul
 
   it('it points at the hub settings, where the zone is really decided', async () => {
     const el = await mount();
-    const link = el.shadowRoot.querySelector('[data-testid="tz-go-settings"]') as HTMLElement;
+    const link = el.shadowRoot.querySelector('[data-testid="schedules-settings-timezone-link"]') as HTMLElement;
     expect(link, 'a read-only value with no way to change it is a dead end').toBeTruthy();
     link.click();
     await el.updateComplete;
