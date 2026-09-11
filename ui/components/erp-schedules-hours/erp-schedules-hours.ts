@@ -139,6 +139,16 @@ type Tab = 'hours' | 'special_days' | 'settings';
 
 const TABS: readonly Tab[] = ['hours', 'special_days', 'settings'];
 
+/**
+ * Which of the three forms an interval editor is painted into (schedules#46). The editor is ONE
+ * function reused three times, so its `data-testid` cannot be a literal: the special-day form and
+ * the override form are on screen at the same time, and the same name twice is a name that
+ * addresses nothing. The scope is the identity the QA needs — «the opening time of the second
+ * interval of the override form» — and it goes at the END, so the field stays in the fixed head
+ * and renaming it breaks the guard instead of breaking a spec in another repo.
+ */
+type IntervalScope = 'hours' | 'special' | 'override';
+
 // schedules#6 — the SECTION comes from the route (ADR-0022): the shell owns the tabbar and mounts
 // this component at `/m/schedules/<navId>` for each of the three navigation entries, remounting on
 // every change (deep links, back/forward included). Unknown or missing navId → `hours` (the shell
@@ -776,6 +786,7 @@ export class ErpSchedulesHours extends LitElement {
    *  weekly day (schedules#8) and the two exception forms (schedules#23) share it, so the three
    *  screens behave identically: 44 px touch targets, one hand, no keyboard. */
   private renderIntervalEditor(
+    scope: IntervalScope,
     intervals: Interval[],
     update: (index: number, patch: Partial<Interval>) => void,
     add: () => void,
@@ -785,12 +796,12 @@ export class ErpSchedulesHours extends LitElement {
     return html`
       ${intervals.map(
         (it, i) => html`<div class="interval">
-          <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${it.open_time} @ionInput=${(e: any) => update(i, { open_time: e.target.value })}></ion-input>
-          <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${it.close_time} @ionInput=${(e: any) => update(i, { close_time: e.target.value })}></ion-input>
-          <ion-button fill="clear" size="small" color="medium" data-action="remove-interval" aria-label=${t('ui.removeInterval')} ?disabled=${intervals.length <= 1} @click=${() => remove(i)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
+          <ion-input data-testid=${`schedules-interval-open-${scope}-${i}`} fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${it.open_time} @ionInput=${(e: any) => update(i, { open_time: e.target.value })}></ion-input>
+          <ion-input data-testid=${`schedules-interval-close-${scope}-${i}`} fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${it.close_time} @ionInput=${(e: any) => update(i, { close_time: e.target.value })}></ion-input>
+          <ion-button data-testid=${`schedules-interval-remove-${scope}-${i}`} fill="clear" size="small" color="medium" data-action="remove-interval" aria-label=${t('ui.removeInterval')} ?disabled=${intervals.length <= 1} @click=${() => remove(i)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
         </div>`,
       )}
-      <ion-button fill="outline" size="small" data-action="add-interval" @click=${() => add()}>${t('ui.addInterval')}</ion-button>
+      <ion-button data-testid=${`schedules-interval-add-${scope}`} fill="outline" size="small" data-action="add-interval" @click=${() => add()}>${t('ui.addInterval')}</ion-button>
       <p class="hint">${t('ui.intervalsHint')}</p>
     `;
   }
@@ -803,46 +814,47 @@ export class ErpSchedulesHours extends LitElement {
              (schedules#36). It sits above the table because it is about the whole week, and only
              here: the Hours tab is where a week gets confirmed. -->
         ${this.weekIsUnconfirmed
-          ? html`<ok-inline-feedback data-role="default-week" tone="warning" icon="alert-circle-outline">
+          ? html`<ok-inline-feedback data-testid="schedules-hours-default-week" data-role="default-week" tone="warning" icon="alert-circle-outline">
               <!-- The sentence gets its OWN node: the notice now carries an action too, so the
                    whole banner's text is no longer just the message (schedules#43). -->
               <span data-role="default-week-message">${t('ui.defaultWeekNotice')}</span>
               <!-- The way OUT of the notice, inside the notice: a business the default week fits
                    confirms it here instead of re-saving a day it never changed (schedules#43). -->
-              <ion-button slot="actions" size="small" data-action="confirm-week" ?disabled=${this.confirming} @click=${() => this.confirmWeek()}>${t('ui.confirmWeek')}</ion-button>
+              <ion-button data-testid="schedules-hours-confirm-week" slot="actions" size="small" data-action="confirm-week" ?disabled=${this.confirming} @click=${() => this.confirmWeek()}>${t('ui.confirmWeek')}</ion-button>
             </ok-inline-feedback>`
           : nothing}
         <!-- Seven fixed rows (one per weekday), no «+»: a day is EDITED, never added (schedules#8).
              No rows-per-page selector either (schedules#29): this view paints ALL seven weekdays and
              never pages, and an empty dropdown that does nothing is a control that lies. -->
-        <ok-data-table id="tbl-hours" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${t('ui.emptyHours')}>
+        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${t('ui.emptyHours')}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
-          <form slot="create" class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
-            <ion-select fill="outline" label-placement="floating" label=${t('ui.fieldDay')} .value=${this.bhDay} @ionChange=${(e: any) => (this.bhDay = Number(e.target.value))}>
+          <form data-testid="schedules-hours-form" slot="create" class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
+            <ion-select data-testid="schedules-hours-day" fill="outline" label-placement="floating" label=${t('ui.fieldDay')} .value=${this.bhDay} @ionChange=${(e: any) => (this.bhDay = Number(e.target.value))}>
               ${DAY_KEYS.map((_, value) => html`<ion-select-option .value=${value}>${this.dayLabel(value)}</ion-select-option>`)}
             </ion-select>
             <label class="chk">
-              <ion-checkbox ?checked=${this.bhClosed} @ionChange=${(e: any) => (this.bhClosed = !!e.target.checked)}></ion-checkbox>
+              <ion-checkbox data-testid="schedules-hours-closed" ?checked=${this.bhClosed} @ionChange=${(e: any) => (this.bhClosed = !!e.target.checked)}></ion-checkbox>
               ${t('ui.closed')}
             </label>
             ${this.bhClosed
               ? nothing
               : html`
                   <label class="chk">
-                    <ion-checkbox ?checked=${isAllDay} @ionChange=${(e: any) => (e.target.checked ? this.setAllDay() : (this.bhIntervals = [{ open_time: '09:00', close_time: '18:00' }]))}></ion-checkbox>
+                    <ion-checkbox data-testid="schedules-hours-open-24h" ?checked=${isAllDay} @ionChange=${(e: any) => (e.target.checked ? this.setAllDay() : (this.bhIntervals = [{ open_time: '09:00', close_time: '18:00' }]))}></ion-checkbox>
                     ${t('ui.open24h')}
                   </label>
                   ${isAllDay
                     ? nothing
                     : this.renderIntervalEditor(
+                        'hours',
                         this.bhIntervals,
                         (i, patch) => this.updateInterval(i, patch),
                         () => this.addInterval(),
                         (i) => this.removeInterval(i),
                       )}
                 `}
-            <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.saveDay')}</ion-button>
+            <ion-button data-testid="schedules-hours-submit" type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.saveDay')}</ion-button>
           </form>
         </ok-data-table>
       </div>`;
@@ -853,50 +865,52 @@ export class ErpSchedulesHours extends LitElement {
     return html`<div class="pane">
         <!-- Two collections, two tables, each labelled (schedules#6): a dated exception vs a range. -->
         <h3>${t('ui.specialDays')}</h3>
-        <ok-data-table id="tbl-special" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.name || this.fmtDate(row.date) || '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
-          <form slot="create" class="form" @submit=${(e: Event) => this.createSpecialDay(e)}>
-            <ion-input fill="outline" label-placement="floating" label=${t('ui.colDate')} type="date" .value=${this.sdDate} @ionInput=${(e: any) => (this.sdDate = e.target.value)}></ion-input>
-            <ion-input fill="outline" label-placement="floating" label=${t('ui.colName')} placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
-            <ion-select fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.sdClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.sdClosed = e.target.value === 'closed')}>
+        <ok-data-table id="tbl-special" testid="schedules-special-table" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.name || this.fmtDate(row.date) || '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
+          <form data-testid="schedules-special-form" slot="create" class="form" @submit=${(e: Event) => this.createSpecialDay(e)}>
+            <ion-input data-testid="schedules-special-date" fill="outline" label-placement="floating" label=${t('ui.colDate')} type="date" .value=${this.sdDate} @ionInput=${(e: any) => (this.sdDate = e.target.value)}></ion-input>
+            <ion-input data-testid="schedules-special-name" fill="outline" label-placement="floating" label=${t('ui.colName')} placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
+            <ion-select data-testid="schedules-special-status" fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.sdClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.sdClosed = e.target.value === 'closed')}>
               <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
               <ion-select-option value="open">${t('ui.openWithHours')}</ion-select-option>
             </ion-select>
             ${this.sdClosed
               ? nothing
               : this.renderIntervalEditor(
+                  'special',
                   this.sdIntervals,
                   (i, patch) => (this.sdIntervals = this.sdIntervals.map((it, n) => (n === i ? { ...it, ...patch } : it))),
                   () => this.addSpecialDayInterval(),
                   (i) => this.removeSpecialDayInterval(i),
                 )}
             <label class="chk">
-              <ion-checkbox ?checked=${this.sdRecurring} @ionChange=${(e: any) => (this.sdRecurring = !!e.target.checked)}></ion-checkbox>
+              <ion-checkbox data-testid="schedules-special-recurring" ?checked=${this.sdRecurring} @ionChange=${(e: any) => (this.sdRecurring = !!e.target.checked)}></ion-checkbox>
               ${t('ui.fieldRecurring')}
             </label>
-            <ion-input fill="outline" label-placement="floating" label=${t('ui.fieldNotes')} .value=${this.sdNotes} @ionInput=${(e: any) => (this.sdNotes = e.target.value)}></ion-input>
-            <ion-button type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t('ui.saving') : t('ui.addDay')}</ion-button>
+            <ion-input data-testid="schedules-special-notes" fill="outline" label-placement="floating" label=${t('ui.fieldNotes')} .value=${this.sdNotes} @ionInput=${(e: any) => (this.sdNotes = e.target.value)}></ion-input>
+            <ion-button data-testid="schedules-special-submit" type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t('ui.saving') : t('ui.addDay')}</ion-button>
           </form>
         </ok-data-table>
         <!-- Las excepciones son OTRA entidad (otra tabla) → llevan su propio panel de alta. -->
         <h3>${t('ui.overrides')}</h3>
-        <ok-data-table id="tbl-override" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.reason || this.fmtDate(row.start_date) || '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
-          <form slot="create" class="form" @submit=${(e: Event) => this.createOverride(e)}>
-            <ion-input fill="outline" label-placement="floating" label=${t('ui.colFrom')} type="date" .value=${this.ovStart} @ionInput=${(e: any) => (this.ovStart = e.target.value)}></ion-input>
-            <ion-input fill="outline" label-placement="floating" label=${t('ui.colTo')} type="date" .value=${this.ovEnd} @ionInput=${(e: any) => (this.ovEnd = e.target.value)}></ion-input>
-            <ion-input fill="outline" label-placement="floating" label=${t('ui.colReason')} .value=${this.ovReason} @ionInput=${(e: any) => (this.ovReason = e.target.value)}></ion-input>
-            <ion-select fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.ovClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.ovClosed = e.target.value === 'closed')}>
+        <ok-data-table id="tbl-override" testid="schedules-override-table" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.reason || this.fmtDate(row.start_date) || '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
+          <form data-testid="schedules-override-form" slot="create" class="form" @submit=${(e: Event) => this.createOverride(e)}>
+            <ion-input data-testid="schedules-override-from" fill="outline" label-placement="floating" label=${t('ui.colFrom')} type="date" .value=${this.ovStart} @ionInput=${(e: any) => (this.ovStart = e.target.value)}></ion-input>
+            <ion-input data-testid="schedules-override-to" fill="outline" label-placement="floating" label=${t('ui.colTo')} type="date" .value=${this.ovEnd} @ionInput=${(e: any) => (this.ovEnd = e.target.value)}></ion-input>
+            <ion-input data-testid="schedules-override-reason" fill="outline" label-placement="floating" label=${t('ui.colReason')} .value=${this.ovReason} @ionInput=${(e: any) => (this.ovReason = e.target.value)}></ion-input>
+            <ion-select data-testid="schedules-override-status" fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.ovClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.ovClosed = e.target.value === 'closed')}>
               <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
               <ion-select-option value="open">${t('ui.openWithHours')}</ion-select-option>
             </ion-select>
             ${this.ovClosed
               ? nothing
               : this.renderIntervalEditor(
+                  'override',
                   this.ovIntervals,
                   (i, patch) => (this.ovIntervals = this.ovIntervals.map((it, n) => (n === i ? { ...it, ...patch } : it))),
                   () => this.addOverrideInterval(),
                   (i) => this.removeOverrideInterval(i),
                 )}
-            <ion-button type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t('ui.saving') : t('ui.addOverride')}</ion-button>
+            <ion-button data-testid="schedules-override-submit" type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t('ui.saving') : t('ui.addOverride')}</ion-button>
           </form>
         </ok-data-table>
       </div>`;
@@ -920,30 +934,40 @@ export class ErpSchedulesHours extends LitElement {
     return html`<div class="settings-core">
         <div class="kv"><span class="k">${t('ui.timezoneEffective')}</span><code>${zone || t('ui.timezoneUnknown')}</code></div>
         <p class="hint">${t('ui.timezoneFromHub')}</p>
-        <ion-button data-testid="tz-go-settings" size="small" fill="outline" @click=${() => this.goToHubSettings()}>
+        <ion-button data-testid="schedules-settings-timezone-link" size="small" fill="outline" @click=${() => this.goToHubSettings()}>
           <ion-icon slot="start" name="open-outline"></ion-icon>
           ${t('ui.timezoneGoSettings')}
         </ion-button>
       </div>
-      <form class="form settings" @submit=${(e: Event) => this.saveSettings(e)}>
-        <ion-select fill="outline" label-placement="floating" label=${t('ui.fieldWeekStart')} .value=${this.settings.week_starts_on} @ionChange=${(e: any) => (this.settings = { ...this.settings, week_starts_on: Number(e.target.value) })}>
+      <form data-testid="schedules-settings-form" class="form settings" @submit=${(e: Event) => this.saveSettings(e)}>
+        <ion-select data-testid="schedules-settings-week-start" fill="outline" label-placement="floating" label=${t('ui.fieldWeekStart')} .value=${this.settings.week_starts_on} @ionChange=${(e: any) => (this.settings = { ...this.settings, week_starts_on: Number(e.target.value) })}>
           <ion-select-option .value=${1}>${t('ui.monday')}</ion-select-option>
           <ion-select-option .value=${7}>${t('ui.sunday')}</ion-select-option>
         </ion-select>
-        <ion-button type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.save')}</ion-button>
+        <ion-button data-testid="schedules-settings-submit" type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.save')}</ion-button>
       </form>`;
   }
 
   render() {
     const t = (k: string): string => erplora().t(CATALOG, k);
     // No internal nav (schedules#6): the shell's tabbar + route are the only navigation (ADR-0022).
-    const errors = [this.formError, this.specialCtrl?.error, this.overrideCtrl?.error].filter(Boolean);
+    // Each banner keeps the name of WHERE its error came from (schedules#46): the three can be up
+    // at once, and a spec that saved a bad weekday waits for THAT one, not for «the first banner».
+    const errors = [
+      { source: 'form', text: this.formError },
+      { source: 'special', text: this.specialCtrl?.error },
+      { source: 'override', text: this.overrideCtrl?.error },
+    ].filter((e) => Boolean(e.text));
     return html`<div class="page">
-        ${errors.map((e) => html`<ok-inline-feedback tone="danger" icon="alert-circle-outline">${e}</ok-inline-feedback>`)}
+        ${errors.map(
+          (e) =>
+            html`<ok-inline-feedback data-testid=${`schedules-error-${e.source}`} tone="danger" icon="alert-circle-outline">${e.text}</ok-inline-feedback>`,
+        )}
         ${this.tab === 'hours' ? this.renderHours() : nothing}
         ${this.tab === 'special_days' ? this.renderSpecialDays() : nothing}
         ${this.tab === 'settings' ? this.renderSettings() : nothing}
         <ion-alert
+          data-testid="schedules-delete-confirm"
           .isOpen=${this.pendingDelete !== null}
           header=${t('ui.deleteConfirmTitle')}
           message=${erplora().t(CATALOG, 'ui.deleteConfirmMessage', { name: this.pendingDelete?.label ?? '' })}
