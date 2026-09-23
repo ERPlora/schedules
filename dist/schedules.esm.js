@@ -2046,6 +2046,16 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     .rrow .rv { font-weight: 500; text-align: right; color: var(--color); }
     /* Barra de acciones (Ionic no trae "card actions"): pie alineado a la derecha, fondo transparente. */
     .ractions { display: flex; justify-content: flex-end; gap: 0.25rem; padding: 0 0.5rem 0.5rem; }
+    /* ERPlora/appointments#154 - a card's action row must NEVER clip.
+       The assumption was that they always fit across the card. With the eight actions an
+       appointment carries they do not: on a 411dp phone the card leaves 363px and the buttons ask
+       for 380px (8 x 44px of tap floor + 7 gaps of 4px). Without wrapping, justify-content:
+       flex-end takes that difference off the START side, so the FIRST button - Cobrar - hung off
+       the left edge of the card, clipped, with no scrollbar and nothing to say it was there.
+       The wrap is scoped to the card on purpose: the LIST view's row is measured by its
+       scrollWidth to pin the column track (#121), and a row that wraps changes width with the
+       track it is measured against, which is the loop that measure avoids. */
+    .ractions .actions { flex-wrap: wrap; }
 
     /* ── Estado vacío ────────────────────────────────────────────────────────────────────── */
     .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 3.5rem 1rem; text-align: center; color: var(--color-muted); }
@@ -2854,9 +2864,17 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       </ion-popover>
     `;
   }
-  // Botones de acción de una fila (compartido por vista tabla y tarjetas).
-  // `collapsible` = la vista lista, la única que puede quedarse sin ancho (#122). Las tarjetas
-  // tienen su propia fila de acciones a lo ancho de la tarjeta y ahí siempre caben.
+  // Row action buttons, shared by the table and the card views.
+  //
+  // `collapsible` = the LIST view, the only one that folds its buttons into a "⋮" menu when the
+  // columns leave it no width (#122). The CARD view does not fold; it WRAPS instead, see
+  // `.ractions .actions` in the stylesheet.
+  //
+  // This comment used to claim that a card's actions "always fit across the card". They do not,
+  // and nobody had measured it (#132 / ERPlora/appointments#154): with the eight actions an
+  // appointment carries, the row asks for 380px and the card gives 379px at 411dp, 237px at 768px
+  // and 272px at 1440px — so the first button hung off the card at ALL THREE widths, not just on
+  // a phone. If you add a view that lays these buttons out, MEASURE it.
   actionButtons(row, collapsible = false) {
     if (!this.actions.length) return A;
     if (collapsible && this.rowActionsCollapsed) {
@@ -4100,6 +4118,9 @@ var ErpSchedulesHours = class extends i3 {
     .interval { display:flex; gap:.4rem; align-items:center; }
     .interval ion-input { flex:1 1 6rem; min-width:5rem; }
     .interval ion-button { align-self:center; min-width:44px; min-height:44px; }
+    /* pm#392: color= is a document-level rule Ionic cannot apply inside this shadow root; the
+       tone is read from the theme token here instead. */
+    ion-button.tone-medium[fill] { --color: var(--ion-color-medium, #636469); }
     .hint { color:#6b675e; font-size:.85rem; margin:0; }
     /* schedules#9: the business zone, shown here and changed in the hub's own Settings. */
     .settings-core { display:flex; flex-direction:column; gap:.5rem; align-items:flex-start; margin-bottom:1rem; }
@@ -4560,7 +4581,7 @@ var ErpSchedulesHours = class extends i3 {
       (it, i7) => b2`<div class="interval">
           <ion-input data-testid=${`schedules-interval-open-${scope}-${i7}`} fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${it.open_time} @ionInput=${(e5) => update(i7, { open_time: e5.target.value })}></ion-input>
           <ion-input data-testid=${`schedules-interval-close-${scope}-${i7}`} fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${it.close_time} @ionInput=${(e5) => update(i7, { close_time: e5.target.value })}></ion-input>
-          <ion-button data-testid=${`schedules-interval-remove-${scope}-${i7}`} fill="clear" size="small" color="medium" data-action="remove-interval" aria-label=${t5("ui.removeInterval")} ?disabled=${intervals.length <= 1} @click=${() => remove(i7)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
+          <ion-button data-testid=${`schedules-interval-remove-${scope}-${i7}`} fill="clear" size="small" class="tone-medium" data-action="remove-interval" aria-label=${t5("ui.removeInterval")} ?disabled=${intervals.length <= 1} @click=${() => remove(i7)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
         </div>`
     )}
       <ion-button data-testid=${`schedules-interval-add-${scope}`} fill="outline" size="small" data-action="add-interval" @click=${() => add()}>${t5("ui.addInterval")}</ion-button>
