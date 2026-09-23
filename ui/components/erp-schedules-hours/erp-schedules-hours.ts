@@ -214,6 +214,9 @@ export class ErpSchedulesHours extends LitElement {
     .interval { display:flex; gap:.4rem; align-items:center; }
     .interval ion-input { flex:1 1 6rem; min-width:5rem; }
     .interval ion-button { align-self:center; min-width:44px; min-height:44px; }
+    /* pm#392: color= is a document-level rule Ionic cannot apply inside this shadow root; the
+       tone is read from the theme token here instead. */
+    ion-button.tone-medium[fill] { --color: var(--ion-color-medium, #636469); }
     .hint { color:#6b675e; font-size:.85rem; margin:0; }
     /* schedules#9: the business zone, shown here and changed in the hub's own Settings. */
     .settings-core { display:flex; flex-direction:column; gap:.5rem; align-items:flex-start; margin-bottom:1rem; }
@@ -798,7 +801,7 @@ export class ErpSchedulesHours extends LitElement {
         (it, i) => html`<div class="interval">
           <ion-input data-testid=${`schedules-interval-open-${scope}-${i}`} fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${it.open_time} @ionInput=${(e: any) => update(i, { open_time: e.target.value })}></ion-input>
           <ion-input data-testid=${`schedules-interval-close-${scope}-${i}`} fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${it.close_time} @ionInput=${(e: any) => update(i, { close_time: e.target.value })}></ion-input>
-          <ion-button data-testid=${`schedules-interval-remove-${scope}-${i}`} fill="clear" size="small" color="medium" data-action="remove-interval" aria-label=${t('ui.removeInterval')} ?disabled=${intervals.length <= 1} @click=${() => remove(i)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
+          <ion-button data-testid=${`schedules-interval-remove-${scope}-${i}`} fill="clear" size="small" class="tone-medium" data-action="remove-interval" aria-label=${t('ui.removeInterval')} ?disabled=${intervals.length <= 1} @click=${() => remove(i)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
         </div>`,
       )}
       <ion-button data-testid=${`schedules-interval-add-${scope}`} fill="outline" size="small" data-action="add-interval" @click=${() => add()}>${t('ui.addInterval')}</ion-button>

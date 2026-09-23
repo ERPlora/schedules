@@ -108,6 +108,21 @@ describe('editing a day: a list of intervals with add/remove, closed and 24 h', 
     ]);
   });
 
+  it('paints the clear «✕» in the medium tone from its own styles, not through color= (pm#392)', async () => {
+    const el = await mount();
+    table(el)!.dispatchEvent(new CustomEvent('rowAction', { detail: { actionId: 'edit', row: table(el)!.rows[0] } }));
+    await el.updateComplete;
+    const btn = el.shadowRoot.querySelector('form[slot="create"] [data-action="remove-interval"]');
+    expect(btn, 'each interval offers «✕»').not.toBeNull();
+    expect(btn!.hasAttribute('color'), 'color= does not reach inside a shadow root').toBe(false);
+    expect(btn!.getAttribute('fill')).toBe('clear');
+    expect(btn!.classList.contains('tone-medium')).toBe(true);
+    const css = (el.constructor as unknown as { elementStyles: { cssText: string }[] }).elementStyles
+      .map((s) => s.cssText).join('\n').replace(/\s+/g, ' ');
+    expect(css).toContain('ion-button.tone-medium[fill] {');
+    expect(css).toContain('--color: var(--ion-color-medium, #636469)');
+  });
+
   it('saving sends intervals[] (not open/close/break) and replaces the day', async () => {
     const el = await mount();
     el.bhDay = 3;
