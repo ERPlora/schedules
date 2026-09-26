@@ -41,6 +41,7 @@
     "saturday": "Sábado",
     "sunday": "Domingo",
     "actionEdit": "Editar",
+    "editDayTitle": "Editar horario — {day}",
     "actionDelete": "Eliminar",
     "fieldDay": "Día",
     "fieldOpen": "Abre",

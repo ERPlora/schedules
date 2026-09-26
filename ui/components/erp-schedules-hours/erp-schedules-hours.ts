@@ -297,6 +297,11 @@ export class ErpSchedulesHours extends LitElement {
     return DAY_KEYS[value] ? erplora().t(CATALOG, DAY_KEYS[value]) : String(value);
   }
 
+  /** Title for the hours edit panel, e.g. «Edit hours — Monday» (pm#450). */
+  private editDayTitle(day: number): string {
+    return erplora().t(CATALOG, 'ui.editDayTitle').replace('{day}', this.dayLabel(day));
+  }
+
   private get closedOptions() {
     const t = (k: string): string => erplora().t(CATALOG, k);
     return [
@@ -586,9 +591,9 @@ export class ErpSchedulesHours extends LitElement {
   }
 
   /** Panel lateral de una de las tablas de la vista (cada tabla tiene el suyo). */
-  private dataTable(id: string): { open(p?: 'filters' | 'create'): void; close(): void } | null {
+  private dataTable(id: string): { open(p?: 'filters' | 'create' | 'edit', opts?: { title?: string }): void; close(): void } | null {
     return this.renderRoot.querySelector(`#${id}`) as
-      | { open(p?: 'filters' | 'create'): void; close(): void }
+      | { open(p?: 'filters' | 'create' | 'edit', opts?: { title?: string }): void; close(): void }
       | null;
   }
 
@@ -644,7 +649,8 @@ export class ErpSchedulesHours extends LitElement {
   }
 
   /** Row action «edit»: the seven days are fixed, so editing a day opens the panel already
-   *  filled with its intervals. */
+   *  filled with its intervals. pm#450 — the panel opens in edit mode titled with the day
+   *  (OutfitKit >= 0.1.94 paints the title in the header). */
   private onHoursAction(ev: CustomEvent<{ actionId: string; row: Record<string, unknown> }>) {
     if (ev.detail.actionId !== 'edit') return;
     const row = ev.detail.row as WeekRow;
@@ -652,7 +658,13 @@ export class ErpSchedulesHours extends LitElement {
     this.bhClosed = !!row.is_closed;
     const intervals = (row.intervals ?? []).map((i) => ({ ...i }));
     this.bhIntervals = intervals.length ? intervals : [{ open_time: '09:00', close_time: '18:00' }];
-    this.dataTable('tbl-hours')?.open('create');
+    this.dataTable('tbl-hours')?.open('edit', { title: this.editDayTitle(this.bhDay) });
+  }
+
+  /** Changing the day inside the panel re-titles it, so the header always names the day being edited. */
+  private onDayChange(value: unknown) {
+    this.bhDay = Number(value);
+    this.dataTable('tbl-hours')?.open('edit', { title: this.editDayTitle(this.bhDay) });
   }
 
   /** Special day (schedules#7): the payload is exactly what `schemas/special_day_create.json`
@@ -828,12 +840,17 @@ export class ErpSchedulesHours extends LitElement {
           : nothing}
         <!-- Seven fixed rows (one per weekday), no «+»: a day is EDITED, never added (schedules#8).
              No rows-per-page selector either (schedules#29): this view paints ALL seven weekdays and
-             never pages, and an empty dropdown that does nothing is a control that lies. -->
-        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${t('ui.emptyHours')}>
+             never pages, and an empty dropdown that does nothing is a control that lies.
+             pm#450 — the panel opens with open('edit', { title }), painted by OutfitKit >= 0.1.94.
+             Older shells (OutfitKit < 0.1.94, e.g. 0.1.73 in hub:stable) ignore that title and paint
+             labels.newRecord for any non-filters panel, edit included (staff#68 fallback), so the
+             same title also goes through .labels; the table merges .labels over its own defaults,
+             so only newRecord changes. -->
+        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${t('ui.emptyHours')}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
           <form data-testid="schedules-hours-form" slot="create" class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
-            <ion-select data-testid="schedules-hours-day" fill="outline" label-placement="floating" label=${t('ui.fieldDay')} .value=${this.bhDay} @ionChange=${(e: any) => (this.bhDay = Number(e.target.value))}>
+            <ion-select data-testid="schedules-hours-day" fill="outline" label-placement="floating" label=${t('ui.fieldDay')} .value=${this.bhDay} @ionChange=${(e: any) => this.onDayChange(e.target.value)}>
               ${DAY_KEYS.map((_, value) => html`<ion-select-option .value=${value}>${this.dayLabel(value)}</ion-select-option>`)}
             </ion-select>
             <label class="chk">
