@@ -40,6 +40,7 @@
     "saturday": "Saturday",
     "sunday": "Sunday",
     "actionEdit": "Edit",
+    "editDayTitle": "Edit hours — {day}",
     "actionDelete": "Delete",
     "fieldDay": "Day",
     "fieldOpen": "Opens",
