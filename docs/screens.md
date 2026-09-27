@@ -8,6 +8,12 @@ no tabs of its own. On phones and tablets (≤ 834 px) every list opens as cards
 the effective hours and the actions of each row stay readable; deleting a special day or an
 override asks for confirmation first.
 
+When the hub refuses a save made from a panel (a day's hours, a special day, an override) — or an
+open interval is missing one of its hours — the message appears **inside that form**, next to its
+button, and the form scrolls to it once; on a phone the panel covers the whole screen, so a message
+behind it would never be seen. What fails outside a panel (confirming the week, deleting an
+exception, saving Settings, loading the week) is shown at the top of the page.
+
 ## Hours — the weekly opening hours
 
 The seven weekdays are always listed, each with its opening **intervals**

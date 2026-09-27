@@ -130,7 +130,7 @@ describe('destructive actions ask first and explain', () => {
 
   it('errors are announced through ok-inline-feedback, not a bare paragraph', async () => {
     const el = await mountAt('/m/schedules/hours');
-    (el as unknown as { formError: string }).formError = 'boom';
+    (el as unknown as { pageError: string }).pageError = 'boom';
     await el.updateComplete;
     expect(el.shadowRoot.querySelector('ok-inline-feedback[tone="danger"]')?.textContent).toContain('boom');
     expect(el.shadowRoot.querySelector('p.err')).toBeNull();

@@ -72,7 +72,8 @@ type Wc = HTMLElement & {
   addOverrideInterval: () => void;
   removeOverrideInterval: (i: number) => void;
   createOverride: (e: Event) => Promise<void>;
-  formError: string;
+  specialFormError: string;
+  overrideFormError: string;
 };
 
 async function mount(): Promise<Wc> {
@@ -178,7 +179,7 @@ describe('creating a special day with several intervals', () => {
     el.sdIntervals = [{ open_time: '10:00', close_time: '' }];
     await el.createSpecialDay(new Event('submit'));
     expect(commands).toEqual([]);
-    expect(el.formError).toBe('ui.errorHoursRequired');
+    expect(el.specialFormError).toBe('ui.errorHoursRequired');
   });
 });
 
@@ -229,6 +230,6 @@ describe('creating an override with several intervals', () => {
     el.ovIntervals = [{ open_time: '', close_time: '21:00' }];
     await el.createOverride(new Event('submit'));
     expect(commands.length).toBe(1);
-    expect(el.formError).toBe('ui.errorHoursRequired');
+    expect(el.overrideFormError).toBe('ui.errorHoursRequired');
   });
 });

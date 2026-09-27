@@ -4115,7 +4115,10 @@ var ErpSchedulesHours = class extends i3 {
     this.tab = "hours";
     this.pendingDelete = null;
     this.settings = { week_starts_on: 1 };
-    this.formError = "";
+    this.pageError = "";
+    this.hoursFormError = "";
+    this.specialFormError = "";
+    this.overrideFormError = "";
     this.saving = false;
     this.confirming = false;
     this.sdDate = "";
@@ -4368,7 +4371,7 @@ var ErpSchedulesHours = class extends i3 {
       const rows = await erplora().queryAll("schedules.business_hours.list", { sort: "day_of_week", dir: "asc" });
       this.hoursRows = Array.isArray(rows) ? rows : [];
     } catch (e5) {
-      this.formError = e5 instanceof Error ? e5.message : String(e5);
+      this.pageError = e5 instanceof Error ? e5.message : String(e5);
     }
   }
   addInterval() {
@@ -4424,7 +4427,23 @@ var ErpSchedulesHours = class extends i3 {
     } catch {
     }
   }
-  /** Panel lateral de una de las tablas de la vista (cada tabla tiene el suyo). */
+  /** pm#513: a refusal appears ABOVE the button that was pressed, at the foot of a form that can be
+   *  taller than a phone — bring it into view ONCE, when it arrives (only a CHANGE of that error
+   *  scrolls: every keystroke re-renders the form, and the sheet must stay where the person types). */
+  updated(changed) {
+    super.updated(changed);
+    if (changed.has("hoursFormError") && this.hoursFormError) void this.revealRefusal('[data-testid="schedules-hours-form-error"]');
+    if (changed.has("specialFormError") && this.specialFormError) void this.revealRefusal('[data-testid="schedules-special-form-error"]');
+    if (changed.has("overrideFormError") && this.overrideFormError) void this.revealRefusal('[data-testid="schedules-override-form-error"]');
+  }
+  /** Scrolls a form's banner into view once it has painted itself: scrolled before, the banner still
+   *  measures 0 px and ends up under the tab bar. */
+  async revealRefusal(selector) {
+    const banner = this.renderRoot.querySelector(selector);
+    await banner?.updateComplete;
+    banner?.scrollIntoView?.({ block: "center" });
+  }
+  /** Side panel of one of the view's tables (each table has its own). */
   dataTable(id) {
     return this.renderRoot.querySelector(`#${id}`);
   }
@@ -4439,12 +4458,12 @@ var ErpSchedulesHours = class extends i3 {
   async confirmWeek() {
     if (this.confirming) return;
     this.confirming = true;
-    this.formError = "";
+    this.pageError = "";
     try {
       await erplora().command("schedules.business_hours.confirm_week", {});
       await this.loadHours();
     } catch (e5) {
-      this.formError = domainErrorText(e5, "ui.errorConfirmWeek");
+      this.pageError = domainErrorText(e5, "ui.errorConfirmWeek");
     } finally {
       this.confirming = false;
     }
@@ -4456,11 +4475,12 @@ var ErpSchedulesHours = class extends i3 {
     ev.preventDefault();
     const intervals = this.bhClosed ? [] : this.bhIntervals.map((i7) => ({ open_time: i7.open_time, close_time: i7.close_time }));
     if (!this.bhClosed && (!intervals.length || intervals.some((i7) => !i7.open_time || !i7.close_time))) {
-      this.formError = erplora().t(CATALOG, "ui.errorHoursRequired");
+      this.hoursFormError = erplora().t(CATALOG, "ui.errorHoursRequired");
       return;
     }
     this.saving = true;
-    this.formError = "";
+    this.hoursFormError = "";
+    this.pageError = "";
     try {
       await erplora().command("schedules.business_hours.set", {
         day_of_week: Number(this.bhDay),
@@ -4470,7 +4490,7 @@ var ErpSchedulesHours = class extends i3 {
       this.dataTable("tbl-hours")?.close();
       await this.loadHours();
     } catch (e5) {
-      this.formError = domainErrorText(e5, "ui.errorSaveHours");
+      this.hoursFormError = domainErrorText(e5, "ui.errorSaveHours");
     } finally {
       this.saving = false;
     }
@@ -4485,6 +4505,7 @@ var ErpSchedulesHours = class extends i3 {
     this.bhClosed = !!row.is_closed;
     const intervals = (row.intervals ?? []).map((i7) => ({ ...i7 }));
     this.bhIntervals = intervals.length ? intervals : [{ open_time: "09:00", close_time: "18:00" }];
+    this.hoursFormError = "";
     this.dataTable("tbl-hours")?.open("edit", { title: this.editDayTitle(this.bhDay) });
   }
   /** Changing the day inside the panel re-titles it, so the header always names the day being edited. */
@@ -4500,11 +4521,12 @@ var ErpSchedulesHours = class extends i3 {
     if (!this.sdDate || !this.sdName.trim()) return;
     const intervals = this.exceptionPayloadIntervals(this.sdClosed, this.sdIntervals);
     if (!intervals) {
-      this.formError = erplora().t(CATALOG, "ui.errorHoursRequired");
+      this.specialFormError = erplora().t(CATALOG, "ui.errorHoursRequired");
       return;
     }
     this.saving = true;
-    this.formError = "";
+    this.specialFormError = "";
+    this.pageError = "";
     try {
       await erplora().command("schedules.special_days.create", {
         date: this.sdDate,
@@ -4527,7 +4549,7 @@ var ErpSchedulesHours = class extends i3 {
       this.dataTable("tbl-special")?.close();
       await Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e5) {
-      this.formError = domainErrorText(e5, "ui.errorCreateSpecialDay");
+      this.specialFormError = domainErrorText(e5, "ui.errorCreateSpecialDay");
     } finally {
       this.saving = false;
     }
@@ -4539,11 +4561,12 @@ var ErpSchedulesHours = class extends i3 {
     if (!this.ovStart || !this.ovEnd || !this.ovReason.trim()) return;
     const intervals = this.exceptionPayloadIntervals(this.ovClosed, this.ovIntervals);
     if (!intervals) {
-      this.formError = erplora().t(CATALOG, "ui.errorHoursRequired");
+      this.overrideFormError = erplora().t(CATALOG, "ui.errorHoursRequired");
       return;
     }
     this.saving = true;
-    this.formError = "";
+    this.overrideFormError = "";
+    this.pageError = "";
     try {
       await erplora().command("schedules.overrides.create", {
         start_date: this.ovStart,
@@ -4562,7 +4585,7 @@ var ErpSchedulesHours = class extends i3 {
       this.dataTable("tbl-override")?.close();
       await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e5) {
-      this.formError = domainErrorText(e5, "ui.errorCreateOverride");
+      this.overrideFormError = domainErrorText(e5, "ui.errorCreateOverride");
     } finally {
       this.saving = false;
     }
@@ -4570,14 +4593,14 @@ var ErpSchedulesHours = class extends i3 {
   async saveSettings(ev) {
     ev.preventDefault();
     this.saving = true;
-    this.formError = "";
+    this.pageError = "";
     try {
       await erplora().command("schedules.settings.save", {
         week_starts_on: Number(this.settings.week_starts_on)
       });
       await this.loadSettings();
     } catch (e5) {
-      this.formError = domainErrorText(e5, "ui.errorSaveSettings");
+      this.pageError = domainErrorText(e5, "ui.errorSaveSettings");
     } finally {
       this.saving = false;
     }
@@ -4597,7 +4620,7 @@ var ErpSchedulesHours = class extends i3 {
     const pending = this.pendingDelete;
     this.pendingDelete = null;
     if (ev.detail?.role !== "confirm" || !pending) return;
-    this.formError = "";
+    this.pageError = "";
     try {
       if (pending.kind === "special_day") {
         await erplora().command("schedules.special_days.delete", { special_day_id: pending.id });
@@ -4607,7 +4630,7 @@ var ErpSchedulesHours = class extends i3 {
         await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
       }
     } catch (e5) {
-      this.formError = domainErrorText(e5, "ui.errorDelete");
+      this.pageError = domainErrorText(e5, "ui.errorDelete");
     }
   }
   // ≤834 px opens in cards: status, effective hours and the row actions stay visible without
@@ -4679,6 +4702,9 @@ var ErpSchedulesHours = class extends i3 {
       (i7) => this.removeInterval(i7)
     )}
                 `}
+            <!-- pm#513: the refusal travels WITH the form — on a phone the panel is a full-screen
+                 sheet and a banner on the page underneath it is never seen. -->
+            ${this.hoursFormError ? b2`<ok-inline-feedback data-testid="schedules-hours-form-error" tone="danger" icon="alert-circle-outline">${this.hoursFormError}</ok-inline-feedback>` : A}
             <ion-button data-testid="schedules-hours-submit" type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t5("ui.saving") : t5("ui.saveDay")}</ion-button>
           </form>
         </ok-data-table>
@@ -4709,6 +4735,9 @@ var ErpSchedulesHours = class extends i3 {
               ${t5("ui.fieldRecurring")}
             </label>
             <ion-input data-testid="schedules-special-notes" fill="outline" label-placement="floating" label=${t5("ui.fieldNotes")} .value=${this.sdNotes} @ionInput=${(e5) => this.sdNotes = e5.target.value}></ion-input>
+            <!-- pm#513: the refusal travels WITH the form — on a phone the panel is a full-screen
+                 sheet and a banner on the page underneath it is never seen. -->
+            ${this.specialFormError ? b2`<ok-inline-feedback data-testid="schedules-special-form-error" tone="danger" icon="alert-circle-outline">${this.specialFormError}</ok-inline-feedback>` : A}
             <ion-button data-testid="schedules-special-submit" type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t5("ui.saving") : t5("ui.addDay")}</ion-button>
           </form>
         </ok-data-table>
@@ -4730,6 +4759,9 @@ var ErpSchedulesHours = class extends i3 {
       () => this.addOverrideInterval(),
       (i7) => this.removeOverrideInterval(i7)
     )}
+            <!-- pm#513: the refusal travels WITH the form — on a phone the panel is a full-screen
+                 sheet and a banner on the page underneath it is never seen. -->
+            ${this.overrideFormError ? b2`<ok-inline-feedback data-testid="schedules-override-form-error" tone="danger" icon="alert-circle-outline">${this.overrideFormError}</ok-inline-feedback>` : A}
             <ion-button data-testid="schedules-override-submit" type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t5("ui.saving") : t5("ui.addOverride")}</ion-button>
           </form>
         </ok-data-table>
@@ -4764,7 +4796,7 @@ var ErpSchedulesHours = class extends i3 {
   render() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
     const errors = [
-      { source: "form", text: this.formError },
+      { source: "page", text: this.pageError },
       { source: "special", text: this.specialCtrl?.error },
       { source: "override", text: this.overrideCtrl?.error }
     ].filter((e5) => Boolean(e5.text));
@@ -4800,7 +4832,16 @@ __decorateClass([
 ], ErpSchedulesHours.prototype, "settings", 2);
 __decorateClass([
   r5()
-], ErpSchedulesHours.prototype, "formError", 2);
+], ErpSchedulesHours.prototype, "pageError", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "hoursFormError", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "specialFormError", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "overrideFormError", 2);
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "saving", 2);
