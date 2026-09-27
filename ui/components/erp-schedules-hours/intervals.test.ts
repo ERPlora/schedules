@@ -160,6 +160,6 @@ describe('editing a day: a list of intervals with add/remove, closed and 24 h', 
     el.bhIntervals = [{ open_time: '10:00', close_time: '' }];
     await el.saveBusinessHours(new Event('submit'));
     expect(commands).toEqual([]);
-    expect((el as unknown as { formError: string }).formError).toBe('ui.errorHoursRequired');
+    expect((el as unknown as { hoursFormError: string }).hoursFormError).toBe('ui.errorHoursRequired');
   });
 });

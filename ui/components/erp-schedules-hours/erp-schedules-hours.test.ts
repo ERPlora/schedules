@@ -136,12 +136,12 @@ describe('pestaña «Días especiales»: cada tabla lleva su propia alta dentro'
 describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato acepta', () => {
   type SpecialDayForm = HTMLElement & {
     sdDate: string; sdName: string; sdClosed: boolean; sdIntervals: { open_time: string; close_time: string }[];
-    sdRecurring: boolean; sdNotes: string; formError: string;
+    sdRecurring: boolean; sdNotes: string; specialFormError: string;
     createSpecialDay: (e: Event) => Promise<void>;
   };
   type OverrideForm = HTMLElement & {
     ovStart: string; ovEnd: string; ovReason: string; ovClosed: boolean;
-    ovIntervals: { open_time: string; close_time: string }[]; formError: string;
+    ovIntervals: { open_time: string; close_time: string }[]; overrideFormError: string;
     createOverride: (e: Event) => Promise<void>;
   };
 
@@ -183,7 +183,7 @@ describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato ace
     wc.sdIntervals = [{ open_time: '', close_time: '' }];
     await wc.createSpecialDay(new Event('submit'));
     expect(comandos.find((c) => c.name === 'schedules.special_days.create')).toBeUndefined();
-    expect(wc.formError).toBe('ui.errorHoursRequired');
+    expect(wc.specialFormError).toBe('ui.errorHoursRequired');
   });
 
   it('el formulario de día especial pinta el selector Cerrado/Abierto y, si abierto, las horas', async () => {
@@ -219,7 +219,7 @@ describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato ace
     wc.ovIntervals = [{ open_time: '', close_time: '' }];
     await wc.createOverride(new Event('submit'));
     expect(comandos.find((c) => c.name === 'schedules.overrides.create')).toBeUndefined();
-    expect(wc.formError).toBe('ui.errorHoursRequired');
+    expect(wc.overrideFormError).toBe('ui.errorHoursRequired');
 
     wc.ovIntervals = [{ open_time: '10:00', close_time: '14:00' }];
     await wc.createOverride(new Event('submit'));

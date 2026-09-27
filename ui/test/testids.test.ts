@@ -69,9 +69,11 @@ const COVERED: Record<
       'schedules-hours-day',
       'schedules-hours-default-week',
       'schedules-hours-form',
+      'schedules-hours-form-error',
       'schedules-hours-open-24h',
       'schedules-hours-submit',
       'schedules-override-form',
+      'schedules-override-form-error',
       'schedules-override-from',
       'schedules-override-reason',
       'schedules-override-status',
@@ -83,6 +85,7 @@ const COVERED: Record<
       'schedules-settings-week-start',
       'schedules-special-date',
       'schedules-special-form',
+      'schedules-special-form-error',
       'schedules-special-name',
       'schedules-special-notes',
       'schedules-special-recurring',
@@ -92,7 +95,9 @@ const COVERED: Record<
     // Two families of computed hook, and each says what its tail means.
     //
     // `schedules-error-<source>`: the page banner is a `.map()` over three independent errors (the
-    // form, the special-day list, the override list) that can be on screen together. A spec waits
+    // page — what failed outside a panel's save —, the special-day list, the override list) that
+    // can be on screen together. A refused SAVE is not here: it is painted inside its own form
+    // (`schedules-<form>-form-error`, pm#513). A spec waits
     // for the one it caused, so the tail is WHICH error, never its position in the array.
     //
     // `schedules-interval-<field>-<form>-<line>`: ONE interval editor is reused by the three forms

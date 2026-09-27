@@ -1,4 +1,5 @@
 import { LitElement, html, css, nothing } from 'lit';
+import type { PropertyValues } from 'lit';
 import { state } from 'lit/decorators.js';
 import { define } from '@erplora/outfitkit/define';
 import '@erplora/outfitkit/ok-data-table';
@@ -239,7 +240,19 @@ export class ErpSchedulesHours extends LitElement {
   // painted while NOTHING read them — a control with no effect is indistinguishable from a bug.
   @state() settings: { week_starts_on: number } = { week_starts_on: 1 };
 
-  @state() formError = '';
+  /** What went wrong OUTSIDE a panel's save — confirming the week, deleting an exception, saving
+   *  the Settings tab, loading the week: no panel is open then, so it is painted on the page. */
+  @state() pageError = '';
+
+  /** pm#513 — what each panel's form was refused, painted INSIDE that form: on a phone (and a
+   *  tablet) the panel is a full-screen sheet, and a banner on the page underneath it is never
+   *  seen. One per form: the Special days tab holds two panels, and saving one must neither show
+   *  nor wipe the refusal of the other. */
+  @state() hoursFormError = '';
+
+  @state() specialFormError = '';
+
+  @state() overrideFormError = '';
 
   @state() saving = false;
 
@@ -518,7 +531,7 @@ export class ErpSchedulesHours extends LitElement {
       const rows = await erplora().queryAll<BusinessHours>('schedules.business_hours.list', { sort: 'day_of_week', dir: 'asc' });
       this.hoursRows = Array.isArray(rows) ? rows : [];
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : String(e);
+      this.pageError = e instanceof Error ? e.message : String(e);
     }
   }
 
@@ -590,7 +603,25 @@ export class ErpSchedulesHours extends LitElement {
     }
   }
 
-  /** Panel lateral de una de las tablas de la vista (cada tabla tiene el suyo). */
+  /** pm#513: a refusal appears ABOVE the button that was pressed, at the foot of a form that can be
+   *  taller than a phone — bring it into view ONCE, when it arrives (only a CHANGE of that error
+   *  scrolls: every keystroke re-renders the form, and the sheet must stay where the person types). */
+  updated(changed: PropertyValues<this>): void {
+    super.updated(changed);
+    if (changed.has('hoursFormError') && this.hoursFormError) void this.revealRefusal('[data-testid="schedules-hours-form-error"]');
+    if (changed.has('specialFormError') && this.specialFormError) void this.revealRefusal('[data-testid="schedules-special-form-error"]');
+    if (changed.has('overrideFormError') && this.overrideFormError) void this.revealRefusal('[data-testid="schedules-override-form-error"]');
+  }
+
+  /** Scrolls a form's banner into view once it has painted itself: scrolled before, the banner still
+   *  measures 0 px and ends up under the tab bar. */
+  private async revealRefusal(selector: string): Promise<void> {
+    const banner = this.renderRoot.querySelector(selector) as (HTMLElement & { updateComplete?: Promise<unknown> }) | null;
+    await banner?.updateComplete;
+    banner?.scrollIntoView?.({ block: 'center' });
+  }
+
+  /** Side panel of one of the view's tables (each table has its own). */
   private dataTable(id: string): { open(p?: 'filters' | 'create' | 'edit', opts?: { title?: string }): void; close(): void } | null {
     return this.renderRoot.querySelector(`#${id}`) as
       | { open(p?: 'filters' | 'create' | 'edit', opts?: { title?: string }): void; close(): void }
@@ -608,13 +639,13 @@ export class ErpSchedulesHours extends LitElement {
   private async confirmWeek() {
     if (this.confirming) return;
     this.confirming = true;
-    this.formError = '';
+    this.pageError = '';
     try {
       await erplora().command('schedules.business_hours.confirm_week', {});
       // The notice reads `created_by`, so it only goes quiet once the signed rows are back.
       await this.loadHours();
     } catch (e) {
-      this.formError = domainErrorText(e, 'ui.errorConfirmWeek');
+      this.pageError = domainErrorText(e, 'ui.errorConfirmWeek');
     } finally {
       this.confirming = false;
     }
@@ -627,11 +658,12 @@ export class ErpSchedulesHours extends LitElement {
     ev.preventDefault();
     const intervals = this.bhClosed ? [] : this.bhIntervals.map((i) => ({ open_time: i.open_time, close_time: i.close_time }));
     if (!this.bhClosed && (!intervals.length || intervals.some((i) => !i.open_time || !i.close_time))) {
-      this.formError = erplora().t(CATALOG, 'ui.errorHoursRequired');
+      this.hoursFormError = erplora().t(CATALOG, 'ui.errorHoursRequired');
       return;
     }
     this.saving = true;
-    this.formError = '';
+    this.hoursFormError = '';
+    this.pageError = ''; // a save is the next thing the person did: an older page refusal is stale
     try {
       await erplora().command('schedules.business_hours.set', {
         day_of_week: Number(this.bhDay),
@@ -642,7 +674,7 @@ export class ErpSchedulesHours extends LitElement {
       await this.loadHours();
     } catch (e) {
       // A business refusal paints as the translated `schedules.*` sentence (schedules#28).
-      this.formError = domainErrorText(e, 'ui.errorSaveHours');
+      this.hoursFormError = domainErrorText(e, 'ui.errorSaveHours');
     } finally {
       this.saving = false;
     }
@@ -658,6 +690,8 @@ export class ErpSchedulesHours extends LitElement {
     this.bhClosed = !!row.is_closed;
     const intervals = (row.intervals ?? []).map((i) => ({ ...i }));
     this.bhIntervals = intervals.length ? intervals : [{ open_time: '09:00', close_time: '18:00' }];
+    // Every field now holds THIS day: a refusal about the day edited before no longer applies.
+    this.hoursFormError = '';
     this.dataTable('tbl-hours')?.open('edit', { title: this.editDayTitle(this.bhDay) });
   }
 
@@ -675,11 +709,12 @@ export class ErpSchedulesHours extends LitElement {
     if (!this.sdDate || !this.sdName.trim()) return;
     const intervals = this.exceptionPayloadIntervals(this.sdClosed, this.sdIntervals);
     if (!intervals) {
-      this.formError = erplora().t(CATALOG, 'ui.errorHoursRequired');
+      this.specialFormError = erplora().t(CATALOG, 'ui.errorHoursRequired');
       return;
     }
     this.saving = true;
-    this.formError = '';
+    this.specialFormError = '';
+    this.pageError = ''; // a save is the next thing the person did: an older page refusal is stale
     try {
       await erplora().command('schedules.special_days.create', {
         date: this.sdDate,
@@ -702,7 +737,7 @@ export class ErpSchedulesHours extends LitElement {
       this.dataTable('tbl-special')?.close();
       await Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e) {
-      this.formError = domainErrorText(e, 'ui.errorCreateSpecialDay');
+      this.specialFormError = domainErrorText(e, 'ui.errorCreateSpecialDay');
     } finally {
       this.saving = false;
     }
@@ -715,11 +750,12 @@ export class ErpSchedulesHours extends LitElement {
     if (!this.ovStart || !this.ovEnd || !this.ovReason.trim()) return;
     const intervals = this.exceptionPayloadIntervals(this.ovClosed, this.ovIntervals);
     if (!intervals) {
-      this.formError = erplora().t(CATALOG, 'ui.errorHoursRequired');
+      this.overrideFormError = erplora().t(CATALOG, 'ui.errorHoursRequired');
       return;
     }
     this.saving = true;
-    this.formError = '';
+    this.overrideFormError = '';
+    this.pageError = ''; // a save is the next thing the person did: an older page refusal is stale
     try {
       await erplora().command('schedules.overrides.create', {
         start_date: this.ovStart,
@@ -738,7 +774,7 @@ export class ErpSchedulesHours extends LitElement {
       this.dataTable('tbl-override')?.close();
       await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
     } catch (e) {
-      this.formError = domainErrorText(e, 'ui.errorCreateOverride');
+      this.overrideFormError = domainErrorText(e, 'ui.errorCreateOverride');
     } finally {
       this.saving = false;
     }
@@ -747,14 +783,14 @@ export class ErpSchedulesHours extends LitElement {
   private async saveSettings(ev: Event) {
     ev.preventDefault();
     this.saving = true;
-    this.formError = '';
+    this.pageError = '';
     try {
       await erplora().command('schedules.settings.save', {
         week_starts_on: Number(this.settings.week_starts_on),
       });
       await this.loadSettings();
     } catch (e) {
-      this.formError = domainErrorText(e, 'ui.errorSaveSettings');
+      this.pageError = domainErrorText(e, 'ui.errorSaveSettings');
     } finally {
       this.saving = false;
     }
@@ -777,7 +813,7 @@ export class ErpSchedulesHours extends LitElement {
     const pending = this.pendingDelete;
     this.pendingDelete = null;
     if (ev.detail?.role !== 'confirm' || !pending) return;
-    this.formError = '';
+    this.pageError = '';
     try {
       if (pending.kind === 'special_day') {
         await erplora().command('schedules.special_days.delete', { special_day_id: pending.id });
@@ -787,7 +823,7 @@ export class ErpSchedulesHours extends LitElement {
         await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
       }
     } catch (e) {
-      this.formError = domainErrorText(e, 'ui.errorDelete');
+      this.pageError = domainErrorText(e, 'ui.errorDelete');
     }
   }
 
@@ -874,6 +910,11 @@ export class ErpSchedulesHours extends LitElement {
                         (i) => this.removeInterval(i),
                       )}
                 `}
+            <!-- pm#513: the refusal travels WITH the form — on a phone the panel is a full-screen
+                 sheet and a banner on the page underneath it is never seen. -->
+            ${this.hoursFormError
+              ? html`<ok-inline-feedback data-testid="schedules-hours-form-error" tone="danger" icon="alert-circle-outline">${this.hoursFormError}</ok-inline-feedback>`
+              : nothing}
             <ion-button data-testid="schedules-hours-submit" type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.saveDay')}</ion-button>
           </form>
         </ok-data-table>
@@ -907,6 +948,11 @@ export class ErpSchedulesHours extends LitElement {
               ${t('ui.fieldRecurring')}
             </label>
             <ion-input data-testid="schedules-special-notes" fill="outline" label-placement="floating" label=${t('ui.fieldNotes')} .value=${this.sdNotes} @ionInput=${(e: any) => (this.sdNotes = e.target.value)}></ion-input>
+            <!-- pm#513: the refusal travels WITH the form — on a phone the panel is a full-screen
+                 sheet and a banner on the page underneath it is never seen. -->
+            ${this.specialFormError
+              ? html`<ok-inline-feedback data-testid="schedules-special-form-error" tone="danger" icon="alert-circle-outline">${this.specialFormError}</ok-inline-feedback>`
+              : nothing}
             <ion-button data-testid="schedules-special-submit" type="submit" size="small" ?disabled=${this.saving || !this.sdDate || !this.sdName}>${this.saving ? t('ui.saving') : t('ui.addDay')}</ion-button>
           </form>
         </ok-data-table>
@@ -930,6 +976,11 @@ export class ErpSchedulesHours extends LitElement {
                   () => this.addOverrideInterval(),
                   (i) => this.removeOverrideInterval(i),
                 )}
+            <!-- pm#513: the refusal travels WITH the form — on a phone the panel is a full-screen
+                 sheet and a banner on the page underneath it is never seen. -->
+            ${this.overrideFormError
+              ? html`<ok-inline-feedback data-testid="schedules-override-form-error" tone="danger" icon="alert-circle-outline">${this.overrideFormError}</ok-inline-feedback>`
+              : nothing}
             <ion-button data-testid="schedules-override-submit" type="submit" size="small" ?disabled=${this.saving || !this.ovStart || !this.ovEnd || !this.ovReason}>${this.saving ? t('ui.saving') : t('ui.addOverride')}</ion-button>
           </form>
         </ok-data-table>
@@ -974,7 +1025,7 @@ export class ErpSchedulesHours extends LitElement {
     // Each banner keeps the name of WHERE its error came from (schedules#46): the three can be up
     // at once, and a spec that saved a bad weekday waits for THAT one, not for «the first banner».
     const errors = [
-      { source: 'form', text: this.formError },
+      { source: 'page', text: this.pageError },
       { source: 'special', text: this.specialCtrl?.error },
       { source: 'override', text: this.overrideCtrl?.error },
     ].filter((e) => Boolean(e.text));
