@@ -266,6 +266,20 @@ for (const locale of ['es', 'en'] as const) {
       await type(el, 'schedules-interval-close-override-0', '1430');
       expect(el.ovIntervals[0]).toEqual({ open_time: '09:00', close_time: '14:30' });
     });
+
+    it('a half-typed time stays on screen in the special day and temporary change fields too', async () => {
+      const el = await mount('/m/schedules/special_days');
+      el.sdClosed = false;
+      el.sdIntervals = [{ open_time: '09:00', close_time: '' }];
+      el.ovClosed = false;
+      el.ovIntervals = [{ open_time: '09:00', close_time: '' }];
+      await el.updateComplete;
+      await type(el, 'schedules-interval-close-special-0', '14:');
+      expect(field(el, 'schedules-interval-close-special-0')?.value, 'the typed text must not vanish while typing').toBe('14:');
+      expect(el.sdIntervals[0].close_time).toBe('');
+      await type(el, 'schedules-interval-close-override-0', '8');
+      expect(field(el, 'schedules-interval-close-override-0')?.value, 'the typed text must not vanish while typing').toBe('8');
+    });
   });
 }
 
