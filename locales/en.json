@@ -45,6 +45,7 @@
     "fieldDay": "Day",
     "fieldOpen": "Opens",
     "fieldClose": "Closes",
+    "timePlaceholder": "hh:mm",
     "fieldBreakStart": "Break from",
     "fieldBreakEnd": "Break to",
     "fieldWeekStart": "Week starts",

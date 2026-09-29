@@ -190,11 +190,11 @@ describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato ace
     const el = await montar('special_days');
     const wc = el as unknown as SpecialDayForm & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
     const form = wc.shadowRoot.querySelector('#tbl-special form[slot="create"]')!;
-    expect(form.querySelector('ion-input[type="time"]'), 'cerrado por defecto: sin horas').toBeNull();
+    expect(form.querySelector('ion-input[data-role="interval-time"]'), 'cerrado por defecto: sin horas').toBeNull();
     expect(form.querySelector('ion-checkbox'), 'falta el control de recurrencia anual').toBeTruthy();
     wc.sdClosed = false;
     await wc.updateComplete;
-    expect(form.querySelectorAll('ion-input[type="time"]').length, 'abierto: apertura y cierre').toBe(2);
+    expect(form.querySelectorAll('ion-input[data-role="interval-time"]').length, 'abierto: apertura y cierre').toBe(2);
   });
 
   it('override cerrado: manda is_closed:true sin horas', async () => {
@@ -236,7 +236,7 @@ describe('schedules#7: los formularios mandan EXACTAMENTE lo que el contrato ace
     expect(form.querySelector('ion-select'), 'falta el control Cerrado/Abierto').toBeTruthy();
     wc.ovClosed = false;
     await wc.updateComplete;
-    expect(form.querySelectorAll('ion-input[type="time"]').length, 'abierto: apertura y cierre').toBe(2);
+    expect(form.querySelectorAll('ion-input[data-role="interval-time"]').length, 'abierto: apertura y cierre').toBe(2);
   });
 });
 

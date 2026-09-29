@@ -94,24 +94,28 @@ type Table = HTMLElement & {
 
 const table = (el: Wc, id: string) => el.shadowRoot.querySelector(`#${id}`) as Table;
 
+// The hub here is in English, so the hours read its clock (schedules#50: AM/PM in English, 24 h in
+// Spanish — hub-locale-times.test.ts covers both). Intl separates «AM/PM» with a narrow no-break space.
+const plain = (s: string) => s.replace(/\s/g, ' ');
+
 describe('the list shows EVERY interval of the exception', () => {
   it('a special day with a split shift is not a single wide window', async () => {
     const el = await mount();
     const col = table(el, 'tbl-special').columns.find((c) => c.key === 'is_closed')!;
-    expect(col.format!(specialRows[0])).toBe('10:00–13:00 · 17:00–19:00');
+    expect(plain(col.format!(specialRows[0]))).toBe('10:00 AM–01:00 PM · 05:00 PM–07:00 PM');
   });
 
   it('an exception with no interval rows still shows its own pair (pre-003 rows, bulk)', async () => {
     const el = await mount();
     const col = table(el, 'tbl-special').columns.find((c) => c.key === 'is_closed')!;
-    expect(col.format!(specialRows[1])).toBe('09:00–14:00');
+    expect(plain(col.format!(specialRows[1]))).toBe('09:00 AM–02:00 PM');
     expect(col.format!(specialRows[2])).toBe('ui.closed');
   });
 
   it('the overrides table folds its intervals the same way', async () => {
     const el = await mount();
     const col = table(el, 'tbl-override').columns.find((c) => c.key === 'is_closed')!;
-    expect(col.format!(overrideRows[0])).toBe('10:00–13:30 · 18:00–21:00');
+    expect(plain(col.format!(overrideRows[0]))).toBe('10:00 AM–01:30 PM · 06:00 PM–09:00 PM');
   });
 });
 
@@ -124,7 +128,7 @@ describe('creating a special day with several intervals', () => {
     el.sdClosed = false;
     await el.updateComplete;
     expect(el.shadowRoot.querySelectorAll('#tbl-special [data-action="add-interval"]').length).toBe(1);
-    expect(el.shadowRoot.querySelectorAll('#tbl-special form[slot="create"] ion-input[type="time"]').length).toBe(2);
+    expect(el.shadowRoot.querySelectorAll('#tbl-special form[slot="create"] ion-input[data-role="interval-time"]').length).toBe(2);
   });
 
   it('«+ add interval» appends one and the remove button drops it', async () => {
@@ -134,7 +138,7 @@ describe('creating a special day with several intervals', () => {
     (el.shadowRoot.querySelector('#tbl-special [data-action="add-interval"]') as HTMLElement).click();
     await el.updateComplete;
     expect(el.sdIntervals.length).toBe(2);
-    expect(el.shadowRoot.querySelectorAll('#tbl-special form[slot="create"] ion-input[type="time"]').length).toBe(4);
+    expect(el.shadowRoot.querySelectorAll('#tbl-special form[slot="create"] ion-input[data-role="interval-time"]').length).toBe(4);
     (el.shadowRoot.querySelectorAll('#tbl-special [data-action="remove-interval"]')[0] as HTMLElement).click();
     await el.updateComplete;
     expect(el.sdIntervals.length).toBe(1);

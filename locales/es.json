@@ -46,6 +46,7 @@
     "fieldDay": "Día",
     "fieldOpen": "Abre",
     "fieldClose": "Cierra",
+    "timePlaceholder": "hh:mm",
     "fieldBreakStart": "Descanso desde",
     "fieldBreakEnd": "Descanso hasta",
     "fieldWeekStart": "Semana empieza",

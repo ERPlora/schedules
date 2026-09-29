@@ -3893,6 +3893,45 @@ function majorToMinor(amount, decimals) {
   return Number.isFinite(n6) ? Math.round(n6 * 10 ** decimals) : 0;
 }
 
+// ui/lib/wall-time.ts
+function pad2(n6) {
+  return String(n6).padStart(2, "0");
+}
+var STORED = /^(\d{2}):(\d{2})(?::\d{2})?$/;
+function formatWallTime(time, locale) {
+  const match = time.match(STORED);
+  if (!match) return time;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return time;
+  try {
+    return new Intl.DateTimeFormat(locale || void 0, {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "UTC"
+    }).format(new Date(Date.UTC(2026, 0, 1, hour, minute)));
+  } catch {
+  }
+  return `${pad2(hour)}:${pad2(minute)}`;
+}
+var TYPED = /^(?:(\d{1,2})(?:[:.](\d{2})(?::\d{2})?)?|(\d{1,2})(\d{2}))(?:\s*([ap])\.?\s?m\.?)?$/i;
+function parseWallTime(text) {
+  const match = text.trim().match(TYPED);
+  if (!match) return null;
+  const [, hourText, minuteText, packedHour, packedMinute, meridiem] = match;
+  let hour = Number(hourText ?? packedHour);
+  const minute = Number(minuteText ?? packedMinute ?? 0);
+  if (minute > 59) return null;
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    const isPm = meridiem.toLowerCase() === "p";
+    hour = isPm ? hour === 12 ? 12 : hour + 12 : hour === 12 ? 0 : hour;
+  } else if (hour > 23) {
+    return null;
+  }
+  return `${pad2(hour)}:${pad2(minute)}`;
+}
+
 // locales/es.json
 var es_default = {
   name: "Horarios",
@@ -3942,6 +3981,7 @@ var es_default = {
     fieldDay: "D\xEDa",
     fieldOpen: "Abre",
     fieldClose: "Cierra",
+    timePlaceholder: "hh:mm",
     fieldBreakStart: "Descanso desde",
     fieldBreakEnd: "Descanso hasta",
     fieldWeekStart: "Semana empieza",
@@ -4053,6 +4093,7 @@ var en_default = {
     fieldDay: "Day",
     fieldOpen: "Opens",
     fieldClose: "Closes",
+    timePlaceholder: "hh:mm",
     fieldBreakStart: "Break from",
     fieldBreakEnd: "Break to",
     fieldWeekStart: "Week starts",
@@ -4193,6 +4234,7 @@ var ErpSchedulesHours = class extends i3 {
     this.ovClosed = true;
     this.ovIntervals = blankIntervals();
     this.exceptionIntervals = [];
+    this.timeDrafts = null;
     // ADR-0055: re-render al cambiar el idioma activo (los textos van por getters/`t()`).
     this.onLocaleChange = () => this.requestUpdate();
   }
@@ -4272,7 +4314,12 @@ var ErpSchedulesHours = class extends i3 {
     const intervals = r6.intervals ?? [];
     if (!intervals.length) return t5("ui.notSet");
     if (intervals.length === 1 && intervals[0].open_time === "00:00" && intervals[0].close_time === "00:00") return t5("ui.open24h");
-    return intervals.map((i7) => `${i7.open_time}\u2013${i7.close_time}`).join(" \xB7 ");
+    return intervals.map((i7) => this.fmtSpan(i7.open_time, i7.close_time)).join(" \xB7 ");
+  }
+  /** «09:00–14:00» in the hub's clock (schedules#50): the list and the panel read the same hour. */
+  fmtSpan(open, close) {
+    const locale = erplora().locale;
+    return `${formatWallTime(String(open ?? ""), locale)}\u2013${formatWallTime(String(close ?? ""), locale)}`;
   }
   get hoursColumns() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
@@ -4292,9 +4339,9 @@ var ErpSchedulesHours = class extends i3 {
     const t5 = (k2) => erplora().t(CATALOG, k2);
     if (Number(r6.is_closed)) return t5("ui.closed");
     const intervals = intervalsOf(this.exceptionIntervals, kind, String(r6.id));
-    if (!intervals.length) return `${r6.open_time ?? ""}\u2013${r6.close_time ?? ""}`;
+    if (!intervals.length) return this.fmtSpan(r6.open_time, r6.close_time);
     if (intervals.length === 1 && intervals[0].open_time === "00:00" && intervals[0].close_time === "00:00") return t5("ui.open24h");
-    return intervals.map((i7) => `${i7.open_time}\u2013${i7.close_time}`).join(" \xB7 ");
+    return intervals.map((i7) => this.fmtSpan(i7.open_time, i7.close_time)).join(" \xB7 ");
   }
   /** A `'YYYY-MM-DD'` date as the hub's locale reads it (schedules#29): `25/08/2026`, never the
    *  raw ISO. Built from UTC pieces and formatted in UTC so the wall date never shifts with the
@@ -4702,14 +4749,56 @@ var ErpSchedulesHours = class extends i3 {
     return b2`
       ${intervals.map(
       (it, i7) => b2`<div class="interval">
-          <ion-input data-testid=${`schedules-interval-open-${scope}-${i7}`} fill="outline" label-placement="floating" label=${t5("ui.fieldOpen")} type="time" .value=${it.open_time} @ionInput=${(e5) => update(i7, { open_time: e5.target.value })}></ion-input>
-          <ion-input data-testid=${`schedules-interval-close-${scope}-${i7}`} fill="outline" label-placement="floating" label=${t5("ui.fieldClose")} type="time" .value=${it.close_time} @ionInput=${(e5) => update(i7, { close_time: e5.target.value })}></ion-input>
+          <ion-input data-testid=${`schedules-interval-open-${scope}-${i7}`} data-role="interval-time" fill="outline" mode="md" label-placement="floating" label=${t5("ui.fieldOpen")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.timePlaceholder")} .value=${this.timeFieldValue(scope, intervals, it, i7, "open_time")} @ionInput=${(e5) => this.onTimeInput(scope, intervals, update, i7, "open_time", String(e5.target.value ?? ""))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i7, "open_time")} @paste=${(e5) => this.onTimePaste(scope, intervals, update, i7, "open_time", e5)}></ion-input>
+          <ion-input data-testid=${`schedules-interval-close-${scope}-${i7}`} data-role="interval-time" fill="outline" mode="md" label-placement="floating" label=${t5("ui.fieldClose")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.timePlaceholder")} .value=${this.timeFieldValue(scope, intervals, it, i7, "close_time")} @ionInput=${(e5) => this.onTimeInput(scope, intervals, update, i7, "close_time", String(e5.target.value ?? ""))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i7, "close_time")} @paste=${(e5) => this.onTimePaste(scope, intervals, update, i7, "close_time", e5)}></ion-input>
           <ion-button data-testid=${`schedules-interval-remove-${scope}-${i7}`} fill="clear" size="small" class="tone-medium" data-action="remove-interval" aria-label=${t5("ui.removeInterval")} ?disabled=${intervals.length <= 1} @click=${() => remove(i7)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
         </div>`
     )}
       <ion-button data-testid=${`schedules-interval-add-${scope}`} fill="outline" size="small" data-action="add-interval" @click=${() => add()}>${t5("ui.addInterval")}</ion-button>
       <p class="hint">${t5("ui.intervalsHint")}</p>
     `;
+  }
+  /** The stored interval list of a scope — what `update` has just replaced. */
+  intervalsOf(scope) {
+    return scope === "hours" ? this.bhIntervals : scope === "special" ? this.sdIntervals : this.ovIntervals;
+  }
+  /** The drafts typed against THIS very list, or none (see `TimeDrafts`). */
+  draftsFor(scope, intervals) {
+    const d3 = this.timeDrafts;
+    return d3 && d3.scope === scope && d3.owner === intervals ? d3.texts : {};
+  }
+  /** schedules#50 — what a time field shows: the raw text while it is being typed (a half-typed
+   *  «14:» stays on screen), the stored hour in the hub's clock otherwise. */
+  timeFieldValue(scope, intervals, it, i7, field) {
+    const draft = this.draftsFor(scope, intervals)[`${i7}:${field}`];
+    return draft ?? formatWallTime(it[field], erplora().locale);
+  }
+  /** schedules#50 — `ionInput`: the text is kept as the draft and the stored hour follows it
+   *  exactly, back to '' while it is not (yet) a time — so a half-typed hour never saves the last
+   *  valid one (the save refuses an incomplete line). */
+  onTimeInput(scope, intervals, update, i7, field, text) {
+    const texts = { ...this.draftsFor(scope, intervals), [`${i7}:${field}`]: text };
+    update(i7, { [field]: parseWallTime(text) ?? "" });
+    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts };
+  }
+  /** schedules#50 — blur/Enter (`ionChange`): forget the draft so the field repaints the stored
+   *  hour in the hub's clock. */
+  commitTimeDraft(scope, intervals, i7, field) {
+    const texts = { ...this.draftsFor(scope, intervals) };
+    if (!(`${i7}:${field}` in texts)) return;
+    delete texts[`${i7}:${field}`];
+    this.timeDrafts = { scope, owner: intervals, texts };
+  }
+  /** schedules#50 — a time pasted in any spelling the parser reads is stored and repainted in the
+   *  hub's clock at once. Anything else is left to the browser's own paste. */
+  onTimePaste(scope, intervals, update, i7, field, e5) {
+    const time = parseWallTime(e5.clipboardData?.getData("text") ?? "");
+    if (!time) return;
+    e5.preventDefault();
+    const texts = { ...this.draftsFor(scope, intervals) };
+    delete texts[`${i7}:${field}`];
+    update(i7, { [field]: time });
+    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts };
   }
   renderHours() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
@@ -4952,6 +5041,9 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "exceptionIntervals", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "timeDrafts", 2);
 define("erp-schedules-hours", ErpSchedulesHours);
 export {
   ErpSchedulesHours,

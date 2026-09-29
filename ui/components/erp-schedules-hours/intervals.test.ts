@@ -71,7 +71,9 @@ describe('the seven days are always listed, with their intervals', () => {
     const el = await mount();
     const col = table(el)!.columns.find((c) => c.key === 'hours')!;
     const rows = table(el)!.rows;
-    expect(col.format!(rows[0])).toBe('10:00–14:00 · 17:00–20:00');
+    // The hub here is in English, so the hours read its clock (schedules#50: AM/PM in English, 24 h
+    // in Spanish — hub-locale-times.test.ts covers both).
+    expect(col.format!(rows[0]).replace(/\s/g, ' ')).toBe('10:00 AM–02:00 PM · 05:00 PM–08:00 PM');
     expect(col.format!(rows[1])).toBe('ui.open24h');
     expect(col.format!(rows[6])).toBe('ui.closed');
     expect(col.format!(rows[2])).toBe('ui.notSet');
@@ -89,7 +91,7 @@ describe('editing a day: a list of intervals with add/remove, closed and 24 h', 
       { open_time: '10:00', close_time: '14:00' },
       { open_time: '17:00', close_time: '20:00' },
     ]);
-    const inputs = el.shadowRoot.querySelectorAll('form[slot="create"] ion-input[type="time"]');
+    const inputs = el.shadowRoot.querySelectorAll('form[slot="create"] ion-input[data-role="interval-time"]');
     expect(inputs.length, 'two intervals → four time inputs').toBe(4);
   });
 
