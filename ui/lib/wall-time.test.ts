@@ -37,6 +37,11 @@ describe('formatWallTime — a stored HH:MM in the hub clock', () => {
     }
   });
 
+  it('a locale Intl cannot read falls back to the 24 h HH:MM, seconds dropped', () => {
+    expect(() => new Intl.DateTimeFormat('es_ES')).toThrow(RangeError);
+    expect(formatWallTime('18:00:00', 'es_ES')).toBe('18:00');
+  });
+
   it('anything that is not a wall time is returned untouched (empty stays empty)', () => {
     expect(formatWallTime('', 'es')).toBe('');
     expect(formatWallTime('25:00', 'es')).toBe('25:00');

@@ -146,6 +146,10 @@ for (const locale of ['es', 'en'] as const) {
         const input = field(el, testid);
         expect(input?.getAttribute('type'), `${testid}: a native time field paints the browser locale`).toBe('text');
         expect(input?.getAttribute('placeholder')).toBe(want.placeholder);
+        // The phone opens its numeric keypad (hence «1430» without a colon), and the outline only
+        // paints in `md` mode: in `ios` a `fill="outline"` alone leaves loose text (hub#760).
+        expect(input?.getAttribute('inputmode'), `${testid}: the phone must open the numeric keypad`).toBe('numeric');
+        expect(input?.getAttribute('mode'), `${testid}: fill="outline" is a no-op in ios mode`).toBe('md');
       }
     });
 
@@ -226,6 +230,19 @@ for (const locale of ['es', 'en'] as const) {
       await el.updateComplete;
       expect(el.bhIntervals[0].open_time).toBe('14:30');
       expect(shown(el, 'schedules-interval-open-hours-0')).toBe(want.afternoon);
+    });
+
+    it('pasting something that is not a time is left to the browser, not swallowed', async () => {
+      const el = await mount('/m/schedules/hours');
+      await editDay(el, 0);
+      const paste = new Event('paste', { bubbles: true, composed: true, cancelable: true }) as Event & {
+        clipboardData: { getData: () => string };
+      };
+      paste.clipboardData = { getData: () => 'mañana' };
+      field(el, 'schedules-interval-open-hours-0')!.dispatchEvent(paste);
+      await el.updateComplete;
+      expect(paste.defaultPrevented, 'the browser must still paste what the parser cannot read').toBe(false);
+      expect(el.bhIntervals[0].open_time).toBe('09:00');
     });
   });
 
