@@ -8,6 +8,7 @@ import type { DataTableColumn } from '@erplora/outfitkit';
 import { createListController } from '@erplora/module-sdk';
 import type { ListController, ListClient, ListParams, ListPage } from '@erplora/module-sdk';
 import { formatCalendarDate, parseCalendarDate } from '../../lib/calendar-date';
+import { formatWallTime, parseWallTime } from '../../lib/wall-time';
 // Catálogo i18n del módulo (ADR-0055): esbuild inlinea estos JSON en el `dist` del WC. Los textos
 // internos se resuelven con `erplora.t(CATALOG, 'ui.clave')` (idioma activo, fallback locale→en→clave).
 import esLocale from '../../../locales/es.json';
@@ -153,6 +154,18 @@ type IntervalScope = 'hours' | 'special' | 'override';
 
 /** schedules#54 — the three date fields of the exceptions, named by the state each one fills. */
 type DateField = 'sdDate' | 'ovStart' | 'ovEnd';
+
+/** schedules#50 — the text being typed into the time fields of ONE interval list, kept apart from
+ *  the stored intervals (which only ever hold a valid 'HH:MM' or ''). `owner` is the very array
+ *  the texts were typed against: loading another day, adding or removing a line replaces the
+ *  array, so a stale half-typed text can never be painted over somebody else's hour. */
+interface TimeDrafts {
+  scope: IntervalScope;
+  owner: Interval[];
+  texts: Record<string, string>;
+}
+
+type TimeField = 'open_time' | 'close_time';
 
 // schedules#6 — the SECTION comes from the route (ADR-0022): the shell owns the tabbar and mounts
 // this component at `/m/schedules/<navId>` for each of the three navigation entries, remounting on
@@ -304,6 +317,8 @@ export class ErpSchedulesHours extends LitElement {
 
   // Every live interval row of the hub's exceptions; the two tables fold them by exception.
   @state() private exceptionIntervals: ExceptionInterval[] = [];
+  /** schedules#50 — see `TimeDrafts`. */
+  @state() private timeDrafts: TimeDrafts | null = null;
 
   private specialCtrl!: ListController<SpecialDay>;
 
@@ -364,7 +379,13 @@ export class ErpSchedulesHours extends LitElement {
     const intervals = (r.intervals as Interval[] | undefined) ?? [];
     if (!intervals.length) return t('ui.notSet');
     if (intervals.length === 1 && intervals[0].open_time === '00:00' && intervals[0].close_time === '00:00') return t('ui.open24h');
-    return intervals.map((i) => `${i.open_time}–${i.close_time}`).join(' · ');
+    return intervals.map((i) => this.fmtSpan(i.open_time, i.close_time)).join(' · ');
+  }
+
+  /** «09:00–14:00» in the hub's clock (schedules#50): the list and the panel read the same hour. */
+  private fmtSpan(open: string | null | undefined, close: string | null | undefined): string {
+    const locale = erplora().locale;
+    return `${formatWallTime(String(open ?? ''), locale)}–${formatWallTime(String(close ?? ''), locale)}`;
   }
 
   private get hoursColumns(): DataTableColumn[] {
@@ -386,9 +407,9 @@ export class ErpSchedulesHours extends LitElement {
     const t = (k: string): string => erplora().t(CATALOG, k);
     if (Number(r.is_closed)) return t('ui.closed');
     const intervals = intervalsOf(this.exceptionIntervals, kind, String(r.id));
-    if (!intervals.length) return `${r.open_time ?? ''}–${r.close_time ?? ''}`;
+    if (!intervals.length) return this.fmtSpan(r.open_time as string | null, r.close_time as string | null);
     if (intervals.length === 1 && intervals[0].open_time === '00:00' && intervals[0].close_time === '00:00') return t('ui.open24h');
-    return intervals.map((i) => `${i.open_time}–${i.close_time}`).join(' · ');
+    return intervals.map((i) => this.fmtSpan(i.open_time, i.close_time)).join(' · ');
   }
 
   /** A `'YYYY-MM-DD'` date as the hub's locale reads it (schedules#29): `25/08/2026`, never the
@@ -876,17 +897,81 @@ export class ErpSchedulesHours extends LitElement {
     remove: (index: number) => void,
   ) {
     const t = (k: string): string => erplora().t(CATALOG, k);
+    // schedules#50 — TEXT fields painted in the hub's clock, not `type="time"`: the browser paints
+    // a native time field with its own (operating system) clock, whatever the hub language.
     return html`
       ${intervals.map(
         (it, i) => html`<div class="interval">
-          <ion-input data-testid=${`schedules-interval-open-${scope}-${i}`} fill="outline" label-placement="floating" label=${t('ui.fieldOpen')} type="time" .value=${it.open_time} @ionInput=${(e: any) => update(i, { open_time: e.target.value })}></ion-input>
-          <ion-input data-testid=${`schedules-interval-close-${scope}-${i}`} fill="outline" label-placement="floating" label=${t('ui.fieldClose')} type="time" .value=${it.close_time} @ionInput=${(e: any) => update(i, { close_time: e.target.value })}></ion-input>
+          <ion-input data-testid=${`schedules-interval-open-${scope}-${i}`} data-role="interval-time" fill="outline" mode="md" label-placement="floating" label=${t('ui.fieldOpen')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.timePlaceholder')} .value=${this.timeFieldValue(scope, intervals, it, i, 'open_time')} @ionInput=${(e: any) => this.onTimeInput(scope, intervals, update, i, 'open_time', String(e.target.value ?? ''))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i, 'open_time')} @paste=${(e: Event) => this.onTimePaste(scope, intervals, update, i, 'open_time', e)}></ion-input>
+          <ion-input data-testid=${`schedules-interval-close-${scope}-${i}`} data-role="interval-time" fill="outline" mode="md" label-placement="floating" label=${t('ui.fieldClose')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.timePlaceholder')} .value=${this.timeFieldValue(scope, intervals, it, i, 'close_time')} @ionInput=${(e: any) => this.onTimeInput(scope, intervals, update, i, 'close_time', String(e.target.value ?? ''))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i, 'close_time')} @paste=${(e: Event) => this.onTimePaste(scope, intervals, update, i, 'close_time', e)}></ion-input>
           <ion-button data-testid=${`schedules-interval-remove-${scope}-${i}`} fill="clear" size="small" class="tone-medium" data-action="remove-interval" aria-label=${t('ui.removeInterval')} ?disabled=${intervals.length <= 1} @click=${() => remove(i)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
         </div>`,
       )}
       <ion-button data-testid=${`schedules-interval-add-${scope}`} fill="outline" size="small" data-action="add-interval" @click=${() => add()}>${t('ui.addInterval')}</ion-button>
       <p class="hint">${t('ui.intervalsHint')}</p>
     `;
+  }
+
+  /** The stored interval list of a scope — what `update` has just replaced. */
+  private intervalsOf(scope: IntervalScope): Interval[] {
+    return scope === 'hours' ? this.bhIntervals : scope === 'special' ? this.sdIntervals : this.ovIntervals;
+  }
+
+  /** The drafts typed against THIS very list, or none (see `TimeDrafts`). */
+  private draftsFor(scope: IntervalScope, intervals: Interval[]): Record<string, string> {
+    const d = this.timeDrafts;
+    return d && d.scope === scope && d.owner === intervals ? d.texts : {};
+  }
+
+  /** schedules#50 — what a time field shows: the raw text while it is being typed (a half-typed
+   *  «14:» stays on screen), the stored hour in the hub's clock otherwise. */
+  private timeFieldValue(scope: IntervalScope, intervals: Interval[], it: Interval, i: number, field: TimeField): string {
+    const draft = this.draftsFor(scope, intervals)[`${i}:${field}`];
+    return draft ?? formatWallTime(it[field], erplora().locale);
+  }
+
+  /** schedules#50 — `ionInput`: the text is kept as the draft and the stored hour follows it
+   *  exactly, back to '' while it is not (yet) a time — so a half-typed hour never saves the last
+   *  valid one (the save refuses an incomplete line). */
+  private onTimeInput(
+    scope: IntervalScope,
+    intervals: Interval[],
+    update: (index: number, patch: Partial<Interval>) => void,
+    i: number,
+    field: TimeField,
+    text: string,
+  ): void {
+    const texts = { ...this.draftsFor(scope, intervals), [`${i}:${field}`]: text };
+    update(i, { [field]: parseWallTime(text) ?? '' });
+    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts };
+  }
+
+  /** schedules#50 — blur/Enter (`ionChange`): forget the draft so the field repaints the stored
+   *  hour in the hub's clock. */
+  private commitTimeDraft(scope: IntervalScope, intervals: Interval[], i: number, field: TimeField): void {
+    const texts = { ...this.draftsFor(scope, intervals) };
+    if (!(`${i}:${field}` in texts)) return;
+    delete texts[`${i}:${field}`];
+    this.timeDrafts = { scope, owner: intervals, texts };
+  }
+
+  /** schedules#50 — a time pasted in any spelling the parser reads is stored and repainted in the
+   *  hub's clock at once. Anything else is left to the browser's own paste. */
+  private onTimePaste(
+    scope: IntervalScope,
+    intervals: Interval[],
+    update: (index: number, patch: Partial<Interval>) => void,
+    i: number,
+    field: TimeField,
+    e: Event,
+  ): void {
+    const time = parseWallTime((e as ClipboardEvent).clipboardData?.getData('text') ?? '');
+    if (!time) return;
+    e.preventDefault();
+    const texts = { ...this.draftsFor(scope, intervals) };
+    delete texts[`${i}:${field}`];
+    update(i, { [field]: time });
+    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts };
   }
 
   private renderHours() {
