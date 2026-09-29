@@ -3726,6 +3726,11 @@ function toMicro(quantity) {
 }
 
 // @erplora/module-sdk/src/index.ts
+function dataTableShowsLoadError() {
+  const registry = globalThis.customElements;
+  const table = registry?.get("ok-data-table");
+  return !!table && "error" in table.prototype;
+}
 function isEmpty(v3) {
   return v3 === null || v3 === void 0 || v3 === "";
 }
@@ -5023,7 +5028,7 @@ var ErpSchedulesHours = class extends i3 {
     return b2`<div class="pane">
         <!-- Two collections, two tables, each labelled (schedules#6): a dated exception vs a range. -->
         <h3>${t5("ui.specialDays")}</h3>
-        <ok-data-table id="tbl-special" testid="schedules-special-table" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => String(row.name || this.fmtDate(row.date) || "\u2014")} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchSpecialDay")} .actions=${this.rowActions} @rowAction=${(e5) => this.onSpecialAction(e5)} .emptyMessage=${this.specialCtrl?.loading ? t5("ui.loading") : t5("ui.emptySpecialDays")} @pageChange=${(e5) => this.specialCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.specialCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.specialCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.specialCtrl.setFilter(e5.detail.col, e5.detail.value)}>
+        <ok-data-table id="tbl-special" testid="schedules-special-table" .error=${this.specialCtrl?.error ?? ""} @retry=${() => Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => String(row.name || this.fmtDate(row.date) || "\u2014")} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchSpecialDay")} .actions=${this.rowActions} @rowAction=${(e5) => this.onSpecialAction(e5)} .emptyMessage=${this.specialCtrl?.loading ? t5("ui.loading") : t5("ui.emptySpecialDays")} @pageChange=${(e5) => this.specialCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.specialCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.specialCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.specialCtrl.setFilter(e5.detail.col, e5.detail.value)}>
           <form data-testid="schedules-special-form" slot="create" class="form" @submit=${(e5) => this.createSpecialDay(e5)}>
             <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
             <ion-input data-testid="schedules-special-date" fill="outline" mode="md" label-placement="floating" label=${t5("ui.colDate")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.datePlaceholder")} .value=${this.dateFieldValue("sdDate")} @ionInput=${(e5) => this.onDateInput("sdDate", String(e5.target.value ?? ""))} @ionChange=${() => this.forgetDateDraft("sdDate")}></ion-input>
@@ -5052,7 +5057,7 @@ var ErpSchedulesHours = class extends i3 {
         </ok-data-table>
         <!-- Las excepciones son OTRA entidad (otra tabla) → llevan su propio panel de alta. -->
         <h3>${t5("ui.overrides")}</h3>
-        <ok-data-table id="tbl-override" testid="schedules-override-table" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => String(row.reason || this.fmtDate(row.start_date) || "\u2014")} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchOverride")} .actions=${this.rowActions} @rowAction=${(e5) => this.onOverrideAction(e5)} .emptyMessage=${this.overrideCtrl?.loading ? t5("ui.loading") : t5("ui.emptyOverrides")} @pageChange=${(e5) => this.overrideCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.overrideCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.overrideCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.overrideCtrl.setFilter(e5.detail.col, e5.detail.value)}>
+        <ok-data-table id="tbl-override" testid="schedules-override-table" .error=${this.overrideCtrl?.error ?? ""} @retry=${() => Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => String(row.reason || this.fmtDate(row.start_date) || "\u2014")} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchOverride")} .actions=${this.rowActions} @rowAction=${(e5) => this.onOverrideAction(e5)} .emptyMessage=${this.overrideCtrl?.loading ? t5("ui.loading") : t5("ui.emptyOverrides")} @pageChange=${(e5) => this.overrideCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.overrideCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.overrideCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.overrideCtrl.setFilter(e5.detail.col, e5.detail.value)}>
           <form data-testid="schedules-override-form" slot="create" class="form" @submit=${(e5) => this.createOverride(e5)}>
             <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
             <ion-input data-testid="schedules-override-from" fill="outline" mode="md" label-placement="floating" label=${t5("ui.colFrom")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.datePlaceholder")} .value=${this.dateFieldValue("ovStart")} @ionInput=${(e5) => this.onDateInput("ovStart", String(e5.target.value ?? ""))} @ionChange=${() => this.forgetDateDraft("ovStart")}></ion-input>
@@ -5107,8 +5112,8 @@ var ErpSchedulesHours = class extends i3 {
     const t5 = (k2) => erplora().t(CATALOG, k2);
     const errors = [
       { source: "page", text: this.pageError },
-      { source: "special", text: this.specialCtrl?.error },
-      { source: "override", text: this.overrideCtrl?.error }
+      { source: "special", text: dataTableShowsLoadError() ? "" : this.specialCtrl?.error },
+      { source: "override", text: dataTableShowsLoadError() ? "" : this.overrideCtrl?.error }
     ].filter((e5) => Boolean(e5.text));
     return b2`<div class="page">
         ${errors.map(
