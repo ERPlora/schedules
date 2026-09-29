@@ -1,7 +1,7 @@
 {
   "id": "schedules",
   "name": "Schedules",
-  "version": "2.0.38",
+  "version": "2.0.39",
   "description": "Business opening hours, special days and schedule overrides.",
   "agent": {
     "description": "Manages business opening hours, special days, and schedule overrides: query and update weekly schedules, create exceptions, and check whether the business is currently open.",
