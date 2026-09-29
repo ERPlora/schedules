@@ -20,12 +20,16 @@ The seven weekdays are always listed, each with its opening **intervals**
 (`schedules.business_hours.list`, one row per interval). Requires `schedules.view_schedule`.
 
 A day reads as `10:00–14:00 · 17:00–20:00` (split shift), `Open 24 hours`, `Closed` or `Not set`.
+Hours are shown in the clock of the hub's language — 24 h in Spanish (`17:00`), AM/PM in English
+(`05:00 PM`) — here, in the edit panel and in the special days and temporary changes lists alike.
 
 ### Set the hours of a day
 
 1. Use the row action **edit** on the day (there is no "add": the seven days already exist).
 2. Either mark it **closed**, tick **Open 24 hours**, or fill one line per **interval** — opening
-   and closing time as `HH:MM`. **+ Add interval** appends a line, the ✕ removes one. A closing time
+   and closing time, typed the way the screen shows it (`14:30`, `2:30 pm`) or as digits only
+   (`1430`, handy on a phone keypad); leaving the field repaints it in the hub's clock. A time that is
+   not complete yet is not saved. **+ Add interval** appends a line, the ✕ removes one. A closing time
    earlier than the opening one runs past midnight (`22:00–02:00`).
 3. Save.
 
