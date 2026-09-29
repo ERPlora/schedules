@@ -3802,7 +3802,8 @@ var ListController = class {
       if (mySeq !== this.seq) return;
       this.rows = [];
       this.total = 0;
-      this.error = e5 instanceof Error ? e5.message : "Error cargando datos";
+      const reason = e5 instanceof Error ? e5.message.trim() : "";
+      this.error = reason || listLoadFailedMessage(activeLocale());
     } finally {
       if (mySeq === this.seq) {
         this.loading = false;
@@ -3875,6 +3876,11 @@ function scaleFilterValue(value, scale) {
   }
   return scaleFilterEdge(value, scale);
 }
+var LIST_LOAD_FAILED_EN = "The hub did not return the data.";
+var LIST_LOAD_FAILED_ES = "El hub no ha devuelto los datos.";
+function listLoadFailedMessage(locale) {
+  return locale.toLowerCase().startsWith("en") ? LIST_LOAD_FAILED_EN : LIST_LOAD_FAILED_ES;
+}
 function createListController(client, queryName, onChange = () => {
 }, opts = {}) {
   return new ListController(client, queryName, onChange, opts);
@@ -3888,6 +3894,13 @@ var ErploraError = class extends Error {
     this.name = "ErploraError";
   }
 };
+function activeLocale() {
+  try {
+    return localStorage.getItem("erplora.locale") || "es";
+  } catch {
+    return "es";
+  }
+}
 function majorToMinor(amount, decimals) {
   const n6 = Number(amount);
   return Number.isFinite(n6) ? Math.round(n6 * 10 ** decimals) : 0;
