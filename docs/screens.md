@@ -51,7 +51,11 @@ name.
 
 ### Create a special day
 
-1. Give it a **date** and a **name** — both required.
+1. Give it a **date** and a **name** — both required. Dates are shown and typed in the order of
+   the hub's language, whatever the browser's: day first in Spanish (`24/12/2026`), month first in
+   English (`12/24/2026`). Digits only (`24122026`, handy on a phone keypad) and an ISO date
+   (`2026-12-24`) are read too; leaving the field repaints it. A date that is not complete or does
+   not exist is not saved.
 2. Mark it **closed** (the default), or fill one line per **interval** — the same editor as the
    weekly hours: **+ Add interval** appends a line, the ✕ removes one. A holiday that opens
    `10:00–13:00` and `17:00–19:00` is one special day with two intervals.
@@ -81,7 +85,8 @@ A temporary change of hours over a **date range** — summer hours, a refurbishm
 
 ### Create an override
 
-1. Set the **start date** and the **end date**. The end cannot be before the start.
+1. Set the **start date** and the **end date** — typed as on special days, in the order of the
+   hub's language. The end cannot be before the start.
 2. Either mark the period **closed**, or fill one line per **interval** that applies during it —
    same editor, same rules as the weekly hours (no overlaps, `close` before `open` runs past
    midnight, `00:00–00:00` is 24 hours).

@@ -23,6 +23,7 @@
     "colClose": "Cierra",
     "colBreak": "Descanso",
     "colDate": "Fecha",
+    "datePlaceholder": "dd/mm/aaaa",
     "colName": "Nombre",
     "colStatus": "Estado",
     "colYearly": "Anual",

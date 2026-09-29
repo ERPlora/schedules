@@ -7,6 +7,7 @@ import '@erplora/outfitkit/ok-inline-feedback';
 import type { DataTableColumn } from '@erplora/outfitkit';
 import { createListController } from '@erplora/module-sdk';
 import type { ListController, ListClient, ListParams, ListPage } from '@erplora/module-sdk';
+import { formatCalendarDate, parseCalendarDate } from '../../lib/calendar-date';
 import { formatWallTime, parseWallTime } from '../../lib/wall-time';
 // Catálogo i18n del módulo (ADR-0055): esbuild inlinea estos JSON en el `dist` del WC. Los textos
 // internos se resuelven con `erplora.t(CATALOG, 'ui.clave')` (idioma activo, fallback locale→en→clave).
@@ -150,6 +151,9 @@ const TABS: readonly Tab[] = ['hours', 'special_days', 'settings'];
  * and renaming it breaks the guard instead of breaking a spec in another repo.
  */
 type IntervalScope = 'hours' | 'special' | 'override';
+
+/** schedules#54 — the three date fields of the exceptions, named by the state each one fills. */
+type DateField = 'sdDate' | 'ovStart' | 'ovEnd';
 
 /** schedules#50 — the text being typed into the time fields of ONE interval list, kept apart from
  *  the stored intervals (which only ever hold a valid 'HH:MM' or ''). `owner` is the very array
@@ -300,6 +304,9 @@ export class ErpSchedulesHours extends LitElement {
   @state() ovStart = '';
 
   @state() ovEnd = '';
+  /** schedules#54 — the text being typed into a date field, kept apart from the stored ISO date
+   *  (which only ever holds a real 'YYYY-MM-DD' or ''): a half-typed «24/12» stays on screen. */
+  @state() private dateDrafts: Partial<Record<DateField, string>> = {};
 
   @state() ovReason = '';
 
@@ -722,6 +729,28 @@ export class ErpSchedulesHours extends LitElement {
     this.dataTable('tbl-hours')?.open('edit', { title: this.editDayTitle(this.bhDay) });
   }
 
+  /** schedules#54 — what a date field shows: the raw text while it is being typed, the stored
+   *  date in the hub's day/month order otherwise (never the browser's, as a native date field). */
+  private dateFieldValue(field: DateField): string {
+    return this.dateDrafts[field] ?? formatCalendarDate(this[field], erplora().locale);
+  }
+
+  /** schedules#54 — `ionInput`: the text is kept as the draft and the stored date follows it
+   *  exactly, back to '' while it is not (yet) a date, so a half-typed date never saves the last
+   *  valid one (the save stays off without a date). */
+  private onDateInput(field: DateField, text: string): void {
+    this.dateDrafts = { ...this.dateDrafts, [field]: text };
+    this[field] = parseCalendarDate(text, erplora().locale) ?? '';
+  }
+
+  /** schedules#54 — blur/Enter (`ionChange`), or a save: forget the draft so the field repaints
+   *  the stored date in the hub's order. */
+  private forgetDateDraft(field: DateField): void {
+    if (!(field in this.dateDrafts)) return;
+    const { [field]: _typed, ...rest } = this.dateDrafts;
+    this.dateDrafts = rest;
+  }
+
   /** Special day (schedules#7): the payload is exactly what `schemas/special_day_create.json`
    *  accepts. Open days carry both hours (the handler requires them); the duplicate check is an
    *  authoritative runtime read (`reads` in the manifest), NOT a client-supplied list. */
@@ -750,6 +779,7 @@ export class ErpSchedulesHours extends LitElement {
         notes: this.sdNotes.trim(),
       });
       this.sdDate = '';
+      this.forgetDateDraft('sdDate');
       this.sdName = '';
       this.sdClosed = true;
       this.sdIntervals = blankIntervals();
@@ -789,6 +819,8 @@ export class ErpSchedulesHours extends LitElement {
       });
       this.ovStart = '';
       this.ovEnd = '';
+      this.forgetDateDraft('ovStart');
+      this.forgetDateDraft('ovEnd');
       this.ovReason = '';
       this.ovClosed = true;
       this.ovIntervals = blankIntervals();
@@ -1013,7 +1045,8 @@ export class ErpSchedulesHours extends LitElement {
         <h3>${t('ui.specialDays')}</h3>
         <ok-data-table id="tbl-special" testid="schedules-special-table" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.name || this.fmtDate(row.date) || '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form data-testid="schedules-special-form" slot="create" class="form" @submit=${(e: Event) => this.createSpecialDay(e)}>
-            <ion-input data-testid="schedules-special-date" fill="outline" label-placement="floating" label=${t('ui.colDate')} type="date" .value=${this.sdDate} @ionInput=${(e: any) => (this.sdDate = e.target.value)}></ion-input>
+            <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
+            <ion-input data-testid="schedules-special-date" fill="outline" mode="md" label-placement="floating" label=${t('ui.colDate')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('sdDate')} @ionInput=${(e: any) => this.onDateInput('sdDate', String(e.target.value ?? ''))} @ionChange=${() => this.forgetDateDraft('sdDate')}></ion-input>
             <ion-input data-testid="schedules-special-name" fill="outline" label-placement="floating" label=${t('ui.colName')} placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
             <ion-select data-testid="schedules-special-status" fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.sdClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.sdClosed = e.target.value === 'closed')}>
               <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
@@ -1045,8 +1078,9 @@ export class ErpSchedulesHours extends LitElement {
         <h3>${t('ui.overrides')}</h3>
         <ok-data-table id="tbl-override" testid="schedules-override-table" .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.reason || this.fmtDate(row.start_date) || '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form data-testid="schedules-override-form" slot="create" class="form" @submit=${(e: Event) => this.createOverride(e)}>
-            <ion-input data-testid="schedules-override-from" fill="outline" label-placement="floating" label=${t('ui.colFrom')} type="date" .value=${this.ovStart} @ionInput=${(e: any) => (this.ovStart = e.target.value)}></ion-input>
-            <ion-input data-testid="schedules-override-to" fill="outline" label-placement="floating" label=${t('ui.colTo')} type="date" .value=${this.ovEnd} @ionInput=${(e: any) => (this.ovEnd = e.target.value)}></ion-input>
+            <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
+            <ion-input data-testid="schedules-override-from" fill="outline" mode="md" label-placement="floating" label=${t('ui.colFrom')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('ovStart')} @ionInput=${(e: any) => this.onDateInput('ovStart', String(e.target.value ?? ''))} @ionChange=${() => this.forgetDateDraft('ovStart')}></ion-input>
+            <ion-input data-testid="schedules-override-to" fill="outline" mode="md" label-placement="floating" label=${t('ui.colTo')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('ovEnd')} @ionInput=${(e: any) => this.onDateInput('ovEnd', String(e.target.value ?? ''))} @ionChange=${() => this.forgetDateDraft('ovEnd')}></ion-input>
             <ion-input data-testid="schedules-override-reason" fill="outline" label-placement="floating" label=${t('ui.colReason')} .value=${this.ovReason} @ionInput=${(e: any) => (this.ovReason = e.target.value)}></ion-input>
             <ion-select data-testid="schedules-override-status" fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.ovClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.ovClosed = e.target.value === 'closed')}>
               <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>

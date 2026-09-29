@@ -22,6 +22,7 @@
     "colClose": "Closes",
     "colBreak": "Break",
     "colDate": "Date",
+    "datePlaceholder": "mm/dd/yyyy",
     "colName": "Name",
     "colStatus": "Status",
     "colYearly": "Yearly",
