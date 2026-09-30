@@ -338,6 +338,9 @@ export class ErpSchedulesHours extends LitElement {
 
   // Every live interval row of the hub's exceptions; the two tables fold them by exception.
   @state() private exceptionIntervals: ExceptionInterval[] = [];
+  // Whether those rows have been read, and why they could not be (schedules#63).
+  @state() private exceptionIntervalsLoaded = false;
+  @state() private exceptionIntervalsError = '';
   /** schedules#50 — see `TimeDrafts`. */
   @state() private timeDrafts: TimeDrafts | null = null;
 
@@ -568,10 +571,27 @@ export class ErpSchedulesHours extends LitElement {
     try {
       const rows = await erplora().queryAll<ExceptionInterval>('schedules.exception_intervals.list', { sort: 'position', dir: 'asc' });
       this.exceptionIntervals = Array.isArray(rows) ? rows : [];
-    } catch {
-      /* an old hub without migration 003: the pair on each exception still decides */
-      this.exceptionIntervals = [];
+      this.exceptionIntervalsLoaded = true;
+      this.exceptionIntervalsError = '';
+    } catch (e) {
+      // The query ships with this screen (schedules#23), so a failure is the hub not answering:
+      // folding «no intervals» would show each split exception as its first span alone (schedules#63).
+      this.exceptionIntervalsError = e instanceof Error ? e.message : String(e);
     }
+  }
+
+  /** Rows an exception table can show (schedules#63): none until every interval has been read,
+   *  so a split day never reads as its first span alone. */
+  private exceptionRows<T>(rows: T[]): T[] {
+    return this.exceptionIntervalsLoaded && !this.exceptionIntervalsError ? rows : [];
+  }
+
+  /** What an exception table says with no rows: why the hours are missing, that they are on their
+   *  way, or that there is nothing to list. */
+  private exceptionEmptyMessage(listLoading: boolean | undefined, emptyKey: string): string {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    if (this.exceptionIntervalsError) return t('ui.exceptionHoursLoadFailed');
+    return listLoading || !this.exceptionIntervalsLoaded ? t('ui.loading') : t(emptyKey);
   }
 
   // Every interval row of the week (never a page: the table folds them by day).
@@ -1106,7 +1126,7 @@ export class ErpSchedulesHours extends LitElement {
     return html`<div class="pane">
         <!-- Two collections, two tables, each labelled (schedules#6): a dated exception vs a range. -->
         <h3>${t('ui.specialDays')}</h3>
-        <ok-data-table id="tbl-special" testid="schedules-special-table" .error=${this.specialCtrl?.error ?? ''} @retry=${() => Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.name || this.fmtDate(row.date) || '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ?? []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.specialCtrl?.loading ? t('ui.loading') : t('ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
+        <ok-data-table id="tbl-special" testid="schedules-special-table" .error=${this.specialCtrl?.error || this.exceptionIntervalsError} @retry=${() => Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.name || this.fmtDate(row.date) || '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ? this.exceptionRows(this.specialCtrl.rows) : []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.exceptionEmptyMessage(this.specialCtrl?.loading, 'ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form data-testid="schedules-special-form" slot="create" class="form" @submit=${(e: Event) => this.createSpecialDay(e)}>
             <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
             <ion-input data-testid="schedules-special-date" fill="outline" mode="md" label-placement="floating" label=${t('ui.colDate')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('sdDate')} @ionInput=${(e: any) => this.onDateInput('sdDate', String(e.target.value ?? ''))} @ionChange=${() => this.forgetDateDraft('sdDate')}></ion-input>
@@ -1139,7 +1159,7 @@ export class ErpSchedulesHours extends LitElement {
         </ok-data-table>
         <!-- Las excepciones son OTRA entidad (otra tabla) → llevan su propio panel de alta. -->
         <h3>${t('ui.overrides')}</h3>
-        <ok-data-table id="tbl-override" testid="schedules-override-table" .error=${this.overrideCtrl?.error ?? ''} @retry=${() => Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.reason || this.fmtDate(row.start_date) || '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ?? []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.overrideCtrl?.loading ? t('ui.loading') : t('ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
+        <ok-data-table id="tbl-override" testid="schedules-override-table" .error=${this.overrideCtrl?.error || this.exceptionIntervalsError} @retry=${() => Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.reason || this.fmtDate(row.start_date) || '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ? this.exceptionRows(this.overrideCtrl.rows) : []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.exceptionEmptyMessage(this.overrideCtrl?.loading, 'ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form data-testid="schedules-override-form" slot="create" class="form" @submit=${(e: Event) => this.createOverride(e)}>
             <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
             <ion-input data-testid="schedules-override-from" fill="outline" mode="md" label-placement="floating" label=${t('ui.colFrom')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('ovStart')} @ionInput=${(e: any) => this.onDateInput('ovStart', String(e.target.value ?? ''))} @ionChange=${() => this.forgetDateDraft('ovStart')}></ion-input>
@@ -1229,13 +1249,21 @@ export class ErpSchedulesHours extends LitElement {
     // at once, and a spec that saved a bad weekday waits for THAT one, not for «the first banner».
     // A list that could not load says so in its own table, with Retry (pm#533); its banner stays
     // only on a shell whose table cannot paint the error, where it is the one place with the reason
-    // — and only on the tab that holds that list (schedules#60).
+    // — and only on the tab that holds that list (schedules#60). The exceptions' intervals feed
+    // both tables of Special days: their banner is left out when a list's banner already says the
+    // same reason (schedules#63).
     const tableCannotSay = !dataTableShowsLoadError();
+    const onSpecialDays = tableCannotSay && this.tab === 'special_days';
+    const listErrors = [this.specialCtrl?.error, this.overrideCtrl?.error];
     const errors = [
       { source: 'page', text: this.pageError },
       { source: 'hours', text: tableCannotSay && this.tab === 'hours' ? this.weekLoadError : '' },
-      { source: 'special', text: tableCannotSay && this.tab === 'special_days' ? this.specialCtrl?.error : '' },
-      { source: 'override', text: tableCannotSay && this.tab === 'special_days' ? this.overrideCtrl?.error : '' },
+      { source: 'special', text: onSpecialDays ? this.specialCtrl?.error : '' },
+      { source: 'override', text: onSpecialDays ? this.overrideCtrl?.error : '' },
+      {
+        source: 'intervals',
+        text: onSpecialDays && !listErrors.includes(this.exceptionIntervalsError) ? this.exceptionIntervalsError : '',
+      },
     ].filter((e) => Boolean(e.text));
     return html`<div class="page">
         ${errors.map(

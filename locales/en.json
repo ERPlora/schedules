@@ -69,6 +69,7 @@
     "emptyHours": "No schedule configured.",
     "hoursLoadFailed": "The opening hours could not be loaded.",
     "settingsLoadFailed": "The settings could not be loaded.",
+    "exceptionHoursLoadFailed": "The hours of the special days could not be loaded.",
     "retry": "Retry",
     "retrying": "Retrying…",
     "defaultWeekNotice": "These are default opening hours we set up for you. Check they match your business — bookings outside them are refused.",

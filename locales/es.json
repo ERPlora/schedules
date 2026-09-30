@@ -70,6 +70,7 @@
     "emptyHours": "Sin horario configurado.",
     "hoursLoadFailed": "No se ha podido cargar el horario.",
     "settingsLoadFailed": "No se han podido cargar los ajustes.",
+    "exceptionHoursLoadFailed": "No se ha podido cargar el horario de los días especiales.",
     "retry": "Reintentar",
     "retrying": "Reintentando…",
     "defaultWeekNotice": "Este es un horario por defecto que hemos puesto por ti. Comprueba que coincide con el de tu negocio: las reservas fuera de él se rechazan.",
