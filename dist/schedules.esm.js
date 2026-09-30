@@ -5023,8 +5023,9 @@ var ErpSchedulesHours = class extends i3 {
     return b2`<div class="pane">
         <!-- The week we planted at install time says so out loud until somebody confirms it
              (schedules#36). It sits above the table because it is about the whole week, and only
-             here: the Hours tab is where a week gets confirmed. -->
-        ${this.weekIsUnconfirmed ? b2`<ok-inline-feedback data-testid="schedules-hours-default-week" data-role="default-week" tone="warning" icon="alert-circle-outline">
+             here: the Hours tab is where a week gets confirmed. Never over a week the table cannot
+             show (schedules#62): nobody can check a week they do not see. -->
+        ${this.weekReady && this.weekIsUnconfirmed ? b2`<ok-inline-feedback data-testid="schedules-hours-default-week" data-role="default-week" tone="warning" icon="alert-circle-outline">
               <!-- The sentence gets its OWN node: the notice now carries an action too, so the
                    whole banner's text is no longer just the message (schedules#43). -->
               <span data-role="default-week-message">${t5("ui.defaultWeekNotice")}</span>

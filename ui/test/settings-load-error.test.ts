@@ -34,6 +34,8 @@ function shellTableKnowsErrors(yes: boolean) {
 const TAG = 'erp-schedules-hours';
 const REASON = 'The hub is not responding.';
 const SETTINGS = 'schedules.settings.get';
+/** Who the rows planted at install time are written by (schedules#36). */
+const SEED = 'system';
 const WEEK = [
   { id: 'mon', day_of_week: 0, position: 0, open_time: '09:00', close_time: '18:00', is_closed: 0, break_start: null, break_end: null },
   { id: 'sun', day_of_week: 6, position: 0, open_time: '00:00', close_time: '00:00', is_closed: 1, break_start: null, break_end: null },
@@ -47,6 +49,8 @@ let queryCalls: string[] = [];
 let commandCalls: string[] = [];
 /** When set, the settings query waits for this before answering (the loading state). */
 let settingsGate: Promise<void> | null = null;
+/** The weekly rows the hub answers. */
+let week: Record<string, unknown>[] = WEEK;
 
 beforeAll(async () => {
   customElements.define('ok-data-table', ShellTable);
@@ -61,12 +65,13 @@ beforeEach(() => {
   queryCalls = [];
   commandCalls = [];
   settingsGate = null;
+  week = WEEK;
   const answer = async (name: string) => {
     queryCalls.push(name);
     if (name === SETTINGS && settingsGate) await settingsGate;
     if (failing.has(name)) throw new Error(REASON);
     if (name === SETTINGS) return storedSettings;
-    return name === 'schedules.business_hours.list' ? WEEK : [];
+    return name === 'schedules.business_hours.list' ? week : [];
   };
   (globalThis as Record<string, unknown>).erplora = {
     query: answer,
@@ -277,6 +282,20 @@ describe(`${TAG} — Hours tab when the week start could not be read (schedules#
     expect(redNotices(el).map((n) => n.getAttribute('data-testid'))).toEqual(['schedules-error-hours']);
     expect($(el, 'schedules-error-hours')?.textContent).toContain(REASON);
     expect(hoursTable(el).emptyMessage).toBe('ui.hoursLoadFailed');
+  });
+
+  it('does not ask to confirm a planted week the person cannot see', async () => {
+    shellTableKnowsErrors(true);
+    week = WEEK.map((r) => ({ ...r, created_by: SEED }));
+    const el = await mount('/m/schedules/hours');
+    expect(hoursTable(el).rows).toEqual([]);
+    expect($(el, 'schedules-hours-default-week'), '«check it matches your business» over a week that is not there').toBeNull();
+    failing.delete(SETTINGS);
+    hoursTable(el).dispatchEvent(new CustomEvent('retry', { detail: {} }));
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!$(el, 'schedules-hours-default-week')) throw new Error('the notice has not come back with the week');
+    });
   });
 
   it('a week start read fine does not hold the week back', async () => {
