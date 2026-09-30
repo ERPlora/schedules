@@ -291,6 +291,9 @@ for (const locale of ['es', 'en'] as const) {
       await leave(el, 'schedules-interval-close-hours-0');
       await editDay(el, 1);
       expect(errorOf(el, 'schedules-interval-close-hours-0')).toBeNull();
+      // Typing into the same field of the other day is a new hour being typed, not the old error.
+      await type(el, 'schedules-interval-close-hours-0', '25:');
+      expect(errorOf(el, 'schedules-interval-close-hours-0')).toBeNull();
     });
 
     it('a special day and a temporary change keep a mistyped hour with its error too', async () => {
