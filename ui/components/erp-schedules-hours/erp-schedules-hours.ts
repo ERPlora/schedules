@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import type { PropertyValues } from 'lit';
 import { state } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
 import { define } from '@erplora/outfitkit/define';
 import '@erplora/outfitkit/ok-data-table';
 import '@erplora/outfitkit/ok-inline-feedback';
@@ -163,9 +164,17 @@ interface TimeDrafts {
   scope: IntervalScope;
   owner: Interval[];
   texts: Record<string, string>;
+  /** schedules#57 — the fields she LEFT with a text that is not a time: they keep it and say so. */
+  left?: Record<string, true>;
 }
 
 type TimeField = 'open_time' | 'close_time';
+
+/** schedules#57 — a text she typed that the field cannot read: not empty, and `parse` refuses it.
+ *  An empty field is not an error (the save already stays off without the value). */
+function isUnreadable(text: string | undefined, parse: (text: string) => string | null): boolean {
+  return text !== undefined && text.trim() !== '' && parse(text) === null;
+}
 
 // schedules#6 — the SECTION comes from the route (ADR-0022): the shell owns the tabbar and mounts
 // this component at `/m/schedules/<navId>` for each of the three navigation entries, remounting on
@@ -229,9 +238,12 @@ export class ErpSchedulesHours extends LitElement {
     .form { display:flex; flex-direction:column; gap:.7rem; }
     .form ion-button { align-self:flex-end; }
     /* One interval per line: open · close · ✕ (44 px touch targets, one hand). */
-    .interval { display:flex; gap:.4rem; align-items:center; }
+    /* schedules#57: aligned at the top — an hour's error text grows its field downwards, and a
+       centred row would lift that box above its neighbour. The «✕» (44px) is centred on the 56px
+       outline box by its margin, not on box + error. */
+    .interval { display:flex; gap:.4rem; align-items:flex-start; }
     .interval ion-input { flex:1 1 6rem; min-width:5rem; }
-    .interval ion-button { align-self:center; min-width:44px; min-height:44px; }
+    .interval ion-button { align-self:flex-start; margin-top:6px; min-width:44px; min-height:44px; }
     /* pm#392: color= is a document-level rule Ionic cannot apply inside this shadow root; the
        tone is read from the theme token here instead. */
     ion-button.tone-medium[fill] { --color: var(--ion-color-medium, #636469); }
@@ -328,6 +340,8 @@ export class ErpSchedulesHours extends LitElement {
   /** schedules#54 — the text being typed into a date field, kept apart from the stored ISO date
    *  (which only ever holds a real 'YYYY-MM-DD' or ''): a half-typed «24/12» stays on screen. */
   @state() private dateDrafts: Partial<Record<DateField, string>> = {};
+  /** schedules#57 — the date fields she LEFT with a text that is not a date: they keep it and say so. */
+  @state() private leftDates: Partial<Record<DateField, true>> = {};
 
   @state() ovReason = '';
 
@@ -825,12 +839,41 @@ export class ErpSchedulesHours extends LitElement {
     this[field] = parseCalendarDate(text, erplora().locale) ?? '';
   }
 
-  /** schedules#54 — blur/Enter (`ionChange`), or a save: forget the draft so the field repaints
-   *  the stored date in the hub's order. */
+  /** schedules#57 — blur/Enter (`ionChange`): a real date (or an empty field) forgets the draft so
+   *  the field repaints the stored date in the hub's order; a text that is not a date stays as typed
+   *  and the field says so, instead of vanishing without a word. */
+  private commitDateDraft(field: DateField): void {
+    if (isUnreadable(this.dateDrafts[field], (text) => parseCalendarDate(text, erplora().locale))) {
+      this.leftDates = { ...this.leftDates, [field]: true };
+      return;
+    }
+    this.forgetDateDraft(field);
+  }
+
+  /** schedules#54 — after a save (or a real date on blur): forget the draft so the field repaints
+   *  the stored date in the hub's order, and with it any error it was showing. */
   private forgetDateDraft(field: DateField): void {
+    if (field in this.leftDates) {
+      const { [field]: _left, ...stillLeft } = this.leftDates;
+      this.leftDates = stillLeft;
+    }
     if (!(field in this.dateDrafts)) return;
     const { [field]: _typed, ...rest } = this.dateDrafts;
     this.dateDrafts = rest;
+  }
+
+  /** schedules#57 — the error a date field shows: only once she has left it, and only while its
+   *  text is still not a date. */
+  private dateFieldError(field: DateField): string {
+    if (!this.leftDates[field]) return '';
+    if (!isUnreadable(this.dateDrafts[field], (text) => parseCalendarDate(text, erplora().locale))) return '';
+    return erplora().t(CATALOG, 'ui.dateInvalid');
+  }
+
+  /** schedules#57 — Ionic paints `error-text` only on `.ion-invalid.ion-touched`; a classMap toggles
+   *  just those two, leaving the classes Ionic itself puts on the host untouched. */
+  private invalidClass(error: string) {
+    return classMap({ 'ion-invalid': !!error, 'ion-touched': !!error });
   }
 
   /** Special day (schedules#7): the payload is exactly what `schemas/special_day_create.json`
@@ -984,8 +1027,8 @@ export class ErpSchedulesHours extends LitElement {
     return html`
       ${intervals.map(
         (it, i) => html`<div class="interval">
-          <ion-input data-testid=${`schedules-interval-open-${scope}-${i}`} data-role="interval-time" fill="outline" mode="md" label-placement="floating" label=${t('ui.fieldOpen')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.timePlaceholder')} .value=${this.timeFieldValue(scope, intervals, it, i, 'open_time')} @ionInput=${(e: any) => this.onTimeInput(scope, intervals, update, i, 'open_time', String(e.target.value ?? ''))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i, 'open_time')} @paste=${(e: Event) => this.onTimePaste(scope, intervals, update, i, 'open_time', e)}></ion-input>
-          <ion-input data-testid=${`schedules-interval-close-${scope}-${i}`} data-role="interval-time" fill="outline" mode="md" label-placement="floating" label=${t('ui.fieldClose')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.timePlaceholder')} .value=${this.timeFieldValue(scope, intervals, it, i, 'close_time')} @ionInput=${(e: any) => this.onTimeInput(scope, intervals, update, i, 'close_time', String(e.target.value ?? ''))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i, 'close_time')} @paste=${(e: Event) => this.onTimePaste(scope, intervals, update, i, 'close_time', e)}></ion-input>
+          <ion-input data-testid=${`schedules-interval-open-${scope}-${i}`} data-role="interval-time" class=${this.invalidClass(this.timeFieldError(scope, intervals, i, 'open_time'))} error-text=${this.timeFieldError(scope, intervals, i, 'open_time') || nothing} fill="outline" mode="md" label-placement="floating" label=${t('ui.fieldOpen')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.timePlaceholder')} .value=${this.timeFieldValue(scope, intervals, it, i, 'open_time')} @ionInput=${(e: any) => this.onTimeInput(scope, intervals, update, i, 'open_time', String(e.target.value ?? ''))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i, 'open_time')} @paste=${(e: Event) => this.onTimePaste(scope, intervals, update, i, 'open_time', e)}></ion-input>
+          <ion-input data-testid=${`schedules-interval-close-${scope}-${i}`} data-role="interval-time" class=${this.invalidClass(this.timeFieldError(scope, intervals, i, 'close_time'))} error-text=${this.timeFieldError(scope, intervals, i, 'close_time') || nothing} fill="outline" mode="md" label-placement="floating" label=${t('ui.fieldClose')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.timePlaceholder')} .value=${this.timeFieldValue(scope, intervals, it, i, 'close_time')} @ionInput=${(e: any) => this.onTimeInput(scope, intervals, update, i, 'close_time', String(e.target.value ?? ''))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i, 'close_time')} @paste=${(e: Event) => this.onTimePaste(scope, intervals, update, i, 'close_time', e)}></ion-input>
           <ion-button data-testid=${`schedules-interval-remove-${scope}-${i}`} fill="clear" size="small" class="tone-medium" data-action="remove-interval" aria-label=${t('ui.removeInterval')} ?disabled=${intervals.length <= 1} @click=${() => remove(i)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
         </div>`,
       )}
@@ -1024,17 +1067,41 @@ export class ErpSchedulesHours extends LitElement {
     text: string,
   ): void {
     const texts = { ...this.draftsFor(scope, intervals), [`${i}:${field}`]: text };
+    const left = this.leftTimesFor(scope, intervals);
     update(i, { [field]: parseWallTime(text) ?? '' });
-    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts };
+    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts, left };
+  }
+
+  /** schedules#57 — the time fields of THIS very list she left with a text that is not a time. */
+  private leftTimesFor(scope: IntervalScope, intervals: Interval[]): Record<string, true> {
+    const d = this.timeDrafts;
+    return d && d.scope === scope && d.owner === intervals ? { ...d.left } : {};
   }
 
   /** schedules#50 — blur/Enter (`ionChange`): forget the draft so the field repaints the stored
-   *  hour in the hub's clock. */
+   *  hour in the hub's clock. schedules#57 — a text that is not a time stays as typed and the field
+   *  says so, instead of vanishing without a word. */
   private commitTimeDraft(scope: IntervalScope, intervals: Interval[], i: number, field: TimeField): void {
+    const key = `${i}:${field}`;
     const texts = { ...this.draftsFor(scope, intervals) };
-    if (!(`${i}:${field}` in texts)) return;
-    delete texts[`${i}:${field}`];
-    this.timeDrafts = { scope, owner: intervals, texts };
+    const left = this.leftTimesFor(scope, intervals);
+    if (isUnreadable(texts[key], parseWallTime)) {
+      this.timeDrafts = { scope, owner: intervals, texts, left: { ...left, [key]: true } };
+      return;
+    }
+    if (!(key in texts) && !(key in left)) return;
+    delete texts[key];
+    delete left[key];
+    this.timeDrafts = { scope, owner: intervals, texts, left };
+  }
+
+  /** schedules#57 — the error a time field shows: only once she has left it, and only while its
+   *  text is still not a time. */
+  private timeFieldError(scope: IntervalScope, intervals: Interval[], i: number, field: TimeField): string {
+    const key = `${i}:${field}`;
+    if (!this.leftTimesFor(scope, intervals)[key]) return '';
+    if (!isUnreadable(this.draftsFor(scope, intervals)[key], parseWallTime)) return '';
+    return erplora().t(CATALOG, 'ui.timeInvalid');
   }
 
   /** schedules#50 — a time pasted in any spelling the parser reads is stored and repainted in the
@@ -1051,9 +1118,11 @@ export class ErpSchedulesHours extends LitElement {
     if (!time) return;
     e.preventDefault();
     const texts = { ...this.draftsFor(scope, intervals) };
+    const left = this.leftTimesFor(scope, intervals);
     delete texts[`${i}:${field}`];
+    delete left[`${i}:${field}`];
     update(i, { [field]: time });
-    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts };
+    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts, left };
   }
 
   private renderHours() {
@@ -1129,7 +1198,7 @@ export class ErpSchedulesHours extends LitElement {
         <ok-data-table id="tbl-special" testid="schedules-special-table" .error=${this.specialCtrl?.error || this.exceptionIntervalsError} @retry=${() => Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.name || this.fmtDate(row.date) || '—')} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ? this.exceptionRows(this.specialCtrl.rows) : []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchSpecialDay')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onSpecialAction(e)} .emptyMessage=${this.exceptionEmptyMessage(this.specialCtrl?.loading, 'ui.emptySpecialDays')} @pageChange=${(e: CustomEvent<number>) => this.specialCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.specialCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.specialCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.specialCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form data-testid="schedules-special-form" slot="create" class="form" @submit=${(e: Event) => this.createSpecialDay(e)}>
             <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
-            <ion-input data-testid="schedules-special-date" fill="outline" mode="md" label-placement="floating" label=${t('ui.colDate')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('sdDate')} @ionInput=${(e: any) => this.onDateInput('sdDate', String(e.target.value ?? ''))} @ionChange=${() => this.forgetDateDraft('sdDate')}></ion-input>
+            <ion-input data-testid="schedules-special-date" class=${this.invalidClass(this.dateFieldError('sdDate'))} error-text=${this.dateFieldError('sdDate') || nothing} fill="outline" mode="md" label-placement="floating" label=${t('ui.colDate')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('sdDate')} @ionInput=${(e: any) => this.onDateInput('sdDate', String(e.target.value ?? ''))} @ionChange=${() => this.commitDateDraft('sdDate')}></ion-input>
             <ion-input data-testid="schedules-special-name" fill="outline" label-placement="floating" label=${t('ui.colName')} placeholder=${t('ui.placeholderName')} .value=${this.sdName} @ionInput=${(e: any) => (this.sdName = e.target.value)}></ion-input>
             <ion-select data-testid="schedules-special-status" fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.sdClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.sdClosed = e.target.value === 'closed')}>
               <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
@@ -1162,8 +1231,8 @@ export class ErpSchedulesHours extends LitElement {
         <ok-data-table id="tbl-override" testid="schedules-override-table" .error=${this.overrideCtrl?.error || this.exceptionIntervalsError} @retry=${() => Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row: Record<string, unknown>) => String(row.reason || this.fmtDate(row.start_date) || '—')} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ? this.exceptionRows(this.overrideCtrl.rows) : []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? 'asc'} .searchable=${true} .searchPlaceholder=${t('ui.searchOverride')} .actions=${this.rowActions} @rowAction=${(e: CustomEvent) => this.onOverrideAction(e)} .emptyMessage=${this.exceptionEmptyMessage(this.overrideCtrl?.loading, 'ui.emptyOverrides')} @pageChange=${(e: CustomEvent<number>) => this.overrideCtrl.setPage(e.detail)} @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.overrideCtrl.setSort(e.detail.sort, e.detail.dir)} @searchChange=${(e: CustomEvent<string>) => this.overrideCtrl.setSearch(e.detail)} @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.overrideCtrl.setFilter(e.detail.col, e.detail.value)}>
           <form data-testid="schedules-override-form" slot="create" class="form" @submit=${(e: Event) => this.createOverride(e)}>
             <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
-            <ion-input data-testid="schedules-override-from" fill="outline" mode="md" label-placement="floating" label=${t('ui.colFrom')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('ovStart')} @ionInput=${(e: any) => this.onDateInput('ovStart', String(e.target.value ?? ''))} @ionChange=${() => this.forgetDateDraft('ovStart')}></ion-input>
-            <ion-input data-testid="schedules-override-to" fill="outline" mode="md" label-placement="floating" label=${t('ui.colTo')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('ovEnd')} @ionInput=${(e: any) => this.onDateInput('ovEnd', String(e.target.value ?? ''))} @ionChange=${() => this.forgetDateDraft('ovEnd')}></ion-input>
+            <ion-input data-testid="schedules-override-from" class=${this.invalidClass(this.dateFieldError('ovStart'))} error-text=${this.dateFieldError('ovStart') || nothing} fill="outline" mode="md" label-placement="floating" label=${t('ui.colFrom')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('ovStart')} @ionInput=${(e: any) => this.onDateInput('ovStart', String(e.target.value ?? ''))} @ionChange=${() => this.commitDateDraft('ovStart')}></ion-input>
+            <ion-input data-testid="schedules-override-to" class=${this.invalidClass(this.dateFieldError('ovEnd'))} error-text=${this.dateFieldError('ovEnd') || nothing} fill="outline" mode="md" label-placement="floating" label=${t('ui.colTo')} type="text" inputmode="numeric" autocomplete="off" placeholder=${t('ui.datePlaceholder')} .value=${this.dateFieldValue('ovEnd')} @ionInput=${(e: any) => this.onDateInput('ovEnd', String(e.target.value ?? ''))} @ionChange=${() => this.commitDateDraft('ovEnd')}></ion-input>
             <ion-input data-testid="schedules-override-reason" fill="outline" label-placement="floating" label=${t('ui.colReason')} .value=${this.ovReason} @ionInput=${(e: any) => (this.ovReason = e.target.value)}></ion-input>
             <ion-select data-testid="schedules-override-status" fill="outline" label-placement="floating" label=${t('ui.colStatus')} .value=${this.ovClosed ? 'closed' : 'open'} @ionChange=${(e: any) => (this.ovClosed = e.target.value === 'closed')}>
               <ion-select-option value="closed">${t('ui.closed')}</ion-select-option>
