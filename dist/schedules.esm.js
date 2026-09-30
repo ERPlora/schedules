@@ -680,16 +680,16 @@ var e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "a
 var s = Symbol();
 var o = /* @__PURE__ */ new WeakMap();
 var n = class {
-  constructor(t5, e5, o7) {
+  constructor(t5, e6, o7) {
     if (this._$cssResult$ = true, o7 !== s) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
-    this.cssText = t5, this.t = e5;
+    this.cssText = t5, this.t = e6;
   }
   get styleSheet() {
     let t5 = this.o;
     const s5 = this.t;
     if (e && void 0 === t5) {
-      const e5 = void 0 !== s5 && 1 === s5.length;
-      e5 && (t5 = o.get(s5)), void 0 === t5 && ((this.o = t5 = new CSSStyleSheet()).replaceSync(this.cssText), e5 && o.set(s5, t5));
+      const e6 = void 0 !== s5 && 1 === s5.length;
+      e6 && (t5 = o.get(s5)), void 0 === t5 && ((this.o = t5 = new CSSStyleSheet()).replaceSync(this.cssText), e6 && o.set(s5, t5));
     }
     return t5;
   }
@@ -698,8 +698,8 @@ var n = class {
   }
 };
 var r = (t5) => new n("string" == typeof t5 ? t5 : t5 + "", void 0, s);
-var i = (t5, ...e5) => {
-  const o7 = 1 === t5.length ? t5[0] : e5.reduce((e6, s5, o8) => e6 + ((t6) => {
+var i = (t5, ...e6) => {
+  const o7 = 1 === t5.length ? t5[0] : e6.reduce((e7, s5, o8) => e7 + ((t6) => {
     if (true === t6._$cssResult$) return t6.cssText;
     if ("number" == typeof t6) return t6;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + t6 + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
@@ -708,15 +708,15 @@ var i = (t5, ...e5) => {
 };
 var S = (s5, o7) => {
   if (e) s5.adoptedStyleSheets = o7.map((t5) => t5 instanceof CSSStyleSheet ? t5 : t5.styleSheet);
-  else for (const e5 of o7) {
+  else for (const e6 of o7) {
     const o8 = document.createElement("style"), n6 = t.litNonce;
-    void 0 !== n6 && o8.setAttribute("nonce", n6), o8.textContent = e5.cssText, s5.appendChild(o8);
+    void 0 !== n6 && o8.setAttribute("nonce", n6), o8.textContent = e6.cssText, s5.appendChild(o8);
   }
 };
 var c = e || void 0 === t.CSSStyleSheet ? (t5) => t5 : (t5) => t5 instanceof CSSStyleSheet ? ((t6) => {
-  let e5 = "";
-  for (const s5 of t6.cssRules) e5 += s5.cssText;
-  return r(e5);
+  let e6 = "";
+  for (const s5 of t6.cssRules) e6 += s5.cssText;
+  return r(e6);
 })(t5) : t5;
 
 // @lit/reactive-element/node/reactive-element.js
@@ -768,18 +768,18 @@ var g = class extends (globalThis.HTMLElement ?? HTMLElementShimWithRealType) {
   }
   static createProperty(t5, s5 = y) {
     if (s5.state && (s5.attribute = false), this._$Ei(), this.prototype.hasOwnProperty(t5) && ((s5 = Object.create(s5)).wrapped = true), this.elementProperties.set(t5, s5), !s5.noAccessor) {
-      const i7 = Symbol(), e5 = this.getPropertyDescriptor(t5, i7, s5);
-      void 0 !== e5 && r2(this.prototype, t5, e5);
+      const i7 = Symbol(), e6 = this.getPropertyDescriptor(t5, i7, s5);
+      void 0 !== e6 && r2(this.prototype, t5, e6);
     }
   }
   static getPropertyDescriptor(t5, s5, i7) {
-    const { get: e5, set: h4 } = o2(this.prototype, t5) ?? { get() {
+    const { get: e6, set: h4 } = o2(this.prototype, t5) ?? { get() {
       return this[s5];
     }, set(t6) {
       this[s5] = t6;
     } };
-    return { get: e5, set(s6) {
-      const r6 = e5?.call(this);
+    return { get: e6, set(s6) {
+      const r6 = e6?.call(this);
       h4?.call(this, s6), this.requestUpdate(t5, r6, i7);
     }, configurable: true, enumerable: true };
   }
@@ -812,8 +812,8 @@ var g = class extends (globalThis.HTMLElement ?? HTMLElementShimWithRealType) {
   static finalizeStyles(t5) {
     const s5 = [];
     if (Array.isArray(t5)) {
-      const e5 = new Set(t5.flat(1 / 0).reverse());
-      for (const t6 of e5) s5.unshift(c(t6));
+      const e6 = new Set(t5.flat(1 / 0).reverse());
+      for (const t6 of e6) s5.unshift(c(t6));
     } else void 0 !== t5 && s5.push(c(t5));
     return s5;
   }
@@ -854,31 +854,31 @@ var g = class extends (globalThis.HTMLElement ?? HTMLElementShimWithRealType) {
     this._$AK(t5, i7);
   }
   _$ET(t5, s5) {
-    const i7 = this.constructor.elementProperties.get(t5), e5 = this.constructor._$Eu(t5, i7);
-    if (void 0 !== e5 && true === i7.reflect) {
+    const i7 = this.constructor.elementProperties.get(t5), e6 = this.constructor._$Eu(t5, i7);
+    if (void 0 !== e6 && true === i7.reflect) {
       const h4 = (void 0 !== i7.converter?.toAttribute ? i7.converter : b).toAttribute(s5, i7.type);
-      this._$Em = t5, null == h4 ? this.removeAttribute(e5) : this.setAttribute(e5, h4), this._$Em = null;
+      this._$Em = t5, null == h4 ? this.removeAttribute(e6) : this.setAttribute(e6, h4), this._$Em = null;
     }
   }
   _$AK(t5, s5) {
-    const i7 = this.constructor, e5 = i7._$Eh.get(t5);
-    if (void 0 !== e5 && this._$Em !== e5) {
-      const t6 = i7.getPropertyOptions(e5), h4 = "function" == typeof t6.converter ? { fromAttribute: t6.converter } : void 0 !== t6.converter?.fromAttribute ? t6.converter : b;
-      this._$Em = e5;
+    const i7 = this.constructor, e6 = i7._$Eh.get(t5);
+    if (void 0 !== e6 && this._$Em !== e6) {
+      const t6 = i7.getPropertyOptions(e6), h4 = "function" == typeof t6.converter ? { fromAttribute: t6.converter } : void 0 !== t6.converter?.fromAttribute ? t6.converter : b;
+      this._$Em = e6;
       const r6 = h4.fromAttribute(s5, t6.type);
-      this[e5] = r6 ?? this._$Ej?.get(e5) ?? r6, this._$Em = null;
+      this[e6] = r6 ?? this._$Ej?.get(e6) ?? r6, this._$Em = null;
     }
   }
-  requestUpdate(t5, s5, i7, e5 = false, h4) {
+  requestUpdate(t5, s5, i7, e6 = false, h4) {
     if (void 0 !== t5) {
       const r6 = this.constructor;
-      if (false === e5 && (h4 = this[t5]), i7 ??= r6.getPropertyOptions(t5), !((i7.hasChanged ?? m)(h4, s5) || i7.useDefault && i7.reflect && h4 === this._$Ej?.get(t5) && !this.hasAttribute(r6._$Eu(t5, i7)))) return;
+      if (false === e6 && (h4 = this[t5]), i7 ??= r6.getPropertyOptions(t5), !((i7.hasChanged ?? m)(h4, s5) || i7.useDefault && i7.reflect && h4 === this._$Ej?.get(t5) && !this.hasAttribute(r6._$Eu(t5, i7)))) return;
       this.C(t5, s5, i7);
     }
     false === this.isUpdatePending && (this._$ES = this._$EP());
   }
-  C(t5, s5, { useDefault: i7, reflect: e5, wrapped: h4 }, r6) {
-    i7 && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(t5) && (this._$Ej.set(t5, r6 ?? s5 ?? this[t5]), true !== h4 || void 0 !== r6) || (this._$AL.has(t5) || (this.hasUpdated || i7 || (s5 = void 0), this._$AL.set(t5, s5)), true === e5 && this._$Em !== t5 && (this._$Eq ??= /* @__PURE__ */ new Set()).add(t5));
+  C(t5, s5, { useDefault: i7, reflect: e6, wrapped: h4 }, r6) {
+    i7 && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(t5) && (this._$Ej.set(t5, r6 ?? s5 ?? this[t5]), true !== h4 || void 0 !== r6) || (this._$AL.has(t5) || (this.hasUpdated || i7 || (s5 = void 0), this._$AL.set(t5, s5)), true === e6 && this._$Em !== t5 && (this._$Eq ??= /* @__PURE__ */ new Set()).add(t5));
   }
   async _$EP() {
     this.isUpdatePending = true;
@@ -902,8 +902,8 @@ var g = class extends (globalThis.HTMLElement ?? HTMLElementShimWithRealType) {
       }
       const t6 = this.constructor.elementProperties;
       if (t6.size > 0) for (const [s6, i7] of t6) {
-        const { wrapped: t7 } = i7, e5 = this[s6];
-        true !== t7 || this._$AL.has(s6) || void 0 === e5 || this.C(s6, void 0, i7, e5);
+        const { wrapped: t7 } = i7, e6 = this[s6];
+        true !== t7 || this._$AL.has(s6) || void 0 === e6 || this.C(s6, void 0, i7, e6);
       }
     }
     let t5 = false;
@@ -978,32 +978,32 @@ function V(t5, i7) {
   return void 0 !== e2 ? e2.createHTML(i7) : i7;
 }
 var N = (t5, i7) => {
-  const s5 = t5.length - 1, e5 = [];
+  const s5 = t5.length - 1, e6 = [];
   let n6, l3 = 2 === i7 ? "<svg>" : 3 === i7 ? "<math>" : "", c5 = v;
   for (let i8 = 0; i8 < s5; i8++) {
     const s6 = t5[i8];
     let a3, u5, d3 = -1, f3 = 0;
     for (; f3 < s6.length && (c5.lastIndex = f3, u5 = c5.exec(s6), null !== u5); ) f3 = c5.lastIndex, c5 === v ? "!--" === u5[1] ? c5 = _ : void 0 !== u5[1] ? c5 = m2 : void 0 !== u5[2] ? (y2.test(u5[2]) && (n6 = RegExp("</" + u5[2], "g")), c5 = p2) : void 0 !== u5[3] && (c5 = p2) : c5 === p2 ? ">" === u5[0] ? (c5 = n6 ?? v, d3 = -1) : void 0 === u5[1] ? d3 = -2 : (d3 = c5.lastIndex - u5[2].length, a3 = u5[1], c5 = void 0 === u5[3] ? p2 : '"' === u5[3] ? $ : g2) : c5 === $ || c5 === g2 ? c5 = p2 : c5 === _ || c5 === m2 ? c5 = v : (c5 = p2, n6 = void 0);
     const x2 = c5 === p2 && t5[i8 + 1].startsWith("/>") ? " " : "";
-    l3 += c5 === v ? s6 + r3 : d3 >= 0 ? (e5.push(a3), s6.slice(0, d3) + h2 + s6.slice(d3) + o3 + x2) : s6 + o3 + (-2 === d3 ? i8 : x2);
+    l3 += c5 === v ? s6 + r3 : d3 >= 0 ? (e6.push(a3), s6.slice(0, d3) + h2 + s6.slice(d3) + o3 + x2) : s6 + o3 + (-2 === d3 ? i8 : x2);
   }
-  return [V(t5, l3 + (t5[s5] || "<?>") + (2 === i7 ? "</svg>" : 3 === i7 ? "</math>" : "")), e5];
+  return [V(t5, l3 + (t5[s5] || "<?>") + (2 === i7 ? "</svg>" : 3 === i7 ? "</math>" : "")), e6];
 };
 var S2 = class _S {
-  constructor({ strings: t5, _$litType$: i7 }, e5) {
+  constructor({ strings: t5, _$litType$: i7 }, e6) {
     let r6;
     this.parts = [];
     let l3 = 0, a3 = 0;
     const u5 = t5.length - 1, d3 = this.parts, [f3, v3] = N(t5, i7);
-    if (this.el = _S.createElement(f3, e5), P.currentNode = this.el.content, 2 === i7 || 3 === i7) {
+    if (this.el = _S.createElement(f3, e6), P.currentNode = this.el.content, 2 === i7 || 3 === i7) {
       const t6 = this.el.content.firstChild;
       t6.replaceWith(...t6.childNodes);
     }
     for (; null !== (r6 = P.nextNode()) && d3.length < u5; ) {
       if (1 === r6.nodeType) {
         if (r6.hasAttributes()) for (const t6 of r6.getAttributeNames()) if (t6.endsWith(h2)) {
-          const i8 = v3[a3++], s5 = r6.getAttribute(t6).split(o3), e6 = /([.?@])?(.*)/.exec(i8);
-          d3.push({ type: 1, index: l3, name: e6[2], strings: s5, ctor: "." === e6[1] ? I : "?" === e6[1] ? L : "@" === e6[1] ? z : H }), r6.removeAttribute(t6);
+          const i8 = v3[a3++], s5 = r6.getAttribute(t6).split(o3), e7 = /([.?@])?(.*)/.exec(i8);
+          d3.push({ type: 1, index: l3, name: e7[2], strings: s5, ctor: "." === e7[1] ? I : "?" === e7[1] ? L : "@" === e7[1] ? z : H }), r6.removeAttribute(t6);
         } else t6.startsWith(o3) && (d3.push({ type: 6, index: l3 }), r6.removeAttribute(t6));
         if (y2.test(r6.tagName)) {
           const t6 = r6.textContent.split(o3), i8 = t6.length - 1;
@@ -1026,11 +1026,11 @@ var S2 = class _S {
     return s5.innerHTML = t5, s5;
   }
 };
-function M(t5, i7, s5 = t5, e5) {
+function M(t5, i7, s5 = t5, e6) {
   if (i7 === E) return i7;
-  let h4 = void 0 !== e5 ? s5._$Co?.[e5] : s5._$Cl;
+  let h4 = void 0 !== e6 ? s5._$Co?.[e6] : s5._$Cl;
   const o7 = a2(i7) ? void 0 : i7._$litDirective$;
-  return h4?.constructor !== o7 && (h4?._$AO?.(false), void 0 === o7 ? h4 = void 0 : (h4 = new o7(t5), h4._$AT(t5, s5, e5)), void 0 !== e5 ? (s5._$Co ??= [])[e5] = h4 : s5._$Cl = h4), void 0 !== h4 && (i7 = M(t5, h4._$AS(t5, i7.values), h4, e5)), i7;
+  return h4?.constructor !== o7 && (h4?._$AO?.(false), void 0 === o7 ? h4 = void 0 : (h4 = new o7(t5), h4._$AT(t5, s5, e6)), void 0 !== e6 ? (s5._$Co ??= [])[e6] = h4 : s5._$Cl = h4), void 0 !== h4 && (i7 = M(t5, h4._$AS(t5, i7.values), h4, e6)), i7;
 }
 var R = class {
   constructor(t5, i7) {
@@ -1043,8 +1043,8 @@ var R = class {
     return this._$AM._$AU;
   }
   u(t5) {
-    const { el: { content: i7 }, parts: s5 } = this._$AD, e5 = (t5?.creationScope ?? l2).importNode(i7, true);
-    P.currentNode = e5;
+    const { el: { content: i7 }, parts: s5 } = this._$AD, e6 = (t5?.creationScope ?? l2).importNode(i7, true);
+    P.currentNode = e6;
     let h4 = P.nextNode(), o7 = 0, n6 = 0, r6 = s5[0];
     for (; void 0 !== r6; ) {
       if (o7 === r6.index) {
@@ -1053,7 +1053,7 @@ var R = class {
       }
       o7 !== r6?.index && (h4 = P.nextNode(), o7++);
     }
-    return P.currentNode = l2, e5;
+    return P.currentNode = l2, e6;
   }
   p(t5) {
     let i7 = 0;
@@ -1064,8 +1064,8 @@ var k = class _k {
   get _$AU() {
     return this._$AM?._$AU ?? this._$Cv;
   }
-  constructor(t5, i7, s5, e5) {
-    this.type = 2, this._$AH = A, this._$AN = void 0, this._$AA = t5, this._$AB = i7, this._$AM = s5, this.options = e5, this._$Cv = e5?.isConnected ?? true;
+  constructor(t5, i7, s5, e6) {
+    this.type = 2, this._$AH = A, this._$AN = void 0, this._$AA = t5, this._$AB = i7, this._$AM = s5, this.options = e6, this._$Cv = e6?.isConnected ?? true;
   }
   get parentNode() {
     let t5 = this._$AA.parentNode;
@@ -1091,10 +1091,10 @@ var k = class _k {
     this._$AH !== A && a2(this._$AH) ? this._$AA.nextSibling.data = t5 : this.T(l2.createTextNode(t5)), this._$AH = t5;
   }
   $(t5) {
-    const { values: i7, _$litType$: s5 } = t5, e5 = "number" == typeof s5 ? this._$AC(t5) : (void 0 === s5.el && (s5.el = S2.createElement(V(s5.h, s5.h[0]), this.options)), s5);
-    if (this._$AH?._$AD === e5) this._$AH.p(i7);
+    const { values: i7, _$litType$: s5 } = t5, e6 = "number" == typeof s5 ? this._$AC(t5) : (void 0 === s5.el && (s5.el = S2.createElement(V(s5.h, s5.h[0]), this.options)), s5);
+    if (this._$AH?._$AD === e6) this._$AH.p(i7);
     else {
-      const t6 = new R(e5, this), s6 = t6.u(this.options);
+      const t6 = new R(e6, this), s6 = t6.u(this.options);
       t6.p(i7), this.T(s6), this._$AH = t6;
     }
   }
@@ -1105,9 +1105,9 @@ var k = class _k {
   k(t5) {
     u2(this._$AH) || (this._$AH = [], this._$AR());
     const i7 = this._$AH;
-    let s5, e5 = 0;
-    for (const h4 of t5) e5 === i7.length ? i7.push(s5 = new _k(this.O(c3()), this.O(c3()), this, this.options)) : s5 = i7[e5], s5._$AI(h4), e5++;
-    e5 < i7.length && (this._$AR(s5 && s5._$AB.nextSibling, e5), i7.length = e5);
+    let s5, e6 = 0;
+    for (const h4 of t5) e6 === i7.length ? i7.push(s5 = new _k(this.O(c3()), this.O(c3()), this, this.options)) : s5 = i7[e6], s5._$AI(h4), e6++;
+    e6 < i7.length && (this._$AR(s5 && s5._$AB.nextSibling, e6), i7.length = e6);
   }
   _$AR(t5 = this._$AA.nextSibling, s5) {
     for (this._$AP?.(false, true, s5); t5 !== this._$AB; ) {
@@ -1126,19 +1126,19 @@ var H = class {
   get _$AU() {
     return this._$AM._$AU;
   }
-  constructor(t5, i7, s5, e5, h4) {
-    this.type = 1, this._$AH = A, this._$AN = void 0, this.element = t5, this.name = i7, this._$AM = e5, this.options = h4, s5.length > 2 || "" !== s5[0] || "" !== s5[1] ? (this._$AH = Array(s5.length - 1).fill(new String()), this.strings = s5) : this._$AH = A;
+  constructor(t5, i7, s5, e6, h4) {
+    this.type = 1, this._$AH = A, this._$AN = void 0, this.element = t5, this.name = i7, this._$AM = e6, this.options = h4, s5.length > 2 || "" !== s5[0] || "" !== s5[1] ? (this._$AH = Array(s5.length - 1).fill(new String()), this.strings = s5) : this._$AH = A;
   }
-  _$AI(t5, i7 = this, s5, e5) {
+  _$AI(t5, i7 = this, s5, e6) {
     const h4 = this.strings;
     let o7 = false;
     if (void 0 === h4) t5 = M(this, t5, i7, 0), o7 = !a2(t5) || t5 !== this._$AH && t5 !== E, o7 && (this._$AH = t5);
     else {
-      const e6 = t5;
+      const e7 = t5;
       let n6, r6;
-      for (t5 = h4[0], n6 = 0; n6 < h4.length - 1; n6++) r6 = M(this, e6[s5 + n6], i7, n6), r6 === E && (r6 = this._$AH[n6]), o7 ||= !a2(r6) || r6 !== this._$AH[n6], r6 === A ? t5 = A : t5 !== A && (t5 += (r6 ?? "") + h4[n6 + 1]), this._$AH[n6] = r6;
+      for (t5 = h4[0], n6 = 0; n6 < h4.length - 1; n6++) r6 = M(this, e7[s5 + n6], i7, n6), r6 === E && (r6 = this._$AH[n6]), o7 ||= !a2(r6) || r6 !== this._$AH[n6], r6 === A ? t5 = A : t5 !== A && (t5 += (r6 ?? "") + h4[n6 + 1]), this._$AH[n6] = r6;
     }
-    o7 && !e5 && this.j(t5);
+    o7 && !e6 && this.j(t5);
   }
   j(t5) {
     t5 === A ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t5 ?? "");
@@ -1161,13 +1161,13 @@ var L = class extends H {
   }
 };
 var z = class extends H {
-  constructor(t5, i7, s5, e5, h4) {
-    super(t5, i7, s5, e5, h4), this.type = 5;
+  constructor(t5, i7, s5, e6, h4) {
+    super(t5, i7, s5, e6, h4), this.type = 5;
   }
   _$AI(t5, i7 = this) {
     if ((t5 = M(this, t5, i7, 0) ?? A) === E) return;
-    const s5 = this._$AH, e5 = t5 === A && s5 !== A || t5.capture !== s5.capture || t5.once !== s5.once || t5.passive !== s5.passive, h4 = t5 !== A && (s5 === A || e5);
-    e5 && this.element.removeEventListener(this.name, this, s5), h4 && this.element.addEventListener(this.name, this, t5), this._$AH = t5;
+    const s5 = this._$AH, e6 = t5 === A && s5 !== A || t5.capture !== s5.capture || t5.once !== s5.once || t5.passive !== s5.passive, h4 = t5 !== A && (s5 === A || e6);
+    e6 && this.element.removeEventListener(this.name, this, s5), h4 && this.element.addEventListener(this.name, this, t5), this._$AH = t5;
   }
   handleEvent(t5) {
     "function" == typeof this._$AH ? this._$AH.call(this.options?.host ?? this.element, t5) : this._$AH.handleEvent(t5);
@@ -1188,11 +1188,11 @@ var j = { M: h2, P: o3, A: n3, C: 1, L: N, R, D: d2, V: M, I: k, H, N: L, U: z, 
 var B = t2.litHtmlPolyfillSupport;
 B?.(S2, k), (t2.litHtmlVersions ??= []).push("3.3.3");
 var D = (t5, i7, s5) => {
-  const e5 = s5?.renderBefore ?? i7;
-  let h4 = e5._$litPart$;
+  const e6 = s5?.renderBefore ?? i7;
+  let h4 = e6._$litPart$;
   if (void 0 === h4) {
     const t6 = s5?.renderBefore ?? null;
-    e5._$litPart$ = h4 = new k(i7.insertBefore(c3(), t6), t6, void 0, s5 ?? {});
+    e6._$litPart$ = h4 = new k(i7.insertBefore(c3(), t6), t6, void 0, s5 ?? {});
   }
   return h4._$AI(t5), h4;
 };
@@ -1228,38 +1228,82 @@ o4?.({ LitElement: i3 });
 
 // @lit/reactive-element/node/decorators/property.js
 var o5 = { attribute: true, type: String, converter: b, reflect: false, hasChanged: m };
-var r4 = (t5 = o5, e5, r6) => {
+var r4 = (t5 = o5, e6, r6) => {
   const { kind: n6, metadata: i7 } = r6;
   let s5 = globalThis.litPropertyMetadata.get(i7);
   if (void 0 === s5 && globalThis.litPropertyMetadata.set(i7, s5 = /* @__PURE__ */ new Map()), "setter" === n6 && ((t5 = Object.create(t5)).wrapped = true), s5.set(r6.name, t5), "accessor" === n6) {
     const { name: o7 } = r6;
     return { set(r7) {
-      const n7 = e5.get.call(this);
-      e5.set.call(this, r7), this.requestUpdate(o7, n7, t5, true, r7);
-    }, init(e6) {
-      return void 0 !== e6 && this.C(o7, void 0, t5, e6), e6;
+      const n7 = e6.get.call(this);
+      e6.set.call(this, r7), this.requestUpdate(o7, n7, t5, true, r7);
+    }, init(e7) {
+      return void 0 !== e7 && this.C(o7, void 0, t5, e7), e7;
     } };
   }
   if ("setter" === n6) {
     const { name: o7 } = r6;
     return function(r7) {
       const n7 = this[o7];
-      e5.call(this, r7), this.requestUpdate(o7, n7, t5, true, r7);
+      e6.call(this, r7), this.requestUpdate(o7, n7, t5, true, r7);
     };
   }
   throw Error("Unsupported decorator location: " + n6);
 };
 function n4(t5) {
-  return (e5, o7) => "object" == typeof o7 ? r4(t5, e5, o7) : ((t6, e6, o8) => {
-    const r6 = e6.hasOwnProperty(o8);
-    return e6.constructor.createProperty(o8, t6), r6 ? Object.getOwnPropertyDescriptor(e6, o8) : void 0;
-  })(t5, e5, o7);
+  return (e6, o7) => "object" == typeof o7 ? r4(t5, e6, o7) : ((t6, e7, o8) => {
+    const r6 = e7.hasOwnProperty(o8);
+    return e7.constructor.createProperty(o8, t6), r6 ? Object.getOwnPropertyDescriptor(e7, o8) : void 0;
+  })(t5, e6, o7);
 }
 
 // @lit/reactive-element/node/decorators/state.js
 function r5(r6) {
   return n4({ ...r6, state: true, attribute: false });
 }
+
+// lit-html/directive.js
+var t3 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
+var e4 = (t5) => (...e6) => ({ _$litDirective$: t5, values: e6 });
+var i4 = class {
+  constructor(t5) {
+  }
+  get _$AU() {
+    return this._$AM._$AU;
+  }
+  _$AT(t5, e6, i7) {
+    this._$Ct = t5, this._$AM = e6, this._$Ci = i7;
+  }
+  _$AS(t5, e6) {
+    return this.update(t5, e6);
+  }
+  update(t5, e6) {
+    return this.render(...e6);
+  }
+};
+
+// lit-html/directives/class-map.js
+var e5 = e4(class extends i4 {
+  constructor(t5) {
+    if (super(t5), t5.type !== t3.ATTRIBUTE || "class" !== t5.name || t5.strings?.length > 2) throw Error("`classMap()` can only be used in the `class` attribute and must be the only part in the attribute.");
+  }
+  render(t5) {
+    return " " + Object.keys(t5).filter((s5) => t5[s5]).join(" ") + " ";
+  }
+  update(s5, [i7]) {
+    if (void 0 === this.st) {
+      this.st = /* @__PURE__ */ new Set(), void 0 !== s5.strings && (this.nt = new Set(s5.strings.join(" ").split(/\s/).filter((t5) => "" !== t5)));
+      for (const t5 in i7) i7[t5] && !this.nt?.has(t5) && this.st.add(t5);
+      return this.render(i7);
+    }
+    const r6 = s5.element.classList;
+    for (const t5 of this.st) t5 in i7 || (r6.remove(t5), this.st.delete(t5));
+    for (const t5 in i7) {
+      const s6 = !!i7[t5];
+      s6 === this.st.has(t5) || this.nt?.has(t5) || (s6 ? (r6.add(t5), this.st.add(t5)) : (r6.remove(t5), this.st.delete(t5)));
+    }
+    return E;
+  }
+});
 
 // @erplora/outfitkit/dist/define.js
 function define(tag, ctor) {
@@ -1268,50 +1312,30 @@ function define(tag, ctor) {
   }
 }
 
-// lit-html/directive.js
-var t3 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
-var e4 = (t5) => (...e5) => ({ _$litDirective$: t5, values: e5 });
-var i4 = class {
-  constructor(t5) {
-  }
-  get _$AU() {
-    return this._$AM._$AU;
-  }
-  _$AT(t5, e5, i7) {
-    this._$Ct = t5, this._$AM = e5, this._$Ci = i7;
-  }
-  _$AS(t5, e5) {
-    return this.update(t5, e5);
-  }
-  update(t5, e5) {
-    return this.render(...e5);
-  }
-};
-
 // lit-html/directive-helpers.js
 var { I: t4 } = j;
 var i5 = (o7) => o7;
 var s4 = () => document.createComment("");
-var v2 = (o7, n6, e5) => {
+var v2 = (o7, n6, e6) => {
   const l3 = o7._$AA.parentNode, d3 = void 0 === n6 ? o7._$AB : n6._$AA;
-  if (void 0 === e5) {
+  if (void 0 === e6) {
     const i7 = l3.insertBefore(s4(), d3), n7 = l3.insertBefore(s4(), d3);
-    e5 = new t4(i7, n7, o7, o7.options);
+    e6 = new t4(i7, n7, o7, o7.options);
   } else {
-    const t5 = e5._$AB.nextSibling, n7 = e5._$AM, c5 = n7 !== o7;
+    const t5 = e6._$AB.nextSibling, n7 = e6._$AM, c5 = n7 !== o7;
     if (c5) {
       let t6;
-      e5._$AQ?.(o7), e5._$AM = o7, void 0 !== e5._$AP && (t6 = o7._$AU) !== n7._$AU && e5._$AP(t6);
+      e6._$AQ?.(o7), e6._$AM = o7, void 0 !== e6._$AP && (t6 = o7._$AU) !== n7._$AU && e6._$AP(t6);
     }
     if (t5 !== d3 || c5) {
-      let o8 = e5._$AA;
+      let o8 = e6._$AA;
       for (; o8 !== t5; ) {
         const t6 = i5(o8).nextSibling;
         i5(l3).insertBefore(o8, d3), o8 = t6;
       }
     }
   }
-  return e5;
+  return e6;
 };
 var u3 = (o7, t5, i7 = o7) => (o7._$AI(t5, i7), o7);
 var m3 = {};
@@ -1322,25 +1346,25 @@ var h3 = (o7) => {
 };
 
 // lit-html/directives/repeat.js
-var u4 = (e5, s5, t5) => {
+var u4 = (e6, s5, t5) => {
   const r6 = /* @__PURE__ */ new Map();
-  for (let l3 = s5; l3 <= t5; l3++) r6.set(e5[l3], l3);
+  for (let l3 = s5; l3 <= t5; l3++) r6.set(e6[l3], l3);
   return r6;
 };
 var c4 = e4(class extends i4 {
-  constructor(e5) {
-    if (super(e5), e5.type !== t3.CHILD) throw Error("repeat() can only be used in text expressions");
+  constructor(e6) {
+    if (super(e6), e6.type !== t3.CHILD) throw Error("repeat() can only be used in text expressions");
   }
-  dt(e5, s5, t5) {
+  dt(e6, s5, t5) {
     let r6;
     void 0 === t5 ? t5 = s5 : void 0 !== s5 && (r6 = s5);
     const l3 = [], o7 = [];
     let i7 = 0;
-    for (const s6 of e5) l3[i7] = r6 ? r6(s6, i7) : i7, o7[i7] = t5(s6, i7), i7++;
+    for (const s6 of e6) l3[i7] = r6 ? r6(s6, i7) : i7, o7[i7] = t5(s6, i7), i7++;
     return { values: o7, keys: l3 };
   }
-  render(e5, s5, t5) {
-    return this.dt(e5, s5, t5).values;
+  render(e6, s5, t5) {
+    return this.dt(e6, s5, t5).values;
   }
   update(s5, [t5, r6, c5]) {
     const d3 = M2(s5), { values: p4, keys: a3 } = this.dt(t5, r6, c5);
@@ -1354,21 +1378,21 @@ var c4 = e4(class extends i4 {
     else if (h4[x2] === a3[w2]) v3[w2] = u3(d3[x2], p4[w2]), v2(s5, v3[w2 + 1], d3[x2]), x2++, w2--;
     else if (h4[j2] === a3[k2]) v3[k2] = u3(d3[j2], p4[k2]), v2(s5, d3[x2], d3[j2]), j2--, k2++;
     else if (void 0 === m4 && (m4 = u4(a3, k2, w2), y3 = u4(h4, x2, j2)), m4.has(h4[x2])) if (m4.has(h4[j2])) {
-      const e5 = y3.get(a3[k2]), t6 = void 0 !== e5 ? d3[e5] : null;
+      const e6 = y3.get(a3[k2]), t6 = void 0 !== e6 ? d3[e6] : null;
       if (null === t6) {
-        const e6 = v2(s5, d3[x2]);
-        u3(e6, p4[k2]), v3[k2] = e6;
-      } else v3[k2] = u3(t6, p4[k2]), v2(s5, d3[x2], t6), d3[e5] = null;
+        const e7 = v2(s5, d3[x2]);
+        u3(e7, p4[k2]), v3[k2] = e7;
+      } else v3[k2] = u3(t6, p4[k2]), v2(s5, d3[x2], t6), d3[e6] = null;
       k2++;
     } else h3(d3[j2]), j2--;
     else h3(d3[x2]), x2++;
     for (; k2 <= w2; ) {
-      const e5 = v2(s5, v3[w2 + 1]);
-      u3(e5, p4[k2]), v3[k2++] = e5;
+      const e6 = v2(s5, v3[w2 + 1]);
+      u3(e6, p4[k2]), v3[k2++] = e6;
     }
     for (; x2 <= j2; ) {
-      const e5 = d3[x2++];
-      null !== e5 && h3(e5);
+      const e6 = d3[x2++];
+      null !== e6 && h3(e6);
     }
     return this.ut = a3, p3(s5, v3), E;
   }
@@ -1382,26 +1406,96 @@ var o6 = e4(class extends i4 {
     if (super(t5), t5.type !== t3.ATTRIBUTE || "style" !== t5.name || t5.strings?.length > 2) throw Error("The `styleMap` directive must be used in the `style` attribute and must be the only part in the attribute.");
   }
   render(t5) {
-    return Object.keys(t5).reduce((e5, r6) => {
+    return Object.keys(t5).reduce((e6, r6) => {
       const s5 = t5[r6];
-      return null == s5 ? e5 : e5 + `${r6 = r6.includes("-") ? r6 : r6.replace(/(?:^(webkit|moz|ms|o)|)(?=[A-Z])/g, "-$&").toLowerCase()}:${s5};`;
+      return null == s5 ? e6 : e6 + `${r6 = r6.includes("-") ? r6 : r6.replace(/(?:^(webkit|moz|ms|o)|)(?=[A-Z])/g, "-$&").toLowerCase()}:${s5};`;
     }, "");
   }
-  update(e5, [r6]) {
-    const { style: s5 } = e5.element;
+  update(e6, [r6]) {
+    const { style: s5 } = e6.element;
     if (void 0 === this.ft) return this.ft = new Set(Object.keys(r6)), this.render(r6);
     for (const t5 of this.ft) null == r6[t5] && (this.ft.delete(t5), t5.includes("-") ? s5.removeProperty(t5) : s5[t5] = null);
     for (const t5 in r6) {
-      const e6 = r6[t5];
-      if (null != e6) {
+      const e7 = r6[t5];
+      if (null != e7) {
         this.ft.add(t5);
-        const r7 = "string" == typeof e6 && e6.endsWith(i6);
-        t5.includes("-") || r7 ? s5.setProperty(t5, r7 ? e6.slice(0, -11) : e6, r7 ? n5 : "") : s5[t5] = e6;
+        const r7 = "string" == typeof e7 && e7.endsWith(i6);
+        t5.includes("-") || r7 ? s5.setProperty(t5, r7 ? e7.slice(0, -11) : e7, r7 ? n5 : "") : s5[t5] = e7;
       }
     }
     return E;
   }
 });
+
+// @erplora/outfitkit/dist/shared/anchor.js
+function shadowAnchorEvent(ev) {
+  const el = ev.currentTarget ?? ev.target;
+  return new CustomEvent("ok-popover-anchor", { detail: { ionShadowTarget: el } });
+}
+
+// @erplora/outfitkit/dist/shared/ion-tone.js
+var DEFAULT_HEX = {
+  primary: "#0054e9",
+  secondary: "#0163aa",
+  tertiary: "#6030ff",
+  success: "#2dd55b",
+  warning: "#ffc409",
+  danger: "#c5000f",
+  light: "#f4f5f8",
+  medium: "#636469",
+  dark: "#222428"
+};
+var DEFAULT_CONTRAST = {
+  primary: "#fff",
+  secondary: "#fff",
+  tertiary: "#fff",
+  success: "#000",
+  warning: "#000",
+  danger: "#fff",
+  light: "#000",
+  medium: "#fff",
+  dark: "#fff"
+};
+var TONE_NAME = /^[a-z][a-z0-9-]*$/;
+function tokenChain(okName, ionName, hex) {
+  return `var(--ok-${okName}, var(--ion-color-${ionName}${hex ? `, ${hex}` : ""}))`;
+}
+function ionTone(tone, variant) {
+  if (!tone || !TONE_NAME.test(tone)) return void 0;
+  const value = tokenChain(tone, tone, DEFAULT_HEX[tone]);
+  switch (variant) {
+    case "text":
+      return `color: ${value};`;
+    case "clear":
+      return `--color: ${value};`;
+    case "outline":
+      return `--color: ${value}; --border-color: ${value}; --background-activated: ${value}; --background-focused: ${value};`;
+    case "solid": {
+      const contrast = tokenChain(`${tone}-contrast`, `${tone}-contrast`, DEFAULT_CONTRAST[tone]);
+      return `--background: ${value}; --color: ${contrast}; --background-hover: var(--ion-color-${tone}-tint, ${value}); --background-activated: var(--ion-color-${tone}-shade, ${value}); --background-focused: var(--ion-color-${tone}-shade, ${value});`;
+    }
+  }
+}
+
+// @erplora/outfitkit/dist/shared/searchbar-single-clear.js
+function syncSearchbarInputName(root, name) {
+  const bar = root?.querySelector("ion-searchbar");
+  if (!bar) return;
+  void customElements.whenDefined("ion-searchbar").then(() => bar.getInputElement?.()).then((input) => {
+    const n6 = name();
+    if (input && input.getAttribute("aria-label") !== n6) {
+      input.setAttribute("aria-label", n6);
+    }
+  }).catch(() => {
+  });
+}
+var searchbarSingleClear = i`
+  ion-searchbar input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
+`;
 
 // @erplora/outfitkit/dist/shared/icons.js
 var rawAdd = '<svg viewBox="0 0 512 512" width="1.2em" height="1.2em" ><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 112v288m144-144H112"/></svg>';
@@ -1631,6 +1725,7 @@ var DEFAULT_LABELS = {
   filters: "Filters",
   clear: "Clear",
   apply: "Apply",
+  showResults: "Show results",
   selected: "{n} selected",
   importCsv: "Import CSV",
   exportCsv: "Export CSV",
@@ -1645,6 +1740,7 @@ var DEFAULT_LABELS = {
   actions: "Actions",
   close: "Close",
   newRecord: "New",
+  editRecord: "Edit",
   form: "Form",
   filterPlaceholder: "Filter\u2026",
   from: "From",
@@ -1660,7 +1756,11 @@ var DEFAULT_LABELS = {
   showing: "Showing {from}\u2013{to} of",
   recordSingular: "record",
   recordPlural: "records",
-  loadMore: "Load more"
+  loadMore: "Load more",
+  noMatches: "No results match your search or filters",
+  showAll: "Show all",
+  loadError: "Couldn't load the data",
+  retry: "Retry"
 };
 var ES_LABELS = {
   search: "Buscar\u2026",
@@ -1668,6 +1768,7 @@ var ES_LABELS = {
   filters: "Filtros",
   clear: "Limpiar",
   apply: "Aplicar",
+  showResults: "Ver resultados",
   selected: "{n} seleccionados",
   importCsv: "Importar CSV",
   exportCsv: "Exportar CSV",
@@ -1682,6 +1783,7 @@ var ES_LABELS = {
   actions: "Acciones",
   close: "Cerrar",
   newRecord: "Nuevo",
+  editRecord: "Editar",
   form: "Formulario",
   filterPlaceholder: "Filtrar\u2026",
   from: "Desde",
@@ -1697,8 +1799,14 @@ var ES_LABELS = {
   showing: "Mostrando {from}\u2013{to} de",
   recordSingular: "registro",
   recordPlural: "registros",
-  loadMore: "Cargar m\xE1s"
+  loadMore: "Cargar m\xE1s",
+  noMatches: "Ning\xFAn resultado coincide con la b\xFAsqueda o los filtros",
+  showAll: "Mostrar todo",
+  loadError: "No se han podido cargar los datos",
+  retry: "Reintentar"
 };
+var NUMERIC_TEXT = /^-?\d+(\.\d+)?$/;
+var ISO_DATE_OR_TIME = /^(\d{4}-\d{2}-\d{2}|\d{2}:\d{2})/;
 var _OkDataTable = class _OkDataTable2 extends i3 {
   constructor() {
     super(...arguments);
@@ -1740,21 +1848,37 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     this.filterDraft = {};
     this.serverFilters = {};
     this.panel = "none";
+    this.panelTitle = "";
     this.viewMode = "table";
     this.viewChosenByUser = false;
     this.isMobile = false;
     this.xOverflow = false;
     this.actionsTrackPx = 0;
     this.rowActionsCollapsed = false;
+    this.actionsLabelFits = true;
+    this.unfoldedCells = /* @__PURE__ */ new Set();
+    this.lastPointerType = "";
     this.fitDecidedAtWidth = -1;
     this.rowMenuOpen = false;
-    this.hiddenKeys = /* @__PURE__ */ new Set();
+    this.columnChoice = /* @__PURE__ */ new Map();
     this.internalSelection = /* @__PURE__ */ new Set();
     this.menuOpen = false;
     this.onLocaleChanged = () => this.requestUpdate();
+    this.onKeydown = (e6) => {
+      if (e6.key !== "Escape" || e6.defaultPrevented || this.panel === "none") return;
+      e6.preventDefault();
+      e6.stopPropagation();
+      this.closePanel("escape");
+    };
     this.onWindowResize = () => {
       this.measureXOverflow();
       this.measureRowActionsFit();
+      this.syncSheetInsets();
+      this.syncContentAfter();
+    };
+    this.sheetContent = null;
+    this.notePointer = (e6) => {
+      this.lastPointerType = e6.pointerType;
     };
     this.onSearch = (ev) => {
       const value = ev.target.value ?? "";
@@ -1767,9 +1891,12 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
         this.mobileShown = 0;
       }
     };
+    this.gapLabels = /* @__PURE__ */ new Map();
+    this.slotActionsCache = null;
   }
   static {
     this.styles = i`
+    ${searchbarSingleClear}
     :host {
       /* Vars overridable (estilo Ionic), default = cadena --ok-* → --ion-* → hex */
       --background: var(--ok-surface, var(--ion-card-background, var(--ion-background-color, #ffffff)));
@@ -1824,7 +1951,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     @media (min-width: 834px) {
       .card.has-panel { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto minmax(0, 1fr) auto; }
       .card.has-panel > .bar { grid-column: 1; grid-row: 1; }
-      .card.has-panel > .scroll, .card.has-panel > .cards-grid, .card.has-panel > .empty { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; }
+      .card.has-panel > .scroll, .card.has-panel > .cards-grid, .card.has-panel > .empty, .card.has-panel > .load-error { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; }
       .card.has-panel > .pager { grid-column: 1; grid-row: 3; }
       .card.has-panel > .drawer { position: static; grid-column: 2; grid-row: 1 / -1; width: auto; max-width: none; height: auto; min-height: 0; animation: none; }
       .card.has-panel > .tk-scrim { display: none; }
@@ -1833,7 +1960,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
        position:fixed dentro de ion-content se ancla al área de contenido (contain), que es justo el hueco
        bajo la cabecera de la app: el usuario conserva el título de la página. */
     @media (max-width: 833.98px) {
-      .drawer { position: fixed; inset: 0; top: var(--ok-sheet-top, 0px); width: 100%; max-width: none; height: auto; border-left: 0; z-index: 1000; }
+      .drawer { position: fixed; inset: 0; top: var(--ok-sheet-top, 0px); bottom: var(--ok-sheet-bottom, 0px); width: 100%; max-width: none; height: auto; border-left: 0; z-index: 1000; }
       .tk-scrim { display: none; }
     }
     .drawer .dh { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
@@ -1848,6 +1975,8 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     /* Pie del drawer de filtros: Limpiar / Aplicar. */
     .df { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; padding: 0.6rem 0.85rem; border-top: 1px solid var(--border-color); }
     .df .df-clear { margin-right: auto; }
+    /* #207 — Server-mode «Show results»: the one button of the footer, as wide as the sheet. */
+    .df .df-done { flex: 1 1 auto; }
 
     /* Modo fill: la tabla ocupa el alto del contenedor; filas con scroll interno; pager fijo. */
     :host([fill]) { display: flex; flex-direction: column; height: 100%; min-height: 0; }
@@ -1857,7 +1986,24 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     /* Sin filas, renderTable/renderCards devuelven SOLO el bloque .empty (sin .scroll). En modo
        fill hay que estirarlo para que ocupe el hueco entre toolbar y pager y centre su contenido
        (icono + mensaje) en vertical; si no, queda pegado arriba con el pager a media altura. */
-    :host([fill]) .empty { flex: 1 1 auto; min-height: 0; }
+    :host([fill]) .empty, :host([fill]) .load-error { flex: 1 1 auto; min-height: 0; }
+    /* #218 — On a phone (MOBILE_BREAKPOINT, where the table turns into cards and «Load more») the
+       module paints other blocks above the table, and rows boxed in between toolbar and footer got
+       what was left: a 315px card in a 32-155px window, never readable whole. Phone lists scroll
+       WITH the page (Shopify, Square, Odoo): the card is as tall as its content, the rows are not a
+       scroller of their own and the shell's ion-content scrolls.
+       The host box stays as it was, so the blocks ABOVE keep their size (growing it squeezed an
+       ion-segment or ion-card to 0px), and the cards run past it into the page scroll. Only when
+       something in flow comes AFTER the table ([content-after], see syncContentAfter) does the box
+       grow, pushing that content down instead of painting over it. !important because every
+       module ships .page > ok-data-table { flex: 1 1 auto; min-height: 0 }, and only an important
+       declaration from inside the shadow wins over the page's own rule. */
+    @media (max-width: 640px) {
+      :host([fill]) .card { flex: 1 0 auto; }
+      :host([fill]) .scroll, :host([fill]) .cards-grid { flex: 0 0 auto; }
+      :host([fill]) .cards-grid { overflow: visible; }
+      :host([fill][content-after]) { height: auto; flex-shrink: 0 !important; }
+    }
 
     /* ── Topbar / cabecera (relieve) ─────────────────────────────────────────────────────── */
     .bar { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.65rem 1rem; border-bottom: 1px solid var(--border-color); background: var(--header-background); }
@@ -1963,6 +2109,10 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       background: var(--header-background); padding-top: 0.55rem; padding-bottom: 0.55rem; }
     .gcell { display: flex; align-items: center; min-width: 0; }
     .gcell > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* #217 - A touch screen has no hover to show the cell's title, so in a table whose rows open
+       nothing a tap on a clipped cell unfolds it in place (see onCellTap). Only that cell wraps; the rest of the row keeps
+       its one line. The grid track does not move: its minimum is the column's fixed floor. */
+    .gcell > span.unfolded { white-space: normal; overflow-wrap: anywhere; }
     .gcell.right { justify-content: flex-end; text-align: right; }
     .gcell.center { justify-content: center; text-align: center; }
     /* #67 - PINNED ACTIONS COLUMN. When the grid overflows (since #120 only when not even the
@@ -2059,7 +2209,12 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
 
     /* ── Estado vacío ────────────────────────────────────────────────────────────────────── */
     .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 3.5rem 1rem; text-align: center; color: var(--color-muted); }
-    .empty .empty-ic { display: grid; place-items: center; width: 3.25rem; height: 3.25rem; border-radius: 999px; background: var(--header-background); font-size: 26px; }
+    /* pm#530 — Error state: same frame as the empty state, but its heading reads as text, not muted. */
+    .load-error { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 3.5rem 1rem; text-align: center; color: var(--color-muted); }
+    .load-error .load-error-title { color: var(--color); font-weight: 600; }
+    .load-error .empty-ic { color: var(--ok-danger, var(--ion-color-danger, #c5000f)); }
+    .load-error ion-button { margin-top: 0.25rem; }
+    .empty .empty-ic, .load-error .empty-ic { display: grid; place-items: center; width: 3.25rem; height: 3.25rem; border-radius: 999px; background: var(--header-background); font-size: 26px; }
 
     .actions { display: flex; gap: 0.25rem; justify-content: flex-end; }
     /* #121 - The buttons NEVER shrink. Their track is pinned to the width measured here
@@ -2067,10 +2222,15 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
        measurement, which would shrink the track again. flex: 0 0 auto is what makes the
        measurement a property of the CONTENT instead of a property of the current layout. */
     .actions ion-button { flex: 0 0 auto; }
+    /* #240 - Stand-in of a row action hidden on this row: it keeps the button's width (so the
+       others stay in their column) and paints nothing; aria-hidden + inert keep it out of the
+       accessibility tree, the tab order and the click path. */
+    .actions .action-gap { visibility: hidden; }
     /* #122 - Header of the actions column while the buttons are folded into the menu. "ACCIONES"
        measures 62.83px and the folded track is 44px: painted, it spills out of its own cell and
        over "Estado" - the very thing the issue is about. The column keeps its name for assistive
-       tech and paints nothing. */
+       tech and paints nothing. #211 - Same while expanded when the buttons leave no room for the
+       label (one icon: 32-44px), instead of painting "ACCI…". */
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
       clip-path: inset(50%); white-space: nowrap; border: 0; }
     /* Las acciones de fila son icon-only y de tamaño small en escritorio. En tablet/móvil se
@@ -2080,6 +2240,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       .toolbtn { width: 44px; height: 44px; }
       .add-btn { min-height: 44px; }
       .pager .nav ion-button { min-width: 44px; min-height: 44px; margin: 0; }
+      .load-error ion-button { min-height: 44px; --padding-start: 1rem; --padding-end: 1rem; }
     }
     /* Spinner de acción en curso (loading): contenido dentro del ion-button small (Ionic lo fija
      * a 28px en el :host, por eso width/height y no font-size). Cubre tabla y tarjetas: los
@@ -2113,6 +2274,8 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
   }
   connectedCallback() {
     super.connectedCallback();
+    this.addEventListener("keydown", this.onKeydown);
+    if (this.hasUpdated) this.observeSiblings();
     if (typeof window !== "undefined") {
       window.addEventListener("erplora:locale-changed", this.onLocaleChanged);
       window.addEventListener("resize", this.onWindowResize);
@@ -2120,8 +2283,8 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
       this.mq = window.matchMedia(`(max-width: ${_OkDataTable2.MOBILE_BREAKPOINT}px)`);
       this.isMobile = this.mq.matches;
-      const handler = (e5) => {
-        const matches = "matches" in e5 ? e5.matches : this.mq?.matches ?? false;
+      const handler = (e6) => {
+        const matches = "matches" in e6 ? e6.matches : this.mq?.matches ?? false;
         if (this.isMobile === matches) return;
         this.isMobile = matches;
         if (matches && this.cardViewEnabled) this.viewMode = "cards";
@@ -2151,9 +2314,27 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       if (this.actionsTrackPx !== 0) this.actionsTrackPx = 0;
       return;
     }
-    const el = this.renderRoot?.querySelector?.(".grow-data .gcell.actions-col .actions");
-    const width = el ? Math.ceil(el.scrollWidth) : 0;
+    const boxes = this.renderRoot?.querySelectorAll?.(".grow-data .gcell.actions-col .actions") ?? [];
+    let width = 0;
+    for (const el of boxes) width = Math.max(width, Math.ceil(el.scrollWidth));
     if (width > 0 && width !== this.actionsTrackPx) this.actionsTrackPx = width;
+  }
+  /** #211 - Does the header label fit the actions column, or would it be painted truncated?
+   *
+   * The label's `scrollWidth` is its natural width both painted and `.sr-only` (it never wraps),
+   * and the cell's width is the track the buttons pinned in px: hiding or showing the label
+   * changes neither, so the next measurement agrees with this one and nothing loops. Any change
+   * of that track is a state change, so it re-renders and lands here through `updated`. */
+  measureActionsLabel() {
+    const cell = this.renderRoot?.querySelector?.(".ghead .gcell.actions-col");
+    const label = cell?.querySelector("span");
+    if (!cell || !label) return;
+    const need = Math.ceil(label.scrollWidth);
+    if (need <= 0 || cell.clientWidth <= 0) return;
+    const cs = getComputedStyle(cell);
+    const room = cell.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    const fits = need <= room;
+    if (this.actionsLabelFits !== fits) this.actionsLabelFits = fits;
   }
   /** #122 — Decide si los botones de acción de la fila caben o se pliegan en el menú «⋮».
    *  El criterio y la garantía de que no oscila viven en `decideRowActionsFit`. */
@@ -2168,6 +2349,37 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     });
     this.fitDecidedAtWidth = next.decidedAtWidth;
     if (this.rowActionsCollapsed !== next.collapsed) this.rowActionsCollapsed = next.collapsed;
+  }
+  /** #218 — Marks the host `content-after` while an element in flow follows it in its parent (a
+   *  heading and a second table, a notice). Out of flow does not count: an inline `ion-modal`
+   *  (absolute until it reparents), a hidden block. Written only when it changes. */
+  syncContentAfter() {
+    let after = false;
+    if (this.fill && typeof getComputedStyle === "function") {
+      for (let el = this.nextElementSibling; el; el = el.nextElementSibling) {
+        const cs = getComputedStyle(el);
+        if (cs.display !== "none" && cs.position !== "absolute" && cs.position !== "fixed") {
+          after = true;
+          break;
+        }
+      }
+    }
+    if (this.hasAttribute("content-after") !== after) this.toggleAttribute("content-after", after);
+  }
+  /** #218 — (Re)starts watching the parent: children added/removed and a sibling shown or hidden
+   *  (`hidden`/`style`/`class` on a direct child). Deeper mutations are ignored, and so are the
+   *  table's own (the sheet insets write its `style` on every resize). */
+  observeSiblings() {
+    this.siblingsObserver?.disconnect();
+    this.siblingsObserver = void 0;
+    const parent = this.parentNode;
+    if (this.fill && parent && typeof MutationObserver !== "undefined") {
+      this.siblingsObserver = new MutationObserver((records) => {
+        if (records.some((r6) => r6.target === parent || r6.target !== this && r6.target.parentNode === parent)) this.syncContentAfter();
+      });
+      this.siblingsObserver.observe(parent, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "style", "class"] });
+    }
+    this.syncContentAfter();
   }
   /** Engancha el observador al contenedor de scroll del render actual (cambia entre vistas). */
   observeXOverflow() {
@@ -2185,24 +2397,35 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     if (grid) this.xObserver.observe(grid);
   }
   updated(changed) {
+    if (changed.has("fill")) this.observeSiblings();
     this.observeXOverflow();
     this.measureXOverflow();
-    if (changed.has("columns") || changed.has("actions") || changed.has("hiddenKeys") || changed.has("selectable")) {
+    if (changed.has("columns") || changed.has("actions") || changed.has("columnChoice") || changed.has("selectable")) {
       this.fitDecidedAtWidth = -1;
     }
     this.measureActionsTrack();
+    this.measureActionsLabel();
     this.measureRowActionsFit();
-    if (changed.has("panel")) this.syncSheetTop();
+    if (changed.has("panel")) this.syncSheetInsets();
+    syncSearchbarInputName(this.shadowRoot, () => this.effSearchPlaceholder);
   }
-  /** #75 — Where the mobile sheet starts. `position: fixed; inset: 0` painted it from y=0 and the
-   *  app's `ion-header` (its own stacking context, above the content) covered the sheet's title and
-   *  its only Close button — measured at 390×844 in the Appointments parity page. CSS inside a
-   *  shadow root cannot know where the content area begins, so on open the table measures the
-   *  closest `ion-content` (walking through shadow hosts) and hands the offset over as a custom
-   *  property; on close it is removed. Without an `ion-content` around, the sheet keeps y=0. */
-  syncSheetTop() {
+  /** #75/#197 — Where the mobile sheet starts and ends. `position: fixed; inset: 0` painted it from
+   *  y=0 to the screen edge: the app's `ion-header` (its own stacking context, above the content)
+   *  covered the sheet's title and its only Close button — measured at 390×844 in the Appointments
+   *  parity page — and the module tab bar (an `ion-footer` OUTSIDE `ion-content`) covered the last
+   *  66px (ios) / 72px (md) of the sheet, so its Save button could not be tapped (inventory#105).
+   *  CSS inside a shadow root cannot know where the content area begins or ends, so on open the
+   *  table measures the closest `ion-content` (walking through shadow hosts) and hands both offsets
+   *  over as custom properties, re-measuring them while the sheet stays open whenever the content
+   *  resizes (rotation, a tab bar mounted late) or the window resizes; on close both are removed and
+   *  the content stops being observed. Without an `ion-content` around, the sheet keeps the screen
+   *  edge on both ends. */
+  syncSheetInsets() {
     if (this.panel === "none") {
       this.style.removeProperty("--ok-sheet-top");
+      this.style.removeProperty("--ok-sheet-bottom");
+      this.sheetObserver?.disconnect();
+      this.sheetContent = null;
       return;
     }
     let node = this;
@@ -2213,15 +2436,33 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       node = parent === node ? null : parent;
     }
     const top = content ? Math.max(0, Math.round(content.getBoundingClientRect().top)) : 0;
+    const bottom = content ? Math.max(0, Math.round(window.innerHeight - content.getBoundingClientRect().bottom)) : 0;
     this.style.setProperty("--ok-sheet-top", `${top}px`);
+    this.style.setProperty("--ok-sheet-bottom", `${bottom}px`);
+    if (typeof ResizeObserver !== "undefined") {
+      this.sheetObserver ??= new ResizeObserver(() => {
+        if (this.panel !== "none") this.syncSheetInsets();
+      });
+      if (content !== this.sheetContent) {
+        this.sheetObserver.disconnect();
+        if (content) this.sheetObserver.observe(content);
+        this.sheetContent = content;
+      }
+    }
   }
   disconnectedCallback() {
+    this.removeEventListener("keydown", this.onKeydown);
     if (typeof window !== "undefined") {
       window.removeEventListener("erplora:locale-changed", this.onLocaleChanged);
       window.removeEventListener("resize", this.onWindowResize);
     }
     this.xObserver?.disconnect();
     this.xObserver = void 0;
+    this.siblingsObserver?.disconnect();
+    this.siblingsObserver = void 0;
+    this.sheetObserver?.disconnect();
+    this.sheetObserver = void 0;
+    this.sheetContent = null;
     if (this.mq) {
       const handler = this._mqHandler;
       if (handler) this.mq.removeEventListener("change", handler);
@@ -2241,6 +2482,15 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
   /** Mensaje efectivo de estado vacío (prop explícita → label i18n → default inglés). */
   get effEmptyMessage() {
     return this.emptyMessage ?? this.t.empty;
+  }
+  /** pm#530 — The last load failed: rows, «empty» and counts would all be claims about data the
+   *  table does not have. */
+  get loadFailed() {
+    return !!this.error?.trim();
+  }
+  /** #171 — Effective "no matches" message (explicit prop → i18n label → English default). */
+  get effNoMatchesMessage() {
+    return this.noMatchesMessage ?? this.t.noMatches;
   }
   // ── Resolución de alias (compat + documentados) ──────────────────────────────────────────
   get effPageSizes() {
@@ -2265,13 +2515,15 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     if (Array.isArray(this.views)) return this.views.some((v3) => v3 === "cards" || v3 === "card");
     return this.views === true;
   }
-  /** Columnas actualmente visibles (respeta el column chooser). */
+  /** Columns painted now: the person's pick in the column chooser, else the column's own `hidden`.
+   *  A hidden column is only not painted — it still filters, sorts and keeps its filter control
+   *  (hub#2245), which read `columns`. */
   get visibleColumns() {
-    return this.hiddenKeys.size ? this.columns.filter((c5) => !this.hiddenKeys.has(c5.key)) : this.columns;
+    return this.columns.filter((c5) => this.columnChoice.get(c5.key) ?? c5.hidden !== true);
   }
   setVisibleColumns(keys) {
     const visible = new Set(keys);
-    this.hiddenKeys = new Set(this.columns.map((c5) => c5.key).filter((k2) => !visible.has(k2)));
+    this.columnChoice = new Map(this.columns.map((c5) => [c5.key, visible.has(c5.key)]));
     this.emit("columnsChange", { visible: keys });
   }
   // ── Selección ─────────────────────────────────────────────────────────────────────────────
@@ -2327,8 +2579,9 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     a3.download = this.csvName;
     a3.click();
     URL.revokeObjectURL(url);
-    this.emit("csvExport", { rows: this.rows.length });
-    this.emit("export", { rows: this.rows.length });
+    const count = this.rows.length;
+    this.emit("csvExport", { rows: count, count });
+    this.emit("export", { rows: count, count });
   }
   parseCsv(text) {
     const out = [];
@@ -2370,15 +2623,29 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     if (!file) return;
     const text = decodeCsvBuffer(await file.arrayBuffer());
     const { headers, rows } = this.parseCsv(text);
-    this.emit("csvImport", { headers, rows });
-    this.emit("import", { headers, rows });
+    this.emit("csvImport", { headers, rows, count: rows.length });
+    this.emit("import", { headers, rows, count: rows.length });
     input.value = "";
   }
   toggle(p4) {
+    this.panelTitle = "";
     if (p4 === "filters" && this.panel !== "filters") {
       this.filterDraft = this.cloneFilters(this.clientFilters);
     }
-    this.panel = this.panel === p4 ? "none" : p4;
+    if (this.panel === p4) this.closePanel("toggle");
+    else this.panel = p4;
+  }
+  /** Closes the side panel and, if one was actually open, emits `panelClose` with the panel that
+   *  was open and the reason it closed. No-op (no event) when the panel is already `'none'`.
+   *
+   *  outfitkit#195 — modules that load the edit form after an `await` (read the full row, then
+   *  fill the form) listen to `panelClose` to discard that pending load if the person closes the
+   *  panel meanwhile (X, backdrop, Escape) before the reply arrives. */
+  closePanel(reason) {
+    if (this.panel === "none") return;
+    const panel = this.panel;
+    this.panel = "none";
+    this.emit("panelClose", { panel, reason });
   }
   // ── Filtros en memoria (modo cliente): borrador → aplicar. ───────────────────────────────────
   cloneFilters(src) {
@@ -2409,11 +2676,22 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     this.clientFilters = clean;
     this.clientPage = 0;
     this.mobileShown = 0;
-    this.panel = "none";
+    this.closePanel("apply");
     this.emit("filterChange", { filters: this.serializeFilters(clean) });
   }
   clearFilters() {
     this.filterDraft = {};
+  }
+  /** #171 — "Show all" under the no-matches state: drops the search AND the column filters, so
+   *  every row is back in one tap. Consumers listening to `filterChange` hear the reset. */
+  resetSearchAndFilters() {
+    const hadFilters = Object.keys(this.clientFilters).length > 0;
+    this.q = "";
+    this.clientFilters = {};
+    this.filterDraft = {};
+    this.clientPage = 0;
+    this.mobileShown = 0;
+    if (hadFilters) this.emit("filterChange", { filters: {} });
   }
   serializeFilters(src) {
     const out = {};
@@ -2423,13 +2701,16 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     }
     return out;
   }
-  /** Abre el panel lateral (API pública para el módulo, p.ej. "editar" abre el form pre-rellenado). */
-  open(panel = "create") {
+  /** Opens the side panel (public API for the module, e.g. "edit" opens the pre-filled form).
+   *  `mode` sets the default header («New» / «Edit»); `opts.title` replaces it (e.g. «Editing service — Brushing»). */
+  open(panel = "create", opts = {}) {
+    this.panelTitle = panel === "filters" ? "" : (opts.title ?? "").trim();
     this.panel = panel;
   }
-  /** Cierra el panel lateral. */
+  /** Closes the side panel (public API for the module). Emits `panelClose` with reason `'api'`
+   *  when a panel was actually open (outfitkit#195); no-op when it was already closed. */
   close() {
-    this.panel = "none";
+    this.closePanel("api");
   }
   emit(type, detail) {
     this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
@@ -2494,16 +2775,33 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     const alive = (v3) => v3 !== void 0 && v3 !== null && v3 !== "";
     this.setServerFilter(key, alive(base.from) || alive(base.to) ? base : void 0);
   }
-  /** Valor crudo de una columna para ordenar/filtrar (usa format si lo hay, si no row[key]). */
-  rawValue(col, row) {
+  /** What a column shows, as the multi-select filter offers and matches it (`format` text if any). */
+  shownValue(col, row) {
     if (col.format) return col.format(row);
     return row[col.key];
+  }
+  /** #256 - What a client-side sort and a date range filter compare: `sortValue`, else the field
+   *  itself when it is DATA — a number, boolean, `Date`, ISO date/time or NUMERIC string («100.00»,
+   *  how the hub hands over money) — so «15/01/2027» sorts after «31/12/2026» and «9,50 €» before
+   *  «100,00 €» (AG Grid, MUI DataGrid, TanStack Table). Any other field (words, a status code, a
+   *  stored «Sale <uuid>» the cell prints as a document number), a missing field or an object keeps
+   *  sorting by the `format` text the person reads, as before #256. A null field sorts last. */
+  sortKey(col, row) {
+    if (col.sortValue) return col.sortValue(row);
+    const value = row[col.key];
+    if (!col.format || value === null) return value;
+    if (typeof value === "number" || typeof value === "boolean" || value instanceof Date) return value;
+    if (typeof value === "string") {
+      if (NUMERIC_TEXT.test(value)) return Number(value);
+      if (ISO_DATE_OR_TIME.test(value)) return value;
+    }
+    return col.format(row);
   }
   /** Valores distintos de una columna (para los chips del filtro multi-select). */
   distinctValues(col) {
     const set = /* @__PURE__ */ new Set();
     for (const row of this.rows) {
-      const v3 = this.rawValue(col, row);
+      const v3 = this.shownValue(col, row);
       if (v3 != null && v3 !== "") set.add(String(v3));
     }
     return [...set].sort((a3, b3) => a3.localeCompare(b3));
@@ -2525,10 +2823,10 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
           const col = this.columns.find((c5) => c5.key === key);
           if (!col) return true;
           if (f3.values && f3.values.size > 0) {
-            return f3.values.has(String(this.rawValue(col, row) ?? ""));
+            return f3.values.has(String(this.shownValue(col, row) ?? ""));
           }
           if (f3.from || f3.to) {
-            const raw = this.rawValue(col, row);
+            const raw = this.sortKey(col, row);
             const t5 = raw == null ? NaN : new Date(raw).getTime();
             const from = f3.from ? new Date(f3.from).getTime() : -Infinity;
             const to = f3.to ? new Date(f3.to).getTime() + 864e5 - 1 : Infinity;
@@ -2543,8 +2841,8 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       if (col) {
         const dir = this.clientSortDir === "asc" ? 1 : -1;
         result = [...result].sort((a3, b3) => {
-          const va = this.rawValue(col, a3);
-          const vb = this.rawValue(col, b3);
+          const va = this.sortKey(col, a3);
+          const vb = this.sortKey(col, b3);
           if (va == null) return 1;
           if (vb == null) return -1;
           if (va < vb) return -1 * dir;
@@ -2554,6 +2852,29 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       }
     }
     return result;
+  }
+  /** #217 - The text cell of the list view. It keeps its one-line clip, and the full text rides
+   *  along as the native `title` (hover, like MUI DataGrid, Ant Design's `ellipsis.showTitle` and
+   *  ok-heatmap). Screen readers already get the whole text: the clip is only paint. */
+  textCell(col, row, rowKey) {
+    const text = String(this.cell(col, row) ?? "");
+    const id = `${rowKey}\u241F${col.key}`;
+    return b2`<span
+      class=${this.unfoldedCells.has(id) ? "unfolded" : A}
+      title=${text === "" ? A : text}
+      @pointerdown=${this.notePointer}
+      @click=${(e6) => this.onCellTap(e6, id)}
+    >${text}</span>`;
+  }
+  /** #217 - A touch screen has no hover, so the `title` never shows there. A row that opens a
+   *  record keeps opening it on the first tap (the record shows the full text; swallowing the tap
+   *  would make "open" a two-tap gesture on some rows only). In a table whose rows open nothing, a
+   *  tap on a clipped cell unfolds it in place. A cell that fits, and a mouse click, change nothing. */
+  onCellTap(e6, id) {
+    if (this.rowClickable || this.lastPointerType !== "touch") return;
+    const span = e6.currentTarget;
+    if (span.scrollWidth <= span.clientWidth) return;
+    this.unfoldedCells = new Set(this.unfoldedCells).add(id);
   }
   cell(col, row) {
     if (col.format) return col.format(row);
@@ -2635,25 +2956,30 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     }
     this.setClientFilter(col.key, { [edge]: v3 || void 0 });
   }
-  // Menú overflow: ancla el popover al botón vía el evento de click (compatible con Shadow DOM).
+  // Overflow menu: anchor the popover to the tapped button via Ionic's `ionShadowTarget`
+  // (the retargeted `ev.target` after dispatch would be the whole table, since `trigger` does not
+  // resolve inside Shadow DOM).
   openMenu(ev) {
-    this.menuEv = ev;
+    this.menuEv = shadowAnchorEvent(ev);
     this.menuOpen = true;
   }
-  /** #122 — Abre el menú «⋮» de UNA fila. Un solo popover para toda la tabla (uno por fila serían
-   *  tantos como filas), anclado por evento porque `trigger` no resuelve dentro de Shadow DOM. */
+  /** #122 — Opens the «⋮» menu of ONE row. A single popover for the whole table (one per row would
+   *  be as many as there are rows), anchored to the tapped button via Ionic's `ionShadowTarget`
+   *  (the retargeted `ev.target` after dispatch would be the whole table). */
   openRowMenu(ev, row) {
     ev.stopPropagation();
-    this.rowMenuEv = ev;
+    this.rowMenuEv = shadowAnchorEvent(ev);
     this.rowMenuRow = row;
     this.rowMenuOpen = true;
   }
   /** #122 — Las mismas acciones de la fila, como lista. Respeta `disabled`/`loading` por fila: una
    *  acción que no se puede pulsar en su botón tampoco se puede pulsar aquí. */
   renderRowMenu() {
-    const row = this.rowMenuRow;
-    if (!this.actions.length || !row) return A;
-    const key = this.keyOf(row);
+    const kept = this.rowMenuRow;
+    if (!this.actions.length || !kept) return A;
+    const key = this.keyOf(kept);
+    const row = key && this.rows.find((r6) => this.keyOf(r6) === key) || kept;
+    const actions = this.visibleActions(row);
     return b2`
       <ion-popover
         class="row-menu"
@@ -2664,7 +2990,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       >
         <ion-content>
           <ion-list lines="none">
-            ${this.actions.map((a3) => {
+            ${actions.map((a3) => {
       const disabled = a3.loading?.(row) === true || a3.disabled?.(row) === true;
       const label = typeof a3.label === "function" ? a3.label(row) : a3.label;
       return b2`
@@ -2675,7 +3001,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
                      would pick one at random. -->
                 <ion-item
                   button
-                  data-testid=${this.rowActionsCollapsed ? this.tid(`row-${key}-${a3.id}`) : A}
+                  data-testid=${this.rowActionsFolded(actions) ? this.tid(`row-${key}-${a3.id}`) : A}
                   ?disabled=${disabled}
                   aria-disabled=${disabled ? "true" : A}
                   .detail=${false}
@@ -2685,8 +3011,8 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
         this.emit("rowAction", { actionId: a3.id, row });
       }}
                 >
-                  ${a3.icon ? b2`<ion-icon slot="start" .icon=${okIcon(a3.icon)} color=${a3.color ?? A}></ion-icon>` : A}
-                  <ion-label color=${a3.color ?? A}>${label}</ion-label>
+                  ${a3.icon ? b2`<ion-icon slot="start" .icon=${okIcon(a3.icon)} style=${ionTone(a3.color, "text") ?? A}></ion-icon>` : A}
+                  <ion-label style=${ionTone(a3.color, "text") ?? A}>${label}</ion-label>
                 </ion-item>
               `;
     })}
@@ -2715,6 +3041,11 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
    */
   willUpdate(changed) {
     this.applyInitialView();
+    if (changed.has("rows") && this.unfoldedCells.size) this.unfoldedCells = /* @__PURE__ */ new Set();
+    if (changed.has("rows") || changed.has("actions")) {
+      this.gapLabels.clear();
+      this.slotActionsCache = null;
+    }
     if (changed.has("filterValues")) this.serverFilters = { ...this.filterValues ?? {} };
     if (changed.has("search") && this.search !== void 0) {
       this.q = this.search;
@@ -2723,7 +3054,17 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
         this.mobileShown = 0;
       }
     }
-    if (!this.serverSide && changed.has("rows") && this.mobileShown !== 0) this.mobileShown = 0;
+    if (!this.serverSide && changed.has("rows") && this.mobileShown !== 0 && !this.sameRecords(changed.get("rows"), this.rows))
+      this.mobileShown = 0;
+  }
+  /** hub#2245 — Same records, same order, told apart by their key. Rows without a key cannot be
+   *  told apart, so they never count as the same (the window starts again, as before). */
+  sameRecords(before, after) {
+    if (!before || before.length !== after.length) return false;
+    return after.every((row, i7) => {
+      const key = this.keyOf(row);
+      return key !== "" && key === this.keyOf(before[i7]);
+    });
   }
   applyInitialView() {
     if (this.viewChosenByUser) return;
@@ -2760,7 +3101,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
           .interfaceOptions=${{ cssClass: "ok-overlay" }}
           placeholder=${this.t.select}
           .value=${current}
-          @ionChange=${(e5) => this.onFilterSelect(col, e5.detail.value, multi)}
+          @ionChange=${(e6) => this.onFilterSelect(col, e6.detail.value, multi)}
         >
           ${multi ? A : b2`<ion-select-option value="">${this.t.select}</ion-select-option>`}
           ${opts.map((o7) => b2`<ion-select-option value=${o7.value}>${o7.label}</ion-select-option>`)}
@@ -2776,10 +3117,10 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
           <div class="frange">
             <ion-input type=${t5} fill="outline" mode="md" placeholder=${type === "daterange" ? this.t.from : this.t.gte}
               .value=${f3?.from ?? ""}
-              @ionInput=${(e5) => onEdge(col, "from", e5)}></ion-input>
+              @ionInput=${(e6) => onEdge(col, "from", e6)}></ion-input>
             <ion-input type=${t5} fill="outline" mode="md" placeholder=${type === "daterange" ? this.t.to : this.t.lte}
               .value=${f3?.to ?? ""}
-              @ionInput=${(e5) => onEdge(col, "to", e5)}></ion-input>
+              @ionInput=${(e6) => onEdge(col, "to", e6)}></ion-input>
           </div>
         </div>
       `;
@@ -2793,7 +3134,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
         label-placement="stacked"
         placeholder=${this.t.filterPlaceholder}
         .value=${this.selectValue(f3, false)}
-        @ionInput=${(e5) => this.onFilterInput(col, e5)}
+        @ionInput=${(e6) => this.onFilterInput(col, e6)}
       ></ion-input>
     `;
   }
@@ -2831,7 +3172,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
           aria-label=${col.header}
           placeholder=${col.header}
           .value=${current}
-          @ionChange=${(e5) => this.onFilterSelect(col, e5.detail.value, multi)}
+          @ionChange=${(e6) => this.onFilterSelect(col, e6.detail.value, multi)}
         >
           ${multi ? A : b2`<ion-select-option value="">${col.header}</ion-select-option>`}
           ${opts.map((o7) => b2`<ion-select-option value=${o7.value}>${o7.label}</ion-select-option>`)}
@@ -2841,9 +3182,9 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     return b2`
       <span class="tk-daterange" role="group" aria-label=${col.header}>
         <ion-icon .icon=${iconCalendarOutline}></ion-icon>
-        <ion-input type="date" aria-label=${this.t.fromOf.replace("{label}", col.header)} .value=${f3?.from ?? ""} @ionChange=${(e5) => this.onInlineRange(col, "from", e5)}></ion-input>
+        <ion-input type="date" aria-label=${this.t.fromOf.replace("{label}", col.header)} .value=${f3?.from ?? ""} @ionChange=${(e6) => this.onInlineRange(col, "from", e6)}></ion-input>
         <span class="arr">→</span>
-        <ion-input type="date" aria-label=${this.t.toOf.replace("{label}", col.header)} .value=${f3?.to ?? ""} @ionChange=${(e5) => this.onInlineRange(col, "to", e5)}></ion-input>
+        <ion-input type="date" aria-label=${this.t.toOf.replace("{label}", col.header)} .value=${f3?.to ?? ""} @ionChange=${(e6) => this.onInlineRange(col, "to", e6)}></ion-input>
       </span>
     `;
   }
@@ -2851,7 +3192,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
   renderOverflowMenu() {
     if (!this.menuActions.length) return A;
     return b2`
-      <ion-button class="toolbtn" fill="clear" aria-label=${this.t.moreActions} @click=${(e5) => this.openMenu(e5)}>
+      <ion-button class="toolbtn" fill="clear" aria-label=${this.t.moreActions} @click=${(e6) => this.openMenu(e6)}>
         <ion-icon slot="icon-only" .icon=${iconEllipsisVertical}></ion-icon>
       </ion-button>
       <ion-popover
@@ -2868,8 +3209,8 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
         this.menuOpen = false;
         this.emit("menuAction", { actionId: a3.id });
       }}>
-                  ${a3.icon ? b2`<ion-icon slot="start" .icon=${okIcon(a3.icon)} color=${a3.color ?? A}></ion-icon>` : A}
-                  <ion-label color=${a3.color ?? A}>${a3.label}</ion-label>
+                  ${a3.icon ? b2`<ion-icon slot="start" .icon=${okIcon(a3.icon)} style=${ionTone(a3.color, "text") ?? A}></ion-icon>` : A}
+                  <ion-label style=${ionTone(a3.color, "text") ?? A}>${a3.label}</ion-label>
                 </ion-item>
               `
     )}
@@ -2889,31 +3230,66 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
   // appointment carries, the row asks for 380px and the card gives 379px at 411dp, 237px at 768px
   // and 272px at 1440px — so the first button hung off the card at ALL THREE widths, not just on
   // a phone. If you add a view that lays these buttons out, MEASURE it.
+  /** hub#2014 — The row actions that exist for THIS row (`hidden` filtered out), in their order. */
+  visibleActions(row) {
+    return this.actions.filter((a3) => a3.hidden?.(row) !== true);
+  }
+  /** #213 — Are THESE row actions folded into the "..." menu? Only when the list view folds (#122)
+   *  AND there is more than one: an overflow menu groups several actions, it never replaces a
+   *  single one (Polaris, MUI DataGrid) — it would take the same width and cost one more tap.
+   *  Except a single TEXT-only action (no icon): its button is wider than the "..." one, and left
+   *  out it spills over the data columns (measured at 390px), so folding it does free width. */
+  rowActionsFolded(actions) {
+    return this.rowActionsCollapsed && (actions.length > 1 || actions.length === 1 && !actions[0].icon);
+  }
+  gapLabel(a3) {
+    if (typeof a3.label !== "function") return a3.label;
+    let text = this.gapLabels.get(a3);
+    if (text === void 0) {
+      const shown = this.rows.find((r6) => a3.hidden?.(r6) !== true);
+      text = shown ? a3.label(shown) : "";
+      this.gapLabels.set(a3, text);
+    }
+    return text;
+  }
+  slotActions() {
+    return this.slotActionsCache ??= this.actions.filter((a3) => this.rows.some((r6) => a3.hidden?.(r6) !== true));
+  }
   actionButtons(row, collapsible = false) {
     if (!this.actions.length) return A;
     const key = this.keyOf(row);
+    const actions = this.visibleActions(row);
     if (collapsible && this.rowActionsCollapsed) {
-      return b2`
+      if (!actions.length) return b2`<div class="actions"></div>`;
+      if (this.rowActionsFolded(actions)) return b2`
         <div class="actions">
           <ion-button
             size="small"
             fill="clear"
-            color="medium"
+            style=${ionTone("medium", "clear")}
             data-testid=${this.tid(`row-${key}-menu`)}
             aria-label=${this.t.moreActions}
             title=${this.t.moreActions}
             aria-haspopup="menu"
-            @click=${(e5) => this.openRowMenu(e5, row)}
+            @click=${(e6) => this.openRowMenu(e6, row)}
           >
             <ion-icon slot="icon-only" .icon=${okIcon(iconEllipsisVertical)}></ion-icon>
           </ion-button>
         </div>
       `;
     }
+    const slots = collapsible && !this.rowActionsCollapsed ? this.slotActions() : actions;
     return b2`
       <div class="actions">
-        ${this.actions.map(
+        ${slots.map(
       (a3) => {
+        if (a3.hidden?.(row) === true) {
+          return b2`
+              <ion-button class="action-gap" size="small" fill="clear" data-slot-for=${a3.id} aria-hidden="true" inert>
+                ${a3.icon ? b2`<ion-icon slot="icon-only" .icon=${okIcon(a3.icon)}></ion-icon>` : this.gapLabel(a3)}
+              </ion-button>
+            `;
+        }
         const loading = a3.loading?.(row) === true;
         const disabled = loading || a3.disabled?.(row) === true;
         const label = typeof a3.label === "function" ? a3.label(row) : a3.label;
@@ -2921,7 +3297,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
             <ion-button
               size="small"
               fill="clear"
-              color=${a3.color ?? "medium"}
+              style=${ionTone(a3.color ?? "medium", "clear") ?? A}
               data-testid=${this.tid(`row-${key}-${a3.id}`)}
               ?disabled=${disabled}
               aria-disabled=${disabled ? "true" : A}
@@ -2937,11 +3313,14 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       </div>
     `;
   }
-  // Botón de barra icon-only (filtros / alta / conmutador de vista). `on` = estado activo.
-  // `badge` opcional → contador (p.ej. nº de filtros activos), look del Hub.
-  toolButton(icon, on, onClick, label, badge, testid = A) {
+  // Icon-only bar button (filters / create / view switch). `on` = active look.
+  // Optional `badge` → counter (e.g. number of active filters), Hub look.
+  // #247 - `toggle` makes it a toggle button: `on` is also announced as `aria-pressed`, so a screen
+  // reader hears which view is on instead of it living only in the fill. Ionic 8 copies
+  // `aria-pressed` to its inner <button> and watches it, so every later switch reaches the AX tree.
+  toolButton(icon, on, onClick, label, badge, testid = A, toggle = false) {
     return b2`
-      <ion-button class="toolbtn" size="small" fill=${on ? "solid" : "outline"} data-testid=${testid} title=${label} aria-label=${label} @click=${onClick}>
+      <ion-button class="toolbtn" size="small" fill=${on ? "solid" : "outline"} data-testid=${testid} title=${label} aria-label=${label} aria-pressed=${toggle ? String(on) : A} @click=${onClick}>
         <ion-icon slot="icon-only" .icon=${okIcon(icon)}></ion-icon>
         ${badge && badge > 0 ? b2`<span class="badge">${badge}</span>` : A}
       </ion-button>
@@ -3006,6 +3385,8 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     }
     const served = this.serverSide ? (current + 1) * ps : Math.min(this.mobileShown || ps, count);
     const canLoadMore = this.isMobile && served < count;
+    const rangeTo = this.isMobile && !this.serverSide ? Math.min(served, count) : Math.min((current + 1) * ps, count);
+    const rangeFrom = !this.isMobile ? current * ps + 1 : this.serverSide ? this.rows.length ? Math.max(1, rangeTo - this.rows.length + 1) : current * ps + 1 : 1;
     const loadMore = () => {
       if (this.serverSide) this.emit("pageChange", current + 1);
       else this.mobileShown = Math.min((this.mobileShown || ps) + ps, count);
@@ -3030,7 +3411,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
         ${showTopbar ? b2`
               <div class="bar">
                 <div class="bar-main">
-                  ${this.title ? b2`<div class="title-wrap"><h2 class="title">${this.title}</h2><span class="title-count">${count}</span></div>` : A}
+                  ${this.title ? b2`<div class="title-wrap"><h2 class="title">${this.title}</h2>${this.loadFailed ? A : b2`<span class="title-count">${count}</span>`}</div>` : A}
                   ${this.hasSearch ? b2`<div class="search">${searchbar}</div>` : A}
                   ${this.inlineFilters ? this.renderInlineFilters() : A}
                   <span class="tk-spacer"></span>
@@ -3042,7 +3423,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
                             aria-label=${this.t.columnsVisible}
                             .value=${this.visibleColumns.map((c5) => c5.key)}
                             .selectedText=${this.t.columns}
-                            @ionChange=${(e5) => this.setVisibleColumns(e5.detail.value)}
+                            @ionChange=${(e6) => this.setVisibleColumns(e6.detail.value)}
                           >
                             ${this.columns.map((c5) => b2`<ion-select-option value=${c5.key}>${c5.header}</ion-select-option>`)}
                           </ion-select>
@@ -3053,15 +3434,15 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
                             interface="popover"
                             aria-label=${this.t.rowsPerPage}
                             .value=${ps}
-                            @ionChange=${(e5) => setPageSize(Number(e5.detail.value))}
+                            @ionChange=${(e6) => setPageSize(Number(e6.detail.value))}
                           >
                             ${this.effPageSizes.map((n6) => b2`<ion-select-option .value=${n6}>${n6}</ion-select-option>`)}
                           </ion-select>
                         ` : A}
                     ${this.viewToggle ? b2`
                           <span class="viewseg">
-                            ${this.toolButton("list-outline", this.viewMode === "table", () => this.setViewMode("table"), this.t.viewList)}
-                            ${this.toolButton("grid-outline", this.viewMode === "cards", () => this.setViewMode("cards"), this.t.viewCards)}
+                            ${this.toolButton("list-outline", this.viewMode === "table", () => this.setViewMode("table"), this.t.viewList, void 0, A, true)}
+                            ${this.toolButton("grid-outline", this.viewMode === "cards", () => this.setViewMode("cards"), this.t.viewCards, void 0, A, true)}
                           </span>
                         ` : A}
                     ${this.hasFilterRow && !this.inlineFilters ? this.toolButton("funnel-outline", this.panel === "filters" || this.activeFilterCount > 0, () => this.toggle("filters"), this.t.filters, this.activeFilterCount) : A}
@@ -3072,7 +3453,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
                                the button's native dialog from a test. Same criterion as
                                «GrantFilePicker.vue» in the Hub (the hook goes on the control, not
                                on its disguise). -->
-                          <input class="tk-file" data-testid=${this.tid("csv-import")} type="file" accept=".csv,text/csv" hidden @change=${(e5) => this.onImportFile(e5)} />
+                          <input class="tk-file" data-testid=${this.tid("csv-import")} type="file" accept=".csv,text/csv" hidden @change=${(e6) => this.onImportFile(e6)} />
                         ` : A}
                     ${this.effExport ? this.toolButton("download-outline", false, () => this.exportCsv(), this.t.exportCsv, void 0, this.tid("csv-export")) : A}
                     <!-- #113 — Mismo botón en los dos viewports: la acción principal de la pantalla
@@ -3108,17 +3489,17 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
               </div>
             ` : A}
 
-        ${this.viewMode === "cards" && this.cardViewEnabled ? this.renderCards(visible) : this.renderTable(visible)}
+        ${this.loadFailed ? this.errorState() : this.viewMode === "cards" && this.cardViewEnabled ? this.renderCards(visible) : this.renderTable(visible)}
 
-        ${pages > 1 || this.effPageSizes.length ? b2`
+        ${!this.loadFailed && (pages > 1 || this.effPageSizes.length) ? b2`
               <div class="pager">
                 <div class="left">
                   <span>
-                    ${pages > 1 ? b2`${this.t.showing.replace("{from}", String(this.isMobile && !this.serverSide ? 1 : current * ps + 1)).replace("{to}", String(Math.min(served, count)))} ` : A}
+                    ${pages > 1 ? b2`${this.t.showing.replace("{from}", String(rangeFrom)).replace("{to}", String(rangeTo))} ` : A}
                     <span class="strong">${count}</span> ${count === 1 ? this.t.recordSingular : this.t.recordPlural}
                   </span>
                   ${!showTopbar && this.effPageSizes.length ? b2`
-                        <select class="psize" @change=${(e5) => setPageSize(Number(e5.target.value))}>
+                        <select class="psize" @change=${(e6) => setPageSize(Number(e6.target.value))}>
                           ${this.effPageSizes.map((n6) => b2`<option value=${n6} ?selected=${n6 === ps}>${this.t.perPageShort.replace("{n}", String(n6))}</option>`)}
                         </select>
                       ` : A}
@@ -3143,12 +3524,14 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
   renderDrawer() {
     const isFilters = this.panel === "filters";
     const clientFilters = isFilters && !this.serverSide;
+    const serverFilters = isFilters && this.serverSide;
+    const title = isFilters ? this.t.filters : this.panelTitle || (this.panel === "edit" ? this.t.editRecord : this.t.newRecord);
     return b2`
-      <div class="tk-scrim" @click=${() => this.close()}></div>
-      <aside class="drawer" role="dialog" aria-label=${isFilters ? this.t.filters : this.t.form}>
+      <div class="tk-scrim" @click=${() => this.closePanel("backdrop")}></div>
+      <aside class="drawer" role="dialog" aria-label=${title}>
         <header class="dh">
-          <strong>${isFilters ? this.t.filters : this.t.newRecord}</strong>
-          <ion-button fill="clear" size="small" aria-label=${this.t.close} @click=${() => this.close()}><ion-icon slot="icon-only" .icon=${iconClose}></ion-icon></ion-button>
+          <strong>${title}</strong>
+          <ion-button fill="clear" size="small" aria-label=${this.t.close} @click=${() => this.closePanel("close-button")}><ion-icon slot="icon-only" .icon=${iconClose}></ion-icon></ion-button>
         </header>
         <div class="db">
           ${isFilters ? clientFilters ? this.filterColumns.map((c5) => this.renderClientFilter(c5)) : this.filterColumns.map((c5) => b2`<div class="fblock">${this.renderFilterControl(c5)}</div>`) : b2`<slot name="create"></slot>`}
@@ -3158,7 +3541,11 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
                 <button class="sel-clear df-clear" ?disabled=${Object.keys(this.filterDraft).length === 0} @click=${() => this.clearFilters()}>${this.t.clear}</button>
                 <ion-button class="primary-btn" size="small" @click=${() => this.applyFilters()}>${this.t.apply}</ion-button>
               </footer>
-            ` : A}
+            ` : serverFilters ? b2`
+                <footer class="df">
+                  <ion-button class="primary-btn df-done" expand="block" data-testid=${this.tid("filters-show-results")} @click=${() => this.closePanel("apply")}>${this.t.showResults}</ion-button>
+                </footer>
+              ` : A}
       </aside>
     `;
   }
@@ -3171,8 +3558,8 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
         <div class="fblock">
           <span class="flabel">${label}</span>
           <div class="daterange">
-            <ion-input type="date" label=${this.t.from} label-placement="stacked" fill="outline" mode="md" .value=${f3.from ?? ""} @ionChange=${(e5) => this.setFilterRange(col.key, "from", e5.detail.value ?? "")}></ion-input>
-            <ion-input type="date" label=${this.t.to} label-placement="stacked" fill="outline" mode="md" .value=${f3.to ?? ""} @ionChange=${(e5) => this.setFilterRange(col.key, "to", e5.detail.value ?? "")}></ion-input>
+            <ion-input type="date" label=${this.t.from} label-placement="stacked" fill="outline" mode="md" .value=${f3.from ?? ""} @ionChange=${(e6) => this.setFilterRange(col.key, "from", e6.detail.value ?? "")}></ion-input>
+            <ion-input type="date" label=${this.t.to} label-placement="stacked" fill="outline" mode="md" .value=${f3.to ?? ""} @ionChange=${(e6) => this.setFilterRange(col.key, "to", e6.detail.value ?? "")}></ion-input>
           </div>
         </div>
       `;
@@ -3190,7 +3577,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
           .interfaceOptions=${{ cssClass: "ok-overlay" }}
           placeholder=${this.t.select}
           .value=${selected}
-          @ionChange=${(e5) => this.setFilterValues(col.key, e5.detail.value ?? [])}
+          @ionChange=${(e6) => this.setFilterValues(col.key, e6.detail.value ?? [])}
         >
           ${opts.length === 0 ? b2`<ion-select-option .disabled=${true} value="">${this.t.noValues}</ion-select-option>` : opts.map((o7) => b2`<ion-select-option value=${o7.value}>${o7.label}</ion-select-option>`)}
         </ion-select>
@@ -3199,16 +3586,30 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
   }
   /** #67 — Enter/Espacio activan la fila clicable (y, desde #74, la tarjeta): si se llega con el
    *  tabulador, el ratón no puede ser el único camino. Espacio además NO debe desplazar la página. */
-  onRowKeydown(e5, row) {
-    if (e5.key !== "Enter" && e5.key !== " " && e5.key !== "Spacebar") return;
-    e5.preventDefault();
+  onRowKeydown(e6, row) {
+    if (e6.key !== "Enter" && e6.key !== " " && e6.key !== "Spacebar") return;
+    e6.preventDefault();
     this.emit("rowClick", { row });
   }
   emptyState() {
+    const noMatches = this.rows.length > 0;
     return b2`
       <div class="empty">
         <span class="empty-ic"><ion-icon .icon=${iconFileTrayOutline}></ion-icon></span>
-        <span>${this.effEmptyMessage}</span>
+        <span>${noMatches ? this.effNoMatchesMessage : this.effEmptyMessage}</span>
+        ${noMatches ? b2`<ion-button fill="clear" size="small" data-role="no-matches-reset" data-testid=${this.tid("show-all")} @click=${() => this.resetSearchAndFilters()}>${this.t.showAll}</ion-button>` : A}
+      </div>
+    `;
+  }
+  /** pm#530 — The load failed. Not the empty state: «No customers» over a hub that did not answer
+   *  made people believe their data was gone. Says so, gives the reason and offers to retry. */
+  errorState() {
+    return b2`
+      <div class="load-error" role="alert" data-role="load-error">
+        <span class="empty-ic"><ion-icon .icon=${okIcon("alert-circle-outline")}></ion-icon></span>
+        <strong class="load-error-title">${this.t.loadError}</strong>
+        <span class="load-error-reason">${this.error}</span>
+        <ion-button size="small" data-role="load-error-retry" data-testid=${this.tid("retry")} @click=${() => this.emit("retry", {})}>${this.t.retry}</ion-button>
       </div>
     `;
   }
@@ -3236,13 +3637,13 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
                   role="columnheader"
                   @click=${() => this.onHeaderClick(c5)}
                 >
-                  <span>${c5.header}</span>
+                  <span title=${c5.header || A}>${c5.header}</span>
                   ${sortable ? b2`<span class=${`caret${active ? " on" : ""}`}><ion-icon .icon=${okIcon(caretIcon)}></ion-icon></span>` : A}
                 </div>
               `;
     })}
             ${this.actions.length ? b2`<div class="gcell gh right actions-col" role="columnheader">
-                  ${this.rowActionsCollapsed ? b2`<span class="sr-only">${this.t.actions}</span>` : b2`<span>${this.t.actions}</span>`}
+                  <span class=${this.rowActionsCollapsed || !this.actionsLabelFits ? "sr-only" : ""}>${this.t.actions}</span>
                 </div>` : A}
           </div>
 
@@ -3261,13 +3662,13 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
                   style=${o6(tpl)}
                   tabindex=${this.rowClickable ? "0" : A}
                   @click=${this.rowClickable ? () => this.emit("rowClick", { row }) : A}
-                  @keydown=${this.rowClickable ? (e5) => this.onRowKeydown(e5, row) : A}
+                  @keydown=${this.rowClickable ? (e6) => this.onRowKeydown(e6, row) : A}
                 >
-                  ${this.selectable ? b2`<span class="selcb" @click=${(e5) => e5.stopPropagation()}><ion-checkbox .checked=${selected} aria-label=${this.t.selectRow} @ionChange=${() => this.toggleRow(key)}></ion-checkbox></span>` : A}
+                  ${this.selectable ? b2`<span class="selcb" @click=${(e6) => e6.stopPropagation()}><ion-checkbox .checked=${selected} aria-label=${this.t.selectRow} @ionChange=${() => this.toggleRow(key)}></ion-checkbox></span>` : A}
                   ${cols.map(
-          (c5) => b2`<div class=${`gcell ${alignCls(c5.align)}${c5.pinned === "end" ? " actions-col" : ""}`} role="cell">${c5.render ? c5.render(row) : b2`<span>${this.cell(c5, row)}</span>`}</div>`
+          (c5) => b2`<div class=${`gcell ${alignCls(c5.align)}${c5.pinned === "end" ? " actions-col" : ""}`} role="cell">${c5.render ? c5.render(row) : this.textCell(c5, row, key)}</div>`
         )}
-                  ${this.actions.length ? b2`<div class="gcell right actions-col" role="cell" @click=${(e5) => e5.stopPropagation()}>${this.actionButtons(row, true)}</div>` : A}
+                  ${this.actions.length ? b2`<div class="gcell right actions-col" role="cell" @click=${(e6) => e6.stopPropagation()}>${this.actionButtons(row, true)}</div>` : A}
                 </div>
               `;
       }
@@ -3276,6 +3677,16 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
       </div>
       ${this.renderRowMenu()}
     `;
+  }
+  /** #205 — The column a card's title already shows, so the default body does not repeat it
+   *  («Tarifa mayorista 1» as the title and again as «Nombre»). Decided per card: the first visible
+   *  column whose cell reads exactly like the title. Only text is compared: a title given as a
+   *  template, or a column with its own `render`, is never matched. */
+  cardTitleColumn(title, row) {
+    if (typeof title !== "string" && typeof title !== "number") return void 0;
+    const text = String(title).trim();
+    if (!text) return void 0;
+    return this.visibleColumns.find((c5) => !c5.render && String(this.cell(c5, row) ?? "").trim() === text);
   }
   renderCards(visible) {
     if (visible.length === 0) return this.emptyState();
@@ -3289,6 +3700,8 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
         const key = this.keyOf(row);
         const selected = this.selectable && this.selection.has(key);
         const icon = this.cardIcon?.(row);
+        const title = this.cardTitle?.(row);
+        const titleColumn = this.cardTitleColumn(title, row);
         return b2`
               <ion-card
                 class=${`rcard${selected ? " selected" : ""}${this.rowClickable ? " clickable" : ""}`}
@@ -3296,21 +3709,21 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
                 role=${this.rowClickable ? "button" : A}
                 tabindex=${this.rowClickable ? "0" : A}
                 @click=${this.rowClickable ? () => this.emit("rowClick", { row }) : A}
-                @keydown=${this.rowClickable ? (e5) => this.onRowKeydown(e5, row) : A}
+                @keydown=${this.rowClickable ? (e6) => this.onRowKeydown(e6, row) : A}
               >
                 ${hasHead ? b2`
                       <ion-card-header class="rcard-head">
                         ${icon != null && icon !== "" ? b2`<span class="rc-icon">${typeof icon === "string" ? b2`<ion-icon .icon=${okIcon(icon)}></ion-icon>` : icon}</span>` : A}
-                        <span class="rc-title">${this.cardTitle ? this.cardTitle(row) : A}</span>
-                        ${this.selectable ? b2`<ion-checkbox .checked=${selected} aria-label=${this.t.select} @click=${(e5) => e5.stopPropagation()} @ionChange=${() => this.toggleRow(key)}></ion-checkbox>` : A}
+                        <span class="rc-title">${this.cardTitle ? title : A}</span>
+                        ${this.selectable ? b2`<ion-checkbox .checked=${selected} aria-label=${this.t.select} @click=${(e6) => e6.stopPropagation()} @ionChange=${() => this.toggleRow(key)}></ion-checkbox>` : A}
                       </ion-card-header>
                     ` : A}
                 <ion-card-content class="rcard-body">
-                  ${this.renderCard ? this.renderCard(row) : this.visibleColumns.map(
+                  ${this.renderCard ? this.renderCard(row) : this.visibleColumns.filter((c5) => c5 !== titleColumn).map(
           (c5) => b2`<div class="rrow"><span class="rk">${c5.header}</span><span class="rv">${c5.render ? c5.render(row) : this.cell(c5, row)}</span></div>`
         )}
                 </ion-card-content>
-                ${this.actions.length ? b2`<div class="ractions" @click=${(e5) => e5.stopPropagation()}>${this.actionButtons(row)}</div>` : A}
+                ${this.actions.length ? b2`<div class="ractions" @click=${(e6) => e6.stopPropagation()}>${this.actionButtons(row)}</div>` : A}
               </ion-card>
             `;
       }
@@ -3340,6 +3753,12 @@ __decorateClass2([
 __decorateClass2([
   n4({ attribute: "empty-message" })
 ], _OkDataTable.prototype, "emptyMessage");
+__decorateClass2([
+  n4({ attribute: "no-matches-message" })
+], _OkDataTable.prototype, "noMatchesMessage");
+__decorateClass2([
+  n4({ type: String })
+], _OkDataTable.prototype, "error");
 __decorateClass2([
   n4({ attribute: "search-placeholder" })
 ], _OkDataTable.prototype, "searchPlaceholder");
@@ -3474,6 +3893,9 @@ __decorateClass2([
 ], _OkDataTable.prototype, "panel");
 __decorateClass2([
   r5()
+], _OkDataTable.prototype, "panelTitle");
+__decorateClass2([
+  r5()
 ], _OkDataTable.prototype, "viewMode");
 __decorateClass2([
   r5()
@@ -3489,10 +3911,16 @@ __decorateClass2([
 ], _OkDataTable.prototype, "rowActionsCollapsed");
 __decorateClass2([
   r5()
+], _OkDataTable.prototype, "actionsLabelFits");
+__decorateClass2([
+  r5()
+], _OkDataTable.prototype, "unfoldedCells");
+__decorateClass2([
+  r5()
 ], _OkDataTable.prototype, "rowMenuOpen");
 __decorateClass2([
   r5()
-], _OkDataTable.prototype, "hiddenKeys");
+], _OkDataTable.prototype, "columnChoice");
 __decorateClass2([
   r5()
 ], _OkDataTable.prototype, "internalSelection");
@@ -3523,8 +3951,8 @@ var OkInlineFeedback = class extends i3 {
     this.hidden = false;
     this.labels = {};
     this.hasActions = false;
-    this.onActionsSlotChange = (e5) => {
-      const slot = e5.target;
+    this.onActionsSlotChange = (e6) => {
+      const slot = e6.target;
       this.hasActions = slot.assignedNodes({ flatten: true }).length > 0;
     };
   }
@@ -3813,11 +4241,11 @@ var ListController = class {
         s5.page = window2.growsTo;
         keepAccumulating(paging, () => void this.load());
       }
-    } catch (e5) {
+    } catch (e6) {
       if (mySeq !== this.seq) return;
       this.rows = [];
       this.total = 0;
-      const reason = e5 instanceof Error ? e5.message.trim() : "";
+      const reason = e6 instanceof Error ? e6.message.trim() : "";
       this.error = reason || listLoadFailedMessage(activeLocale());
     } finally {
       if (mySeq === this.seq) {
@@ -3922,8 +4350,8 @@ function keepAccumulating(paging, reload) {
   if (paging.unwatch) return;
   const viewport = phoneViewport();
   if (!viewport?.addEventListener) return;
-  const onChange = (e5) => {
-    if (e5.matches) return;
+  const onChange = (e6) => {
+    if (e6.matches) return;
     stopAccumulating(paging);
     reload();
   };
@@ -4102,6 +4530,7 @@ var es_default = {
     colBreak: "Descanso",
     colDate: "Fecha",
     datePlaceholder: "dd/mm/aaaa",
+    dateInvalid: "Fecha no v\xE1lida",
     colName: "Nombre",
     colStatus: "Estado",
     colYearly: "Anual",
@@ -4126,6 +4555,7 @@ var es_default = {
     fieldOpen: "Abre",
     fieldClose: "Cierra",
     timePlaceholder: "hh:mm",
+    timeInvalid: "Hora no v\xE1lida",
     fieldBreakStart: "Descanso desde",
     fieldBreakEnd: "Descanso hasta",
     fieldWeekStart: "Semana empieza",
@@ -4220,6 +4650,7 @@ var en_default = {
     colBreak: "Break",
     colDate: "Date",
     datePlaceholder: "mm/dd/yyyy",
+    dateInvalid: "Not a valid date",
     colName: "Name",
     colStatus: "Status",
     colYearly: "Yearly",
@@ -4244,6 +4675,7 @@ var en_default = {
     fieldOpen: "Opens",
     fieldClose: "Closes",
     timePlaceholder: "hh:mm",
+    timeInvalid: "Not a valid time",
     fieldBreakStart: "Break from",
     fieldBreakEnd: "Break to",
     fieldWeekStart: "Week starts",
@@ -4333,6 +4765,9 @@ function intervalsOf(rows, kind, id) {
 }
 var blankIntervals = () => [{ open_time: "", close_time: "" }];
 var TABS = ["hours", "special_days", "settings"];
+function isUnreadable(text, parse) {
+  return text !== void 0 && text.trim() !== "" && parse(text) === null;
+}
 function resolveNavId(pathname) {
   const clean = pathname.split(/[?#]/)[0].replace(/\/+$/, "");
   const m4 = /^\/m\/schedules\/([a-z_]+)$/.exec(clean);
@@ -4352,9 +4787,9 @@ function catalogError(code) {
   }
   return "";
 }
-function domainErrorText(e5, fallbackKey) {
-  const code = e5?.code;
-  const message = e5 instanceof Error ? e5.message : "";
+function domainErrorText(e6, fallbackKey) {
+  const code = e6?.code;
+  const message = e6 instanceof Error ? e6.message : "";
   if (typeof code === "string" && code.startsWith("schedules.")) {
     const text = catalogError(code);
     if (text) return text;
@@ -4391,6 +4826,7 @@ var ErpSchedulesHours = class extends i3 {
     this.ovStart = "";
     this.ovEnd = "";
     this.dateDrafts = {};
+    this.leftDates = {};
     this.ovReason = "";
     this.ovClosed = true;
     this.ovIntervals = blankIntervals();
@@ -4629,8 +5065,8 @@ var ErpSchedulesHours = class extends i3 {
       this.exceptionIntervals = Array.isArray(rows) ? rows : [];
       this.exceptionIntervalsLoaded = true;
       this.exceptionIntervalsError = "";
-    } catch (e5) {
-      this.exceptionIntervalsError = e5 instanceof Error ? e5.message : String(e5);
+    } catch (e6) {
+      this.exceptionIntervalsError = e6 instanceof Error ? e6.message : String(e6);
     }
   }
   /** Rows an exception table can show (schedules#63): none until every interval has been read,
@@ -4652,8 +5088,8 @@ var ErpSchedulesHours = class extends i3 {
       this.hoursRows = Array.isArray(rows) ? rows : [];
       this.hoursLoaded = true;
       this.hoursLoadError = "";
-    } catch (e5) {
-      this.hoursLoadError = e5 instanceof Error ? e5.message : String(e5);
+    } catch (e6) {
+      this.hoursLoadError = e6 instanceof Error ? e6.message : String(e6);
     }
   }
   /** What the hours table paints (schedules#60): the seven days once the week has been read,
@@ -4728,8 +5164,8 @@ var ErpSchedulesHours = class extends i3 {
       }
       this.settingsLoaded = true;
       this.settingsLoadError = "";
-    } catch (e5) {
-      this.settingsLoadError = e5 instanceof Error ? e5.message : String(e5);
+    } catch (e6) {
+      this.settingsLoadError = e6 instanceof Error ? e6.message : String(e6);
     }
   }
   /** Retry on the Settings notice (schedules#62): reads the settings again, nothing else. The
@@ -4778,8 +5214,8 @@ var ErpSchedulesHours = class extends i3 {
     try {
       await erplora().command("schedules.business_hours.confirm_week", {});
       await this.loadHours();
-    } catch (e5) {
-      this.pageError = domainErrorText(e5, "ui.errorConfirmWeek");
+    } catch (e6) {
+      this.pageError = domainErrorText(e6, "ui.errorConfirmWeek");
     } finally {
       this.confirming = false;
     }
@@ -4805,8 +5241,8 @@ var ErpSchedulesHours = class extends i3 {
       });
       this.dataTable("tbl-hours")?.close();
       await this.loadHours();
-    } catch (e5) {
-      this.hoursFormError = domainErrorText(e5, "ui.errorSaveHours");
+    } catch (e6) {
+      this.hoursFormError = domainErrorText(e6, "ui.errorSaveHours");
     } finally {
       this.saving = false;
     }
@@ -4841,12 +5277,38 @@ var ErpSchedulesHours = class extends i3 {
     this.dateDrafts = { ...this.dateDrafts, [field]: text };
     this[field] = parseCalendarDate(text, erplora().locale) ?? "";
   }
-  /** schedules#54 — blur/Enter (`ionChange`), or a save: forget the draft so the field repaints
-   *  the stored date in the hub's order. */
+  /** schedules#57 — blur/Enter (`ionChange`): a real date (or an empty field) forgets the draft so
+   *  the field repaints the stored date in the hub's order; a text that is not a date stays as typed
+   *  and the field says so, instead of vanishing without a word. */
+  commitDateDraft(field) {
+    if (isUnreadable(this.dateDrafts[field], (text) => parseCalendarDate(text, erplora().locale))) {
+      this.leftDates = { ...this.leftDates, [field]: true };
+      return;
+    }
+    this.forgetDateDraft(field);
+  }
+  /** schedules#54 — after a save (or a real date on blur): forget the draft so the field repaints
+   *  the stored date in the hub's order, and with it any error it was showing. */
   forgetDateDraft(field) {
+    if (field in this.leftDates) {
+      const { [field]: _left, ...stillLeft } = this.leftDates;
+      this.leftDates = stillLeft;
+    }
     if (!(field in this.dateDrafts)) return;
     const { [field]: _typed, ...rest } = this.dateDrafts;
     this.dateDrafts = rest;
+  }
+  /** schedules#57 — the error a date field shows: only once she has left it, and only while its
+   *  text is still not a date. */
+  dateFieldError(field) {
+    if (!this.leftDates[field]) return "";
+    if (!isUnreadable(this.dateDrafts[field], (text) => parseCalendarDate(text, erplora().locale))) return "";
+    return erplora().t(CATALOG, "ui.dateInvalid");
+  }
+  /** schedules#57 — Ionic paints `error-text` only on `.ion-invalid.ion-touched`; a classMap toggles
+   *  just those two, leaving the classes Ionic itself puts on the host untouched. */
+  invalidClass(error) {
+    return e5({ "ion-invalid": !!error, "ion-touched": !!error });
   }
   /** Special day (schedules#7): the payload is exactly what `schemas/special_day_create.json`
    *  accepts. Open days carry both hours (the handler requires them); the duplicate check is an
@@ -4884,8 +5346,8 @@ var ErpSchedulesHours = class extends i3 {
       this.sdNotes = "";
       this.dataTable("tbl-special")?.close();
       await Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()]);
-    } catch (e5) {
-      this.specialFormError = domainErrorText(e5, "ui.errorCreateSpecialDay");
+    } catch (e6) {
+      this.specialFormError = domainErrorText(e6, "ui.errorCreateSpecialDay");
     } finally {
       this.saving = false;
     }
@@ -4922,8 +5384,8 @@ var ErpSchedulesHours = class extends i3 {
       this.ovIntervals = blankIntervals();
       this.dataTable("tbl-override")?.close();
       await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
-    } catch (e5) {
-      this.overrideFormError = domainErrorText(e5, "ui.errorCreateOverride");
+    } catch (e6) {
+      this.overrideFormError = domainErrorText(e6, "ui.errorCreateOverride");
     } finally {
       this.saving = false;
     }
@@ -4937,8 +5399,8 @@ var ErpSchedulesHours = class extends i3 {
         week_starts_on: Number(this.settings.week_starts_on)
       });
       await this.loadSettings();
-    } catch (e5) {
-      this.pageError = domainErrorText(e5, "ui.errorSaveSettings");
+    } catch (e6) {
+      this.pageError = domainErrorText(e6, "ui.errorSaveSettings");
     } finally {
       this.saving = false;
     }
@@ -4967,8 +5429,8 @@ var ErpSchedulesHours = class extends i3 {
         await erplora().command("schedules.overrides.delete", { override_id: pending.id });
         await Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()]);
       }
-    } catch (e5) {
-      this.pageError = domainErrorText(e5, "ui.errorDelete");
+    } catch (e6) {
+      this.pageError = domainErrorText(e6, "ui.errorDelete");
     }
   }
   // ≤834 px opens in cards: status, effective hours and the row actions stay visible without
@@ -4984,8 +5446,8 @@ var ErpSchedulesHours = class extends i3 {
     return b2`
       ${intervals.map(
       (it, i7) => b2`<div class="interval">
-          <ion-input data-testid=${`schedules-interval-open-${scope}-${i7}`} data-role="interval-time" fill="outline" mode="md" label-placement="floating" label=${t5("ui.fieldOpen")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.timePlaceholder")} .value=${this.timeFieldValue(scope, intervals, it, i7, "open_time")} @ionInput=${(e5) => this.onTimeInput(scope, intervals, update, i7, "open_time", String(e5.target.value ?? ""))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i7, "open_time")} @paste=${(e5) => this.onTimePaste(scope, intervals, update, i7, "open_time", e5)}></ion-input>
-          <ion-input data-testid=${`schedules-interval-close-${scope}-${i7}`} data-role="interval-time" fill="outline" mode="md" label-placement="floating" label=${t5("ui.fieldClose")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.timePlaceholder")} .value=${this.timeFieldValue(scope, intervals, it, i7, "close_time")} @ionInput=${(e5) => this.onTimeInput(scope, intervals, update, i7, "close_time", String(e5.target.value ?? ""))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i7, "close_time")} @paste=${(e5) => this.onTimePaste(scope, intervals, update, i7, "close_time", e5)}></ion-input>
+          <ion-input data-testid=${`schedules-interval-open-${scope}-${i7}`} data-role="interval-time" class=${this.invalidClass(this.timeFieldError(scope, intervals, i7, "open_time"))} error-text=${this.timeFieldError(scope, intervals, i7, "open_time") || A} fill="outline" mode="md" label-placement="floating" label=${t5("ui.fieldOpen")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.timePlaceholder")} .value=${this.timeFieldValue(scope, intervals, it, i7, "open_time")} @ionInput=${(e6) => this.onTimeInput(scope, intervals, update, i7, "open_time", String(e6.target.value ?? ""))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i7, "open_time")} @paste=${(e6) => this.onTimePaste(scope, intervals, update, i7, "open_time", e6)}></ion-input>
+          <ion-input data-testid=${`schedules-interval-close-${scope}-${i7}`} data-role="interval-time" class=${this.invalidClass(this.timeFieldError(scope, intervals, i7, "close_time"))} error-text=${this.timeFieldError(scope, intervals, i7, "close_time") || A} fill="outline" mode="md" label-placement="floating" label=${t5("ui.fieldClose")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.timePlaceholder")} .value=${this.timeFieldValue(scope, intervals, it, i7, "close_time")} @ionInput=${(e6) => this.onTimeInput(scope, intervals, update, i7, "close_time", String(e6.target.value ?? ""))} @ionChange=${() => this.commitTimeDraft(scope, intervals, i7, "close_time")} @paste=${(e6) => this.onTimePaste(scope, intervals, update, i7, "close_time", e6)}></ion-input>
           <ion-button data-testid=${`schedules-interval-remove-${scope}-${i7}`} fill="clear" size="small" class="tone-medium" data-action="remove-interval" aria-label=${t5("ui.removeInterval")} ?disabled=${intervals.length <= 1} @click=${() => remove(i7)}><ion-icon slot="icon-only" name="close-outline"></ion-icon></ion-button>
         </div>`
     )}
@@ -5013,27 +5475,51 @@ var ErpSchedulesHours = class extends i3 {
    *  valid one (the save refuses an incomplete line). */
   onTimeInput(scope, intervals, update, i7, field, text) {
     const texts = { ...this.draftsFor(scope, intervals), [`${i7}:${field}`]: text };
+    const left = this.leftTimesFor(scope, intervals);
     update(i7, { [field]: parseWallTime(text) ?? "" });
-    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts };
+    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts, left };
+  }
+  /** schedules#57 — the time fields of THIS very list she left with a text that is not a time. */
+  leftTimesFor(scope, intervals) {
+    const d3 = this.timeDrafts;
+    return d3 && d3.scope === scope && d3.owner === intervals ? { ...d3.left } : {};
   }
   /** schedules#50 — blur/Enter (`ionChange`): forget the draft so the field repaints the stored
-   *  hour in the hub's clock. */
+   *  hour in the hub's clock. schedules#57 — a text that is not a time stays as typed and the field
+   *  says so, instead of vanishing without a word. */
   commitTimeDraft(scope, intervals, i7, field) {
+    const key = `${i7}:${field}`;
     const texts = { ...this.draftsFor(scope, intervals) };
-    if (!(`${i7}:${field}` in texts)) return;
-    delete texts[`${i7}:${field}`];
-    this.timeDrafts = { scope, owner: intervals, texts };
+    const left = this.leftTimesFor(scope, intervals);
+    if (isUnreadable(texts[key], parseWallTime)) {
+      this.timeDrafts = { scope, owner: intervals, texts, left: { ...left, [key]: true } };
+      return;
+    }
+    if (!(key in texts) && !(key in left)) return;
+    delete texts[key];
+    delete left[key];
+    this.timeDrafts = { scope, owner: intervals, texts, left };
+  }
+  /** schedules#57 — the error a time field shows: only once she has left it, and only while its
+   *  text is still not a time. */
+  timeFieldError(scope, intervals, i7, field) {
+    const key = `${i7}:${field}`;
+    if (!this.leftTimesFor(scope, intervals)[key]) return "";
+    if (!isUnreadable(this.draftsFor(scope, intervals)[key], parseWallTime)) return "";
+    return erplora().t(CATALOG, "ui.timeInvalid");
   }
   /** schedules#50 — a time pasted in any spelling the parser reads is stored and repainted in the
    *  hub's clock at once. Anything else is left to the browser's own paste. */
-  onTimePaste(scope, intervals, update, i7, field, e5) {
-    const time = parseWallTime(e5.clipboardData?.getData("text") ?? "");
+  onTimePaste(scope, intervals, update, i7, field, e6) {
+    const time = parseWallTime(e6.clipboardData?.getData("text") ?? "");
     if (!time) return;
-    e5.preventDefault();
+    e6.preventDefault();
     const texts = { ...this.draftsFor(scope, intervals) };
+    const left = this.leftTimesFor(scope, intervals);
     delete texts[`${i7}:${field}`];
+    delete left[`${i7}:${field}`];
     update(i7, { [field]: time });
-    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts };
+    this.timeDrafts = { scope, owner: this.intervalsOf(scope), texts, left };
   }
   renderHours() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
@@ -5059,20 +5545,20 @@ var ErpSchedulesHours = class extends i3 {
              labels.newRecord for any non-filters panel, edit included (staff#68 fallback), so the
              same title also goes through .labels; the table merges .labels over its own defaults,
              so only newRecord changes. -->
-        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekReady ? this.weekRows : []} .error=${this.weekLoadError} @retry=${() => this.retryWeek()} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e5) => this.onHoursAction(e5)} @rowClick=${(e5) => this.onHoursAction({ detail: { actionId: "edit", row: e5.detail.row } })} .emptyMessage=${this.hoursEmptyMessage}>
+        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekReady ? this.weekRows : []} .error=${this.weekLoadError} @retry=${() => this.retryWeek()} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e6) => this.onHoursAction(e6)} @rowClick=${(e6) => this.onHoursAction({ detail: { actionId: "edit", row: e6.detail.row } })} .emptyMessage=${this.hoursEmptyMessage}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
-          <form data-testid="schedules-hours-form" slot="create" class="form" @submit=${(e5) => this.saveBusinessHours(e5)}>
-            <ion-select data-testid="schedules-hours-day" fill="outline" label-placement="floating" label=${t5("ui.fieldDay")} .value=${this.bhDay} @ionChange=${(e5) => this.onDayChange(e5.target.value)}>
+          <form data-testid="schedules-hours-form" slot="create" class="form" @submit=${(e6) => this.saveBusinessHours(e6)}>
+            <ion-select data-testid="schedules-hours-day" fill="outline" label-placement="floating" label=${t5("ui.fieldDay")} .value=${this.bhDay} @ionChange=${(e6) => this.onDayChange(e6.target.value)}>
               ${DAY_KEYS.map((_2, value) => b2`<ion-select-option .value=${value}>${this.dayLabel(value)}</ion-select-option>`)}
             </ion-select>
             <label class="chk">
-              <ion-checkbox data-testid="schedules-hours-closed" ?checked=${this.bhClosed} @ionChange=${(e5) => this.bhClosed = !!e5.target.checked}></ion-checkbox>
+              <ion-checkbox data-testid="schedules-hours-closed" ?checked=${this.bhClosed} @ionChange=${(e6) => this.bhClosed = !!e6.target.checked}></ion-checkbox>
               ${t5("ui.closed")}
             </label>
             ${this.bhClosed ? A : b2`
                   <label class="chk">
-                    <ion-checkbox data-testid="schedules-hours-open-24h" ?checked=${isAllDay} @ionChange=${(e5) => e5.target.checked ? this.setAllDay() : this.bhIntervals = [{ open_time: "09:00", close_time: "18:00" }]}></ion-checkbox>
+                    <ion-checkbox data-testid="schedules-hours-open-24h" ?checked=${isAllDay} @ionChange=${(e6) => e6.target.checked ? this.setAllDay() : this.bhIntervals = [{ open_time: "09:00", close_time: "18:00" }]}></ion-checkbox>
                     ${t5("ui.open24h")}
                   </label>
                   ${isAllDay ? A : this.renderIntervalEditor(
@@ -5096,12 +5582,12 @@ var ErpSchedulesHours = class extends i3 {
     return b2`<div class="pane">
         <!-- Two collections, two tables, each labelled (schedules#6): a dated exception vs a range. -->
         <h3>${t5("ui.specialDays")}</h3>
-        <ok-data-table id="tbl-special" testid="schedules-special-table" .error=${this.specialCtrl?.error || this.exceptionIntervalsError} @retry=${() => Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => String(row.name || this.fmtDate(row.date) || "\u2014")} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ? this.exceptionRows(this.specialCtrl.rows) : []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchSpecialDay")} .actions=${this.rowActions} @rowAction=${(e5) => this.onSpecialAction(e5)} .emptyMessage=${this.exceptionEmptyMessage(this.specialCtrl?.loading, "ui.emptySpecialDays")} @pageChange=${(e5) => this.specialCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.specialCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.specialCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.specialCtrl.setFilter(e5.detail.col, e5.detail.value)}>
-          <form data-testid="schedules-special-form" slot="create" class="form" @submit=${(e5) => this.createSpecialDay(e5)}>
+        <ok-data-table id="tbl-special" testid="schedules-special-table" .error=${this.specialCtrl?.error || this.exceptionIntervalsError} @retry=${() => Promise.all([this.specialCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => String(row.name || this.fmtDate(row.date) || "\u2014")} .columns=${this.specialColumns} .rows=${this.specialCtrl?.rows ? this.exceptionRows(this.specialCtrl.rows) : []} .total=${this.specialCtrl?.total ?? 0} .page=${this.specialCtrl?.state.page ?? 0} .pageSize=${this.specialCtrl?.state.pageSize ?? 50} .sort=${this.specialCtrl?.state.sort} .sortDir=${this.specialCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchSpecialDay")} .actions=${this.rowActions} @rowAction=${(e6) => this.onSpecialAction(e6)} .emptyMessage=${this.exceptionEmptyMessage(this.specialCtrl?.loading, "ui.emptySpecialDays")} @pageChange=${(e6) => this.specialCtrl.setPage(e6.detail)} @sortChange=${(e6) => this.specialCtrl.setSort(e6.detail.sort, e6.detail.dir)} @searchChange=${(e6) => this.specialCtrl.setSearch(e6.detail)} @filterChange=${(e6) => this.specialCtrl.setFilter(e6.detail.col, e6.detail.value)}>
+          <form data-testid="schedules-special-form" slot="create" class="form" @submit=${(e6) => this.createSpecialDay(e6)}>
             <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
-            <ion-input data-testid="schedules-special-date" fill="outline" mode="md" label-placement="floating" label=${t5("ui.colDate")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.datePlaceholder")} .value=${this.dateFieldValue("sdDate")} @ionInput=${(e5) => this.onDateInput("sdDate", String(e5.target.value ?? ""))} @ionChange=${() => this.forgetDateDraft("sdDate")}></ion-input>
-            <ion-input data-testid="schedules-special-name" fill="outline" label-placement="floating" label=${t5("ui.colName")} placeholder=${t5("ui.placeholderName")} .value=${this.sdName} @ionInput=${(e5) => this.sdName = e5.target.value}></ion-input>
-            <ion-select data-testid="schedules-special-status" fill="outline" label-placement="floating" label=${t5("ui.colStatus")} .value=${this.sdClosed ? "closed" : "open"} @ionChange=${(e5) => this.sdClosed = e5.target.value === "closed"}>
+            <ion-input data-testid="schedules-special-date" class=${this.invalidClass(this.dateFieldError("sdDate"))} error-text=${this.dateFieldError("sdDate") || A} fill="outline" mode="md" label-placement="floating" label=${t5("ui.colDate")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.datePlaceholder")} .value=${this.dateFieldValue("sdDate")} @ionInput=${(e6) => this.onDateInput("sdDate", String(e6.target.value ?? ""))} @ionChange=${() => this.commitDateDraft("sdDate")}></ion-input>
+            <ion-input data-testid="schedules-special-name" fill="outline" label-placement="floating" label=${t5("ui.colName")} placeholder=${t5("ui.placeholderName")} .value=${this.sdName} @ionInput=${(e6) => this.sdName = e6.target.value}></ion-input>
+            <ion-select data-testid="schedules-special-status" fill="outline" label-placement="floating" label=${t5("ui.colStatus")} .value=${this.sdClosed ? "closed" : "open"} @ionChange=${(e6) => this.sdClosed = e6.target.value === "closed"}>
               <ion-select-option value="closed">${t5("ui.closed")}</ion-select-option>
               <ion-select-option value="open">${t5("ui.openWithHours")}</ion-select-option>
             </ion-select>
@@ -5113,10 +5599,10 @@ var ErpSchedulesHours = class extends i3 {
       (i7) => this.removeSpecialDayInterval(i7)
     )}
             <label class="chk">
-              <ion-checkbox data-testid="schedules-special-recurring" ?checked=${this.sdRecurring} @ionChange=${(e5) => this.sdRecurring = !!e5.target.checked}></ion-checkbox>
+              <ion-checkbox data-testid="schedules-special-recurring" ?checked=${this.sdRecurring} @ionChange=${(e6) => this.sdRecurring = !!e6.target.checked}></ion-checkbox>
               ${t5("ui.fieldRecurring")}
             </label>
-            <ion-input data-testid="schedules-special-notes" fill="outline" label-placement="floating" label=${t5("ui.fieldNotes")} .value=${this.sdNotes} @ionInput=${(e5) => this.sdNotes = e5.target.value}></ion-input>
+            <ion-input data-testid="schedules-special-notes" fill="outline" label-placement="floating" label=${t5("ui.fieldNotes")} .value=${this.sdNotes} @ionInput=${(e6) => this.sdNotes = e6.target.value}></ion-input>
             <!-- pm#513: the refusal travels WITH the form — on a phone the panel is a full-screen
                  sheet and a banner on the page underneath it is never seen. -->
             ${this.specialFormError ? b2`<ok-inline-feedback data-testid="schedules-special-form-error" tone="danger" icon="alert-circle-outline">${this.specialFormError}</ok-inline-feedback>` : A}
@@ -5125,13 +5611,13 @@ var ErpSchedulesHours = class extends i3 {
         </ok-data-table>
         <!-- Las excepciones son OTRA entidad (otra tabla) → llevan su propio panel de alta. -->
         <h3>${t5("ui.overrides")}</h3>
-        <ok-data-table id="tbl-override" testid="schedules-override-table" .error=${this.overrideCtrl?.error || this.exceptionIntervalsError} @retry=${() => Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => String(row.reason || this.fmtDate(row.start_date) || "\u2014")} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ? this.exceptionRows(this.overrideCtrl.rows) : []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchOverride")} .actions=${this.rowActions} @rowAction=${(e5) => this.onOverrideAction(e5)} .emptyMessage=${this.exceptionEmptyMessage(this.overrideCtrl?.loading, "ui.emptyOverrides")} @pageChange=${(e5) => this.overrideCtrl.setPage(e5.detail)} @sortChange=${(e5) => this.overrideCtrl.setSort(e5.detail.sort, e5.detail.dir)} @searchChange=${(e5) => this.overrideCtrl.setSearch(e5.detail)} @filterChange=${(e5) => this.overrideCtrl.setFilter(e5.detail.col, e5.detail.value)}>
-          <form data-testid="schedules-override-form" slot="create" class="form" @submit=${(e5) => this.createOverride(e5)}>
+        <ok-data-table id="tbl-override" testid="schedules-override-table" .error=${this.overrideCtrl?.error || this.exceptionIntervalsError} @retry=${() => Promise.all([this.overrideCtrl.load(), this.loadExceptionIntervals()])} .serverSide=${true} .fill=${true} .addable=${true} .views=${true} .defaultView=${this.defaultView} .cardTitle=${(row) => String(row.reason || this.fmtDate(row.start_date) || "\u2014")} .columns=${this.overrideColumns} .rows=${this.overrideCtrl?.rows ? this.exceptionRows(this.overrideCtrl.rows) : []} .total=${this.overrideCtrl?.total ?? 0} .page=${this.overrideCtrl?.state.page ?? 0} .pageSize=${this.overrideCtrl?.state.pageSize ?? 50} .sort=${this.overrideCtrl?.state.sort} .sortDir=${this.overrideCtrl?.state.dir ?? "asc"} .searchable=${true} .searchPlaceholder=${t5("ui.searchOverride")} .actions=${this.rowActions} @rowAction=${(e6) => this.onOverrideAction(e6)} .emptyMessage=${this.exceptionEmptyMessage(this.overrideCtrl?.loading, "ui.emptyOverrides")} @pageChange=${(e6) => this.overrideCtrl.setPage(e6.detail)} @sortChange=${(e6) => this.overrideCtrl.setSort(e6.detail.sort, e6.detail.dir)} @searchChange=${(e6) => this.overrideCtrl.setSearch(e6.detail)} @filterChange=${(e6) => this.overrideCtrl.setFilter(e6.detail.col, e6.detail.value)}>
+          <form data-testid="schedules-override-form" slot="create" class="form" @submit=${(e6) => this.createOverride(e6)}>
             <!-- schedules#54: text in the hub's day/month order, not the native date input (browser order). -->
-            <ion-input data-testid="schedules-override-from" fill="outline" mode="md" label-placement="floating" label=${t5("ui.colFrom")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.datePlaceholder")} .value=${this.dateFieldValue("ovStart")} @ionInput=${(e5) => this.onDateInput("ovStart", String(e5.target.value ?? ""))} @ionChange=${() => this.forgetDateDraft("ovStart")}></ion-input>
-            <ion-input data-testid="schedules-override-to" fill="outline" mode="md" label-placement="floating" label=${t5("ui.colTo")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.datePlaceholder")} .value=${this.dateFieldValue("ovEnd")} @ionInput=${(e5) => this.onDateInput("ovEnd", String(e5.target.value ?? ""))} @ionChange=${() => this.forgetDateDraft("ovEnd")}></ion-input>
-            <ion-input data-testid="schedules-override-reason" fill="outline" label-placement="floating" label=${t5("ui.colReason")} .value=${this.ovReason} @ionInput=${(e5) => this.ovReason = e5.target.value}></ion-input>
-            <ion-select data-testid="schedules-override-status" fill="outline" label-placement="floating" label=${t5("ui.colStatus")} .value=${this.ovClosed ? "closed" : "open"} @ionChange=${(e5) => this.ovClosed = e5.target.value === "closed"}>
+            <ion-input data-testid="schedules-override-from" class=${this.invalidClass(this.dateFieldError("ovStart"))} error-text=${this.dateFieldError("ovStart") || A} fill="outline" mode="md" label-placement="floating" label=${t5("ui.colFrom")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.datePlaceholder")} .value=${this.dateFieldValue("ovStart")} @ionInput=${(e6) => this.onDateInput("ovStart", String(e6.target.value ?? ""))} @ionChange=${() => this.commitDateDraft("ovStart")}></ion-input>
+            <ion-input data-testid="schedules-override-to" class=${this.invalidClass(this.dateFieldError("ovEnd"))} error-text=${this.dateFieldError("ovEnd") || A} fill="outline" mode="md" label-placement="floating" label=${t5("ui.colTo")} type="text" inputmode="numeric" autocomplete="off" placeholder=${t5("ui.datePlaceholder")} .value=${this.dateFieldValue("ovEnd")} @ionInput=${(e6) => this.onDateInput("ovEnd", String(e6.target.value ?? ""))} @ionChange=${() => this.commitDateDraft("ovEnd")}></ion-input>
+            <ion-input data-testid="schedules-override-reason" fill="outline" label-placement="floating" label=${t5("ui.colReason")} .value=${this.ovReason} @ionInput=${(e6) => this.ovReason = e6.target.value}></ion-input>
+            <ion-select data-testid="schedules-override-status" fill="outline" label-placement="floating" label=${t5("ui.colStatus")} .value=${this.ovClosed ? "closed" : "open"} @ionChange=${(e6) => this.ovClosed = e6.target.value === "closed"}>
               <ion-select-option value="closed">${t5("ui.closed")}</ion-select-option>
               <ion-select-option value="open">${t5("ui.openWithHours")}</ion-select-option>
             </ion-select>
@@ -5188,8 +5674,8 @@ var ErpSchedulesHours = class extends i3 {
       >`;
     }
     if (!this.settingsLoaded) return b2`<p data-testid="schedules-settings-loading" class="hint">${t5("ui.loading")}</p>`;
-    return b2`<form data-testid="schedules-settings-form" class="form settings" @submit=${(e5) => this.saveSettings(e5)}>
-      <ion-select data-testid="schedules-settings-week-start" fill="outline" label-placement="floating" label=${t5("ui.fieldWeekStart")} .value=${this.settings.week_starts_on} @ionChange=${(e5) => this.settings = { ...this.settings, week_starts_on: Number(e5.target.value) }}>
+    return b2`<form data-testid="schedules-settings-form" class="form settings" @submit=${(e6) => this.saveSettings(e6)}>
+      <ion-select data-testid="schedules-settings-week-start" fill="outline" label-placement="floating" label=${t5("ui.fieldWeekStart")} .value=${this.settings.week_starts_on} @ionChange=${(e6) => this.settings = { ...this.settings, week_starts_on: Number(e6.target.value) }}>
         <ion-select-option .value=${1}>${t5("ui.monday")}</ion-select-option>
         <ion-select-option .value=${7}>${t5("ui.sunday")}</ion-select-option>
       </ion-select>
@@ -5210,10 +5696,10 @@ var ErpSchedulesHours = class extends i3 {
         source: "intervals",
         text: onSpecialDays && !listErrors.includes(this.exceptionIntervalsError) ? this.exceptionIntervalsError : ""
       }
-    ].filter((e5) => Boolean(e5.text));
+    ].filter((e6) => Boolean(e6.text));
     return b2`<div class="page">
         ${errors.map(
-      (e5) => b2`<ok-inline-feedback data-testid=${`schedules-error-${e5.source}`} tone="danger" icon="alert-circle-outline">${e5.text}</ok-inline-feedback>`
+      (e6) => b2`<ok-inline-feedback data-testid=${`schedules-error-${e6.source}`} tone="danger" icon="alert-circle-outline">${e6.text}</ok-inline-feedback>`
     )}
         ${this.tab === "hours" ? this.renderHours() : A}
         ${this.tab === "special_days" ? this.renderSpecialDays() : A}
@@ -5227,7 +5713,7 @@ var ErpSchedulesHours = class extends i3 {
       { text: t5("ui.cancel"), role: "cancel" },
       { text: t5("ui.actionDelete"), role: "confirm", cssClass: "alert-button-danger" }
     ]}
-          @ionAlertDidDismiss=${(e5) => this.onDeleteDismiss(e5)}
+          @ionAlertDidDismiss=${(e6) => this.onDeleteDismiss(e6)}
         ></ion-alert>
       </div>`;
   }
@@ -5313,6 +5799,9 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "dateDrafts", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "leftDates", 2);
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "ovReason", 2);
