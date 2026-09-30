@@ -51,6 +51,8 @@ let commandCalls: string[] = [];
 let settingsGate: Promise<void> | null = null;
 /** The weekly rows the hub answers. */
 let week: Record<string, unknown>[] = WEEK;
+/** What the screen subscribed to, so a test can fire a live event (another device saved). */
+let handlers = new Map<string, () => unknown>();
 
 beforeAll(async () => {
   customElements.define('ok-data-table', ShellTable);
@@ -66,6 +68,7 @@ beforeEach(() => {
   commandCalls = [];
   settingsGate = null;
   week = WEEK;
+  handlers = new Map();
   const answer = async (name: string) => {
     queryCalls.push(name);
     if (name === SETTINGS && settingsGate) await settingsGate;
@@ -83,7 +86,10 @@ beforeEach(() => {
       return {};
     },
     hasPermission: () => true,
-    on: () => () => {},
+    on: (name: string, fn: () => unknown) => {
+      handlers.set(name, fn);
+      return () => {};
+    },
     locale: 'en',
     timezone: 'Europe/Madrid',
     t: (_catalog: unknown, key: string) => key,
@@ -186,6 +192,9 @@ describe(`${TAG} — Settings could not be read (schedules#62)`, () => {
     await settle(el);
     expect(notice(el)?.textContent).toContain(REASON);
     expect(retry(el)).toBeTruthy();
+    expect(retry(el)!.hasAttribute('disabled'), 'a Retry that failed must be tappable again').toBe(false);
+    expect(retry(el)!.textContent).toContain('ui.retry');
+    expect(retry(el)!.textContent).not.toContain('ui.retrying');
     expect(weekStart(el)).toBeNull();
   });
 
@@ -198,6 +207,7 @@ describe(`${TAG} — Settings could not be read (schedules#62)`, () => {
     await el.updateComplete;
     expect(notice(el), 'the notice vanished while the read was in flight').toBeTruthy();
     expect(retry(el)?.hasAttribute('disabled')).toBe(true);
+    expect(retry(el)?.textContent).toContain('ui.retrying');
     open();
     await vi.waitFor(async () => {
       await el.updateComplete;
@@ -225,6 +235,20 @@ describe(`${TAG} — Settings could not be read (schedules#62)`, () => {
     expect(notice(el)).toBeNull();
     expect(weekStart(el)?.value).toBe(1);
     expect(submit(el)).toBeTruthy();
+  });
+
+  it('a re-read that fails after a good one takes the form away again (another device may have saved)', async () => {
+    failing = new Set();
+    const el = await mount();
+    expect(weekStart(el)?.value).toBe(7);
+    failing.add(SETTINGS);
+    const reload = handlers.get('schedules.settings.saved');
+    expect(reload, 'the screen listens for settings saved elsewhere').toBeTruthy();
+    await reload!();
+    await settle(el);
+    expect(notice(el)?.textContent, 'the last value read would be offered to Save as if current').toContain(REASON);
+    expect(weekStart(el)).toBeNull();
+    expect(submit(el)).toBeNull();
   });
 
   it('while the settings are on their way, offers no Save yet and says «Loading…»', async () => {
