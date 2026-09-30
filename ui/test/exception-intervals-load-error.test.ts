@@ -292,6 +292,38 @@ describe(`${TAG} — the exceptions' intervals could not load (schedules#63)`, (
     expect(ids).toEqual(['schedules-error-special', 'schedules-error-override']);
   });
 
+  it.each([
+    { list: SPECIAL, banner: 'schedules-error-special' },
+    { list: OVERRIDE, banner: 'schedules-error-override' },
+  ])('on an older shell with $list down too, the reason is said once, not again for the intervals', async ({ list, banner }) => {
+    shellTableKnowsErrors(false);
+    failing = new Set([INTERVALS, list]);
+    const el = await mount();
+    expect(pageBanners(el).map((b) => b.getAttribute('data-testid'))).toEqual([banner]);
+  });
+
+  it('with the intervals read but the lists still on their way, each table says «Loading…», never «none»', async () => {
+    shellTableKnowsErrors(true);
+    failing = new Set();
+    let open!: () => void;
+    const listsGate = new Promise<void>((r) => (open = r));
+    const erp = (globalThis as { erplora: { queryPage: (name: string) => Promise<unknown> } }).erplora;
+    const answerPage = erp.queryPage;
+    erp.queryPage = async (name: string) => {
+      await listsGate;
+      return answerPage(name);
+    };
+    const el = await mount();
+    for (const t of TABLES) {
+      expect(tableOf(el, t.table).emptyMessage, `${t.table} would say it has none while its list loads`).toBe('ui.loading');
+    }
+    open();
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (tableOf(el, 'schedules-special-table').rows.length !== 1) throw new Error('the lists have not arrived');
+    });
+  });
+
   it('on the tables that paint errors, with everything down, the reason is said once per table and nowhere else', async () => {
     shellTableKnowsErrors(true);
     failing = new Set([INTERVALS, SPECIAL, OVERRIDE]);
