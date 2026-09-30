@@ -49,6 +49,11 @@ name.
 - **Search** by name.
 - **Filter** by date range, name, closed flag, times, recurring flag or notes.
 
+The hours column of this list and of the temporary changes list folds every interval of each
+exception (`schedules.exception_intervals.list`). If the hub cannot answer that read, both lists
+say the hours could not be loaded, with **Retry** — they never show a split day as its first
+interval alone.
+
 ### Create a special day
 
 1. Give it a **date** and a **name** — both required. Dates are shown and typed in the order of

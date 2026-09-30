@@ -97,9 +97,9 @@ const COVERED: Record<
     ],
     // Two families of computed hook, and each says what its tail means.
     //
-    // `schedules-error-<source>`: the page banner is a `.map()` over three independent errors (the
-    // page — what failed outside a panel's save —, the special-day list, the override list) that
-    // can be on screen together. A refused SAVE is not here: it is painted inside its own form
+    // `schedules-error-<source>`: the page banner is a `.map()` over independent errors (the page
+    // — what failed outside a panel's save —, the week, the special-day list, the override list,
+    // the exceptions' intervals) that can be on screen together. A refused SAVE is not here: it is painted inside its own form
     // (`schedules-<form>-form-error`, pm#513). A spec waits
     // for the one it caused, so the tail is WHICH error, never its position in the array.
     //
