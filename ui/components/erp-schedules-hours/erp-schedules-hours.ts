@@ -270,6 +270,18 @@ export class ErpSchedulesHours extends LitElement {
    *  folding nothing paints seven «Not set» days, the very screen of a business with no hours. */
   @state() private hoursLoaded = false;
 
+  /** schedules#62 — why the settings could not be read. A failed read is NOT «no row yet»: shown
+   *  as the defaults, the Settings tab offered Monday for a business that had saved Sunday, and
+   *  Save wrote Monday over it. */
+  @state() settingsLoadError = '';
+
+  /** schedules#62 — the settings have been read at least once (an empty answer counts: the
+   *  defaults are then the stored truth). Until then there is no value to show nor to save. */
+  @state() private settingsLoaded = false;
+
+  /** A Retry of the settings is in flight: its notice stays up, the button disabled. */
+  @state() private settingsRetrying = false;
+
   /** pm#513 — what each panel's form was refused, painted INSIDE that form: on a phone (and a
    *  tablet) the panel is a full-screen sheet, and a banner on the page underneath it is never
    *  seen. One per form: the Special days tab holds two panels, and saving one must neither show
@@ -579,8 +591,23 @@ export class ErpSchedulesHours extends LitElement {
    *  that the week could not be loaded. */
   private get hoursEmptyMessage(): string {
     const t = (k: string): string => erplora().t(CATALOG, k);
-    if (this.hoursLoadError) return t('ui.hoursLoadFailed');
-    return this.hoursLoaded ? t('ui.emptyHours') : t('ui.loading');
+    if (this.weekLoadError) return t('ui.hoursLoadFailed');
+    return this.weekReady ? t('ui.emptyHours') : t('ui.loading');
+  }
+
+  /** Why the week cannot be shown: its rows, or where it starts (schedules#62), could not be read.
+   *  Folded from Monday by default, a Sunday-first week reads in the wrong order. */
+  private get weekLoadError(): string {
+    return this.hoursLoadError || this.settingsLoadError;
+  }
+
+  private get weekReady(): boolean {
+    return this.hoursLoaded && this.settingsLoaded;
+  }
+
+  /** Retry of the hours table: reads the week and where it starts again, nothing else. */
+  private retryWeek(): Promise<unknown> {
+    return Promise.all([this.loadHours(), this.loadSettings()]);
   }
 
   addInterval() {
@@ -646,8 +673,23 @@ export class ErpSchedulesHours extends LitElement {
         const stored = Number((row as { week_starts_on?: unknown }).week_starts_on);
         this.settings = { week_starts_on: stored === 7 ? 7 : 1 };
       }
-    } catch {
-      /* optional settings: a missing row is not an error, the defaults stand */
+      // No row yet is not an error: the defaults stand, and they are what the hub would use.
+      this.settingsLoaded = true;
+      this.settingsLoadError = '';
+    } catch (e) {
+      this.settingsLoadError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  /** Retry on the Settings notice (schedules#62): reads the settings again, nothing else. The
+   *  notice stays up while it reads, so its button does not vanish under the finger. */
+  private async retrySettings() {
+    if (this.settingsRetrying) return;
+    this.settingsRetrying = true;
+    try {
+      await this.loadSettings();
+    } finally {
+      this.settingsRetrying = false;
     }
   }
 
@@ -1000,8 +1042,9 @@ export class ErpSchedulesHours extends LitElement {
     return html`<div class="pane">
         <!-- The week we planted at install time says so out loud until somebody confirms it
              (schedules#36). It sits above the table because it is about the whole week, and only
-             here: the Hours tab is where a week gets confirmed. -->
-        ${this.weekIsUnconfirmed
+             here: the Hours tab is where a week gets confirmed. Never over a week the table cannot
+             show (schedules#62): nobody can check a week they do not see. -->
+        ${this.weekReady && this.weekIsUnconfirmed
           ? html`<ok-inline-feedback data-testid="schedules-hours-default-week" data-role="default-week" tone="warning" icon="alert-circle-outline">
               <!-- The sentence gets its OWN node: the notice now carries an action too, so the
                    whole banner's text is no longer just the message (schedules#43). -->
@@ -1019,7 +1062,7 @@ export class ErpSchedulesHours extends LitElement {
              labels.newRecord for any non-filters panel, edit included (staff#68 fallback), so the
              same title also goes through .labels; the table merges .labels over its own defaults,
              so only newRecord changes. -->
-        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.hoursLoaded ? this.weekRows : []} .error=${this.hoursLoadError} @retry=${() => this.loadHours()} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${this.hoursEmptyMessage}>
+        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekReady ? this.weekRows : []} .error=${this.weekLoadError} @retry=${() => this.retryWeek()} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${this.hoursEmptyMessage}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
           <form data-testid="schedules-hours-form" slot="create" class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
@@ -1149,13 +1192,34 @@ export class ErpSchedulesHours extends LitElement {
           ${t('ui.timezoneGoSettings')}
         </ion-button>
       </div>
-      <form data-testid="schedules-settings-form" class="form settings" @submit=${(e: Event) => this.saveSettings(e)}>
-        <ion-select data-testid="schedules-settings-week-start" fill="outline" label-placement="floating" label=${t('ui.fieldWeekStart')} .value=${this.settings.week_starts_on} @ionChange=${(e: any) => (this.settings = { ...this.settings, week_starts_on: Number(e.target.value) })}>
-          <ion-select-option .value=${1}>${t('ui.monday')}</ion-select-option>
-          <ion-select-option .value=${7}>${t('ui.sunday')}</ion-select-option>
-        </ion-select>
-        <ion-button data-testid="schedules-settings-submit" type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.save')}</ion-button>
-      </form>`;
+      ${this.renderSettingsForm()}`;
+  }
+
+  /** The week start can only be shown — and saved — once it has been read (schedules#62): a value
+   *  never read would be the default dressed as the business's choice, and Save would write it. */
+  private renderSettingsForm() {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    if (this.settingsLoadError) {
+      return html`<ok-inline-feedback data-testid="schedules-settings-load-error" tone="danger" icon="alert-circle-outline" heading=${t('ui.settingsLoadFailed')}
+        >${this.settingsLoadError}<ion-button
+          slot="actions"
+          data-testid="schedules-settings-retry"
+          size="small"
+          fill="outline"
+          ?disabled=${this.settingsRetrying}
+          @click=${() => this.retrySettings()}
+          >${this.settingsRetrying ? t('ui.retrying') : t('ui.retry')}</ion-button
+        ></ok-inline-feedback
+      >`;
+    }
+    if (!this.settingsLoaded) return html`<p data-testid="schedules-settings-loading" class="hint">${t('ui.loading')}</p>`;
+    return html`<form data-testid="schedules-settings-form" class="form settings" @submit=${(e: Event) => this.saveSettings(e)}>
+      <ion-select data-testid="schedules-settings-week-start" fill="outline" label-placement="floating" label=${t('ui.fieldWeekStart')} .value=${this.settings.week_starts_on} @ionChange=${(e: any) => (this.settings = { ...this.settings, week_starts_on: Number(e.target.value) })}>
+        <ion-select-option .value=${1}>${t('ui.monday')}</ion-select-option>
+        <ion-select-option .value=${7}>${t('ui.sunday')}</ion-select-option>
+      </ion-select>
+      <ion-button data-testid="schedules-settings-submit" type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t('ui.saving') : t('ui.save')}</ion-button>
+    </form>`;
   }
 
   render() {
@@ -1169,7 +1233,7 @@ export class ErpSchedulesHours extends LitElement {
     const tableCannotSay = !dataTableShowsLoadError();
     const errors = [
       { source: 'page', text: this.pageError },
-      { source: 'hours', text: tableCannotSay && this.tab === 'hours' ? this.hoursLoadError : '' },
+      { source: 'hours', text: tableCannotSay && this.tab === 'hours' ? this.weekLoadError : '' },
       { source: 'special', text: tableCannotSay && this.tab === 'special_days' ? this.specialCtrl?.error : '' },
       { source: 'override', text: tableCannotSay && this.tab === 'special_days' ? this.overrideCtrl?.error : '' },
     ].filter((e) => Boolean(e.text));

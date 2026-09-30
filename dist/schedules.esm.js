@@ -4147,6 +4147,9 @@ var es_default = {
     loading: "Cargando\u2026",
     emptyHours: "Sin horario configurado.",
     hoursLoadFailed: "No se ha podido cargar el horario.",
+    settingsLoadFailed: "No se han podido cargar los ajustes.",
+    retry: "Reintentar",
+    retrying: "Reintentando\u2026",
     defaultWeekNotice: "Este es un horario por defecto que hemos puesto por ti. Comprueba que coincide con el de tu negocio: las reservas fuera de \xE9l se rechazan.",
     confirmWeek: "S\xED, este es mi horario",
     errorConfirmWeek: "No se pudo confirmar el horario",
@@ -4261,6 +4264,9 @@ var en_default = {
     loading: "Loading\u2026",
     emptyHours: "No schedule configured.",
     hoursLoadFailed: "The opening hours could not be loaded.",
+    settingsLoadFailed: "The settings could not be loaded.",
+    retry: "Retry",
+    retrying: "Retrying\u2026",
     defaultWeekNotice: "These are default opening hours we set up for you. Check they match your business \u2014 bookings outside them are refused.",
     confirmWeek: "Yes, these are my hours",
     errorConfirmWeek: "Could not confirm the opening hours",
@@ -4362,6 +4368,9 @@ var ErpSchedulesHours = class extends i3 {
     this.pageError = "";
     this.hoursLoadError = "";
     this.hoursLoaded = false;
+    this.settingsLoadError = "";
+    this.settingsLoaded = false;
+    this.settingsRetrying = false;
     this.hoursFormError = "";
     this.specialFormError = "";
     this.overrideFormError = "";
@@ -4634,8 +4643,20 @@ var ErpSchedulesHours = class extends i3 {
    *  that the week could not be loaded. */
   get hoursEmptyMessage() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
-    if (this.hoursLoadError) return t5("ui.hoursLoadFailed");
-    return this.hoursLoaded ? t5("ui.emptyHours") : t5("ui.loading");
+    if (this.weekLoadError) return t5("ui.hoursLoadFailed");
+    return this.weekReady ? t5("ui.emptyHours") : t5("ui.loading");
+  }
+  /** Why the week cannot be shown: its rows, or where it starts (schedules#62), could not be read.
+   *  Folded from Monday by default, a Sunday-first week reads in the wrong order. */
+  get weekLoadError() {
+    return this.hoursLoadError || this.settingsLoadError;
+  }
+  get weekReady() {
+    return this.hoursLoaded && this.settingsLoaded;
+  }
+  /** Retry of the hours table: reads the week and where it starts again, nothing else. */
+  retryWeek() {
+    return Promise.all([this.loadHours(), this.loadSettings()]);
   }
   addInterval() {
     this.bhIntervals = [...this.bhIntervals, { open_time: "", close_time: "" }];
@@ -4687,7 +4708,21 @@ var ErpSchedulesHours = class extends i3 {
         const stored = Number(row.week_starts_on);
         this.settings = { week_starts_on: stored === 7 ? 7 : 1 };
       }
-    } catch {
+      this.settingsLoaded = true;
+      this.settingsLoadError = "";
+    } catch (e5) {
+      this.settingsLoadError = e5 instanceof Error ? e5.message : String(e5);
+    }
+  }
+  /** Retry on the Settings notice (schedules#62): reads the settings again, nothing else. The
+   *  notice stays up while it reads, so its button does not vanish under the finger. */
+  async retrySettings() {
+    if (this.settingsRetrying) return;
+    this.settingsRetrying = true;
+    try {
+      await this.loadSettings();
+    } finally {
+      this.settingsRetrying = false;
     }
   }
   /** pm#513: a refusal appears ABOVE the button that was pressed, at the foot of a form that can be
@@ -4988,8 +5023,9 @@ var ErpSchedulesHours = class extends i3 {
     return b2`<div class="pane">
         <!-- The week we planted at install time says so out loud until somebody confirms it
              (schedules#36). It sits above the table because it is about the whole week, and only
-             here: the Hours tab is where a week gets confirmed. -->
-        ${this.weekIsUnconfirmed ? b2`<ok-inline-feedback data-testid="schedules-hours-default-week" data-role="default-week" tone="warning" icon="alert-circle-outline">
+             here: the Hours tab is where a week gets confirmed. Never over a week the table cannot
+             show (schedules#62): nobody can check a week they do not see. -->
+        ${this.weekReady && this.weekIsUnconfirmed ? b2`<ok-inline-feedback data-testid="schedules-hours-default-week" data-role="default-week" tone="warning" icon="alert-circle-outline">
               <!-- The sentence gets its OWN node: the notice now carries an action too, so the
                    whole banner's text is no longer just the message (schedules#43). -->
               <span data-role="default-week-message">${t5("ui.defaultWeekNotice")}</span>
@@ -5005,7 +5041,7 @@ var ErpSchedulesHours = class extends i3 {
              labels.newRecord for any non-filters panel, edit included (staff#68 fallback), so the
              same title also goes through .labels; the table merges .labels over its own defaults,
              so only newRecord changes. -->
-        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.hoursLoaded ? this.weekRows : []} .error=${this.hoursLoadError} @retry=${() => this.loadHours()} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e5) => this.onHoursAction(e5)} @rowClick=${(e5) => this.onHoursAction({ detail: { actionId: "edit", row: e5.detail.row } })} .emptyMessage=${this.hoursEmptyMessage}>
+        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekReady ? this.weekRows : []} .error=${this.weekLoadError} @retry=${() => this.retryWeek()} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e5) => this.onHoursAction(e5)} @rowClick=${(e5) => this.onHoursAction({ detail: { actionId: "edit", row: e5.detail.row } })} .emptyMessage=${this.hoursEmptyMessage}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
           <form data-testid="schedules-hours-form" slot="create" class="form" @submit=${(e5) => this.saveBusinessHours(e5)}>
@@ -5114,20 +5150,40 @@ var ErpSchedulesHours = class extends i3 {
           ${t5("ui.timezoneGoSettings")}
         </ion-button>
       </div>
-      <form data-testid="schedules-settings-form" class="form settings" @submit=${(e5) => this.saveSettings(e5)}>
-        <ion-select data-testid="schedules-settings-week-start" fill="outline" label-placement="floating" label=${t5("ui.fieldWeekStart")} .value=${this.settings.week_starts_on} @ionChange=${(e5) => this.settings = { ...this.settings, week_starts_on: Number(e5.target.value) }}>
-          <ion-select-option .value=${1}>${t5("ui.monday")}</ion-select-option>
-          <ion-select-option .value=${7}>${t5("ui.sunday")}</ion-select-option>
-        </ion-select>
-        <ion-button data-testid="schedules-settings-submit" type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t5("ui.saving") : t5("ui.save")}</ion-button>
-      </form>`;
+      ${this.renderSettingsForm()}`;
+  }
+  /** The week start can only be shown — and saved — once it has been read (schedules#62): a value
+   *  never read would be the default dressed as the business's choice, and Save would write it. */
+  renderSettingsForm() {
+    const t5 = (k2) => erplora().t(CATALOG, k2);
+    if (this.settingsLoadError) {
+      return b2`<ok-inline-feedback data-testid="schedules-settings-load-error" tone="danger" icon="alert-circle-outline" heading=${t5("ui.settingsLoadFailed")}
+        >${this.settingsLoadError}<ion-button
+          slot="actions"
+          data-testid="schedules-settings-retry"
+          size="small"
+          fill="outline"
+          ?disabled=${this.settingsRetrying}
+          @click=${() => this.retrySettings()}
+          >${this.settingsRetrying ? t5("ui.retrying") : t5("ui.retry")}</ion-button
+        ></ok-inline-feedback
+      >`;
+    }
+    if (!this.settingsLoaded) return b2`<p data-testid="schedules-settings-loading" class="hint">${t5("ui.loading")}</p>`;
+    return b2`<form data-testid="schedules-settings-form" class="form settings" @submit=${(e5) => this.saveSettings(e5)}>
+      <ion-select data-testid="schedules-settings-week-start" fill="outline" label-placement="floating" label=${t5("ui.fieldWeekStart")} .value=${this.settings.week_starts_on} @ionChange=${(e5) => this.settings = { ...this.settings, week_starts_on: Number(e5.target.value) }}>
+        <ion-select-option .value=${1}>${t5("ui.monday")}</ion-select-option>
+        <ion-select-option .value=${7}>${t5("ui.sunday")}</ion-select-option>
+      </ion-select>
+      <ion-button data-testid="schedules-settings-submit" type="submit" size="small" ?disabled=${this.saving}>${this.saving ? t5("ui.saving") : t5("ui.save")}</ion-button>
+    </form>`;
   }
   render() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
     const tableCannotSay = !dataTableShowsLoadError();
     const errors = [
       { source: "page", text: this.pageError },
-      { source: "hours", text: tableCannotSay && this.tab === "hours" ? this.hoursLoadError : "" },
+      { source: "hours", text: tableCannotSay && this.tab === "hours" ? this.weekLoadError : "" },
       { source: "special", text: tableCannotSay && this.tab === "special_days" ? this.specialCtrl?.error : "" },
       { source: "override", text: tableCannotSay && this.tab === "special_days" ? this.overrideCtrl?.error : "" }
     ].filter((e5) => Boolean(e5.text));
@@ -5170,6 +5226,15 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "hoursLoaded", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "settingsLoadError", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "settingsLoaded", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "settingsRetrying", 2);
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "hoursFormError", 2);
