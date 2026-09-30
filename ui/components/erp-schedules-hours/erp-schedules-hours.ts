@@ -238,9 +238,12 @@ export class ErpSchedulesHours extends LitElement {
     .form { display:flex; flex-direction:column; gap:.7rem; }
     .form ion-button { align-self:flex-end; }
     /* One interval per line: open · close · ✕ (44 px touch targets, one hand). */
-    .interval { display:flex; gap:.4rem; align-items:center; }
+    /* schedules#57: aligned at the top — an hour's error text grows its field downwards, and a
+       centred row would lift that box above its neighbour. The «✕» (44px) is centred on the 56px
+       outline box by its margin, not on box + error. */
+    .interval { display:flex; gap:.4rem; align-items:flex-start; }
     .interval ion-input { flex:1 1 6rem; min-width:5rem; }
-    .interval ion-button { align-self:center; min-width:44px; min-height:44px; }
+    .interval ion-button { align-self:flex-start; margin-top:6px; min-width:44px; min-height:44px; }
     /* pm#392: color= is a document-level rule Ionic cannot apply inside this shadow root; the
        tone is read from the theme token here instead. */
     ion-button.tone-medium[fill] { --color: var(--ion-color-medium, #636469); }

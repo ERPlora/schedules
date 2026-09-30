@@ -310,3 +310,16 @@ for (const locale of ['es', 'en'] as const) {
     });
   });
 }
+
+describe('schedules#57 — an hour error does not knock the interval row out of line', () => {
+  beforeEach(() => install('es'));
+
+  it('the two hour boxes of a line align at the top, so the error under one does not lift it above the other', async () => {
+    const el = await mount('/m/schedules/hours');
+    const css = (el.constructor as unknown as { elementStyles: { cssText: string }[] }).elementStyles
+      .map((s) => s.cssText).join('\n').replace(/\s+/g, ' ');
+    expect(css).toMatch(/\.interval \{[^}]*align-items: ?flex-start/);
+    // The «✕» keeps to the top too (centred on the box, not on box + error).
+    expect(css).toMatch(/\.interval ion-button \{[^}]*align-self: ?flex-start/);
+  });
+});
