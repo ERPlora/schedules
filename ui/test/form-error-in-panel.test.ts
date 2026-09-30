@@ -23,6 +23,7 @@
 // The Special days tab carries TWO forms (special day, override), each in its own table's panel:
 // the refusal of one must not show up in — nor be wiped by — the other.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { dataTableShowsLoadError } from '@erplora/module-sdk';
 
 class DomainError extends Error {
   code: string;
@@ -374,10 +375,20 @@ describe('pm#513 · what happens outside the panels stays on the page', () => {
     expect(onPage(el)).toBeNull();
   });
 
-  it('a week that fails to load is reported on the page', async () => {
+  it('a week that fails to load is reported by its table — or its own banner on an older shell — never in the form', async () => {
+    // schedules#60: the week's failure is the hours table's, with its Retry (pm#533); the page-wide
+    // banner followed the person to every tab. A shell whose table cannot paint the error keeps a
+    // banner of the week's own — still outside the panel.
     hoursLoadFails = true;
     const el = await mount('hours');
-    expect(onPage(el)?.textContent?.trim()).toBe('load failed');
+    const table = el.shadowRoot.querySelector('ok-data-table[testid="schedules-hours-table"]') as unknown as { error?: string };
+    if (dataTableShowsLoadError()) {
+      expect(table.error).toBe('load failed');
+      expect(onPage(el, 'schedules-error-hours')).toBeNull();
+    } else {
+      expect(onPage(el, 'schedules-error-hours')?.textContent?.trim()).toBe('load failed');
+    }
+    expect(onPage(el)).toBeNull();
     expect(inForm(el, SCREENS[0].form, SCREENS[0].formError)).toBeNull();
   });
 

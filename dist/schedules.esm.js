@@ -4146,6 +4146,7 @@ var es_default = {
     searchOverride: "Buscar cambio temporal\u2026",
     loading: "Cargando\u2026",
     emptyHours: "Sin horario configurado.",
+    hoursLoadFailed: "No se ha podido cargar el horario.",
     defaultWeekNotice: "Este es un horario por defecto que hemos puesto por ti. Comprueba que coincide con el de tu negocio: las reservas fuera de \xE9l se rechazan.",
     confirmWeek: "S\xED, este es mi horario",
     errorConfirmWeek: "No se pudo confirmar el horario",
@@ -4259,6 +4260,7 @@ var en_default = {
     searchOverride: "Search override\u2026",
     loading: "Loading\u2026",
     emptyHours: "No schedule configured.",
+    hoursLoadFailed: "The opening hours could not be loaded.",
     defaultWeekNotice: "These are default opening hours we set up for you. Check they match your business \u2014 bookings outside them are refused.",
     confirmWeek: "Yes, these are my hours",
     errorConfirmWeek: "Could not confirm the opening hours",
@@ -4358,6 +4360,8 @@ var ErpSchedulesHours = class extends i3 {
     this.pendingDelete = null;
     this.settings = { week_starts_on: 1 };
     this.pageError = "";
+    this.hoursLoadError = "";
+    this.hoursLoaded = false;
     this.hoursFormError = "";
     this.specialFormError = "";
     this.overrideFormError = "";
@@ -4619,9 +4623,19 @@ var ErpSchedulesHours = class extends i3 {
     try {
       const rows = await erplora().queryAll("schedules.business_hours.list", { sort: "day_of_week", dir: "asc" });
       this.hoursRows = Array.isArray(rows) ? rows : [];
+      this.hoursLoaded = true;
+      this.hoursLoadError = "";
     } catch (e5) {
-      this.pageError = e5 instanceof Error ? e5.message : String(e5);
+      this.hoursLoadError = e5 instanceof Error ? e5.message : String(e5);
     }
+  }
+  /** What the hours table paints (schedules#60): the seven days once the week has been read,
+   *  nothing before — the table then says «Loading…» or, on a shell that cannot paint the error,
+   *  that the week could not be loaded. */
+  get hoursEmptyMessage() {
+    const t5 = (k2) => erplora().t(CATALOG, k2);
+    if (this.hoursLoadError) return t5("ui.hoursLoadFailed");
+    return this.hoursLoaded ? t5("ui.emptyHours") : t5("ui.loading");
   }
   addInterval() {
     this.bhIntervals = [...this.bhIntervals, { open_time: "", close_time: "" }];
@@ -4991,7 +5005,7 @@ var ErpSchedulesHours = class extends i3 {
              labels.newRecord for any non-filters panel, edit included (staff#68 fallback), so the
              same title also goes through .labels; the table merges .labels over its own defaults,
              so only newRecord changes. -->
-        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e5) => this.onHoursAction(e5)} @rowClick=${(e5) => this.onHoursAction({ detail: { actionId: "edit", row: e5.detail.row } })} .emptyMessage=${t5("ui.emptyHours")}>
+        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.hoursLoaded ? this.weekRows : []} .error=${this.hoursLoadError} @retry=${() => this.loadHours()} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e5) => this.onHoursAction(e5)} @rowClick=${(e5) => this.onHoursAction({ detail: { actionId: "edit", row: e5.detail.row } })} .emptyMessage=${this.hoursEmptyMessage}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
           <form data-testid="schedules-hours-form" slot="create" class="form" @submit=${(e5) => this.saveBusinessHours(e5)}>
@@ -5110,10 +5124,12 @@ var ErpSchedulesHours = class extends i3 {
   }
   render() {
     const t5 = (k2) => erplora().t(CATALOG, k2);
+    const tableCannotSay = !dataTableShowsLoadError();
     const errors = [
       { source: "page", text: this.pageError },
-      { source: "special", text: dataTableShowsLoadError() ? "" : this.specialCtrl?.error },
-      { source: "override", text: dataTableShowsLoadError() ? "" : this.overrideCtrl?.error }
+      { source: "hours", text: tableCannotSay && this.tab === "hours" ? this.hoursLoadError : "" },
+      { source: "special", text: tableCannotSay && this.tab === "special_days" ? this.specialCtrl?.error : "" },
+      { source: "override", text: tableCannotSay && this.tab === "special_days" ? this.overrideCtrl?.error : "" }
     ].filter((e5) => Boolean(e5.text));
     return b2`<div class="page">
         ${errors.map(
@@ -5148,6 +5164,12 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "pageError", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "hoursLoadError", 2);
+__decorateClass([
+  r5()
+], ErpSchedulesHours.prototype, "hoursLoaded", 2);
 __decorateClass([
   r5()
 ], ErpSchedulesHours.prototype, "hoursFormError", 2);
