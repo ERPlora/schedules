@@ -117,8 +117,9 @@ async function editDay(el: Wc, index: number) {
 const DATE_FIELDS = ['schedules-special-date', 'schedules-override-from', 'schedules-override-to'];
 
 const EXPECTED = {
-  es: { typed: '03/04/2026', loose: '3/4/2026' },
-  en: { typed: '03/04/2026', loose: '3/4/2026' },
+  // `hubOrderOnly` is a real date ONLY in the hub's day/month order: read the other way it is not one.
+  es: { typed: '03/04/2026', loose: '3/4/2026', hubOrderOnly: '25/12/2026' },
+  en: { typed: '03/04/2026', loose: '3/4/2026', hubOrderOnly: '12/25/2026' },
 } as const;
 
 describe('schedules#57 — the field errors are in both catalogs', () => {
@@ -199,6 +200,31 @@ for (const locale of ['es', 'en'] as const) {
       }
     });
 
+    it('a date that is only real in the hub order is not an error', async () => {
+      const el = await mount('/m/schedules/special_days');
+      for (const testid of DATE_FIELDS) {
+        await type(el, testid, want.hubOrderOnly);
+        await leave(el, testid);
+        expect(shown(el, testid), testid).toBe(want.hubOrderOnly);
+        expect(errorOf(el, testid), `${testid}: read in the hub order, it is a date`).toBeNull();
+      }
+      expect(el.sdDate).toBe('2026-12-25');
+      expect(el.ovStart).toBe('2026-12-25');
+      expect(el.ovEnd).toBe('2026-12-25');
+    });
+
+    it('two wrong dates at once each keep their own error', async () => {
+      const el = await mount('/m/schedules/special_days');
+      for (const testid of DATE_FIELDS) {
+        await type(el, testid, '31/02/2026');
+        await leave(el, testid);
+      }
+      for (const testid of DATE_FIELDS) {
+        expect(shown(el, testid), testid).toBe('31/02/2026');
+        expect(errorOf(el, testid), `${testid}: leaving the next field must not silence this one`).toBe(dateError);
+      }
+    });
+
     it('leaving a date field empty is not an error (the Add button already says it is missing)', async () => {
       const el = await mount('/m/schedules/special_days');
       for (const testid of DATE_FIELDS) {
@@ -236,6 +262,20 @@ for (const locale of ['es', 'en'] as const) {
       expect(shown(el, testid)).toBe('25:00');
       expect(errorOf(el, testid)).toBe(timeError);
       expect(el.bhIntervals[0].close_time).toBe('');
+    });
+
+    it('two wrong hours of the same line each keep their own error', async () => {
+      const el = await mount('/m/schedules/hours');
+      await editDay(el, 0);
+      const both = ['schedules-interval-open-hours-0', 'schedules-interval-close-hours-0'];
+      for (const testid of both) {
+        await type(el, testid, '25:00');
+        await leave(el, testid);
+      }
+      for (const testid of both) {
+        expect(shown(el, testid), testid).toBe('25:00');
+        expect(errorOf(el, testid), `${testid}: leaving the other hour must not silence this one`).toBe(timeError);
+      }
     });
 
     it('fixing the hour clears the error', async () => {
@@ -321,5 +361,10 @@ describe('schedules#57 — an hour error does not knock the interval row out of 
     expect(css).toMatch(/\.interval \{[^}]*align-items: ?flex-start/);
     // The «✕» keeps to the top too (centred on the box, not on box + error).
     expect(css).toMatch(/\.interval ion-button \{[^}]*align-self: ?flex-start/);
+    // Every rule counts, not just the first block: a later one (a media query) must not re-centre them.
+    const rows = [...css.matchAll(/\.interval \{([^}]*)\}/g)].map((m) => m[1]).filter((b) => /align-items/.test(b));
+    expect(rows.every((b) => /align-items: ?flex-start/.test(b)), rows.join(' | ')).toBe(true);
+    const crosses = [...css.matchAll(/\.interval ion-button \{([^}]*)\}/g)].map((m) => m[1]).filter((b) => /align-self/.test(b));
+    expect(crosses.every((b) => /align-self: ?flex-start/.test(b)), crosses.join(' | ')).toBe(true);
   });
 });
