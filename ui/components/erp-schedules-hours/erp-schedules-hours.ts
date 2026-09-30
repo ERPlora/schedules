@@ -258,8 +258,17 @@ export class ErpSchedulesHours extends LitElement {
   @state() settings: { week_starts_on: number } = { week_starts_on: 1 };
 
   /** What went wrong OUTSIDE a panel's save — confirming the week, deleting an exception, saving
-   *  the Settings tab, loading the week: no panel is open then, so it is painted on the page. */
+   *  the Settings tab: no panel is open then, so it is painted on the page. */
   @state() pageError = '';
+
+  /** schedules#60 — why the week could not be read. It belongs to the hours table (which paints
+   *  it with its Retry, pm#533), not to the page: painted as a page banner it followed the person
+   *  to every tab and outlived the Retry of the other lists. */
+  @state() hoursLoadError = '';
+
+  /** schedules#60 — the week has been read at least once. Until then there is no week to fold:
+   *  folding nothing paints seven «Not set» days, the very screen of a business with no hours. */
+  @state() private hoursLoaded = false;
 
   /** pm#513 — what each panel's form was refused, painted INSIDE that form: on a phone (and a
    *  tablet) the panel is a full-screen sheet, and a banner on the page underneath it is never
@@ -558,9 +567,20 @@ export class ErpSchedulesHours extends LitElement {
     try {
       const rows = await erplora().queryAll<BusinessHours>('schedules.business_hours.list', { sort: 'day_of_week', dir: 'asc' });
       this.hoursRows = Array.isArray(rows) ? rows : [];
+      this.hoursLoaded = true;
+      this.hoursLoadError = '';
     } catch (e) {
-      this.pageError = e instanceof Error ? e.message : String(e);
+      this.hoursLoadError = e instanceof Error ? e.message : String(e);
     }
+  }
+
+  /** What the hours table paints (schedules#60): the seven days once the week has been read,
+   *  nothing before — the table then says «Loading…» or, on a shell that cannot paint the error,
+   *  that the week could not be loaded. */
+  private get hoursEmptyMessage(): string {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    if (this.hoursLoadError) return t('ui.hoursLoadFailed');
+    return this.hoursLoaded ? t('ui.emptyHours') : t('ui.loading');
   }
 
   addInterval() {
@@ -999,7 +1019,7 @@ export class ErpSchedulesHours extends LitElement {
              labels.newRecord for any non-filters panel, edit included (staff#68 fallback), so the
              same title also goes through .labels; the table merges .labels over its own defaults,
              so only newRecord changes. -->
-        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.weekRows} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${t('ui.emptyHours')}>
+        <ok-data-table id="tbl-hours" testid="schedules-hours-table" .fill=${true} .views=${true} .defaultView=${this.defaultView} .pageSizeOptions=${[]} .cardTitle=${(row: Record<string, unknown>) => this.dayLabel(Number(row.day_of_week))} .columns=${this.hoursColumns} .rows=${this.hoursLoaded ? this.weekRows : []} .error=${this.hoursLoadError} @retry=${() => this.loadHours()} .pageSize=${7} .actions=${this.hoursActions} .labels=${{ newRecord: this.editDayTitle(this.bhDay) }} .rowClickable=${true} @rowAction=${(e: CustomEvent) => this.onHoursAction(e)} @rowClick=${(e: CustomEvent<{ row: Record<string, unknown> }>) => this.onHoursAction({ detail: { actionId: 'edit', row: e.detail.row } } as CustomEvent<{ actionId: string; row: Record<string, unknown> }>)} .emptyMessage=${this.hoursEmptyMessage}>
           <!-- The day editor lives in the table's panel. Projected ALWAYS: painted only when open,
                the «edit» action would find an empty panel. -->
           <form data-testid="schedules-hours-form" slot="create" class="form" @submit=${(e: Event) => this.saveBusinessHours(e)}>
@@ -1144,11 +1164,14 @@ export class ErpSchedulesHours extends LitElement {
     // Each banner keeps the name of WHERE its error came from (schedules#46): the three can be up
     // at once, and a spec that saved a bad weekday waits for THAT one, not for «the first banner».
     // A list that could not load says so in its own table, with Retry (pm#533); its banner stays
-    // only on a shell whose table cannot paint the error, where it is the one place with the reason.
+    // only on a shell whose table cannot paint the error, where it is the one place with the reason
+    // — and only on the tab that holds that list (schedules#60).
+    const tableCannotSay = !dataTableShowsLoadError();
     const errors = [
       { source: 'page', text: this.pageError },
-      { source: 'special', text: dataTableShowsLoadError() ? '' : this.specialCtrl?.error },
-      { source: 'override', text: dataTableShowsLoadError() ? '' : this.overrideCtrl?.error },
+      { source: 'hours', text: tableCannotSay && this.tab === 'hours' ? this.hoursLoadError : '' },
+      { source: 'special', text: tableCannotSay && this.tab === 'special_days' ? this.specialCtrl?.error : '' },
+      { source: 'override', text: tableCannotSay && this.tab === 'special_days' ? this.overrideCtrl?.error : '' },
     ].filter((e) => Boolean(e.text));
     return html`<div class="page">
         ${errors.map(

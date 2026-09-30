@@ -68,6 +68,7 @@
     "searchOverride": "Buscar cambio temporal…",
     "loading": "Cargando…",
     "emptyHours": "Sin horario configurado.",
+    "hoursLoadFailed": "No se ha podido cargar el horario.",
     "defaultWeekNotice": "Este es un horario por defecto que hemos puesto por ti. Comprueba que coincide con el de tu negocio: las reservas fuera de él se rechazan.",
     "confirmWeek": "Sí, este es mi horario",
     "errorConfirmWeek": "No se pudo confirmar el horario",
