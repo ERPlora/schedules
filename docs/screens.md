@@ -56,6 +56,10 @@ interval alone.
 
 ### Create a special day
 
+Open the form with **+ New special day** in that list's toolbar. Each of the two lists names its
+own toolbar buttons ("View special days as list", "Filter overrides"…), so a screen reader tells
+them apart.
+
 1. Give it a **date** and a **name** — both required. Dates are shown and typed in the order of
    the hub's language, whatever the browser's: day first in Spanish (`24/12/2026`), month first in
    English (`12/24/2026`). Digits only (`24122026`, handy on a phone keypad) and an ISO date
@@ -89,6 +93,8 @@ A temporary change of hours over a **date range** — summer hours, a refurbishm
 - **Filter** by start date range, end date range, reason, times or closed flag.
 
 ### Create an override
+
+Open the form with **+ New override** in that list's toolbar.
 
 1. Set the **start date** and the **end date** — typed as on special days, in the order of the
    hub's language. The end cannot be before the start.
