@@ -89,6 +89,37 @@ describe('each list on Special days names its own toolbar buttons (schedules#58)
         expect.arrayContaining([ui.viewOverridesAsList, ui.viewOverridesAsCards, ui.filterOverrides, ui.newOverride, ui.overridesColumns, ui.overridesRowsPerPage]),
       );
     });
+
+    // Having the right names is not enough: «View as cards» on the list button is still wrong. Each
+    // name is checked on the control that does what it says (the view buttons by pressing them).
+    it.each([
+      ['tbl-special', ['viewSpecialDaysAsList', 'viewSpecialDaysAsCards', 'filterSpecialDays', 'newSpecialDay', 'specialDaysColumns', 'specialDaysRowsPerPage']],
+      ['tbl-override', ['viewOverridesAsList', 'viewOverridesAsCards', 'filterOverrides', 'newOverride', 'overridesColumns', 'overridesRowsPerPage']],
+    ] as const)('%s puts each name on the control that does it', async (id, [list, cards, filters, add, columns, rows]) => {
+      const el = await mountSpecialDays();
+      const ui = (CATALOGS[lang] as { ui: Record<string, string> }).ui;
+      const table = el.shadowRoot.querySelector(`#${id}`) as Table;
+      const root = table.shadowRoot;
+      const named = (name: string) => root.querySelector(`ion-button.toolbtn[aria-label="${name}"]`) as HTMLElement | null;
+
+      expect(root.querySelector('ion-select.tk-cols')?.getAttribute('aria-label')).toBe(ui[columns]);
+      expect(root.querySelector('ion-select.tk-psize')?.getAttribute('aria-label')).toBe(ui[rows]);
+      expect(root.querySelector('ion-button.add-btn')?.textContent?.trim()).toBe(ui[add]);
+      // The filters button is the one toolbar button that is not a view toggle.
+      expect([...root.querySelectorAll('ion-button.toolbtn:not([aria-pressed])')].map((n) => n.getAttribute('aria-label'))).toEqual([ui[filters]]);
+
+      // Pressing a view button marks that same button, whatever it is called: what tells them apart
+      // is the view the table switches to.
+      const views: string[] = [];
+      table.addEventListener('viewChange', (e) => views.push(String((e as CustomEvent).detail)));
+      for (const [pick, other] of [[cards, list], [list, cards]] as const) {
+        named(ui[pick])!.click();
+        await table.updateComplete;
+        expect(named(ui[pick])?.getAttribute('aria-pressed'), `${ui[pick]} pressed`).toBe('true');
+        expect(named(ui[other])?.getAttribute('aria-pressed'), `${ui[other]} not pressed`).toBe('false');
+      }
+      expect(views.slice(-2)).toEqual(['cards', 'table']);
+    });
   });
 
   it('every new name exists in en and in es, translated', () => {
