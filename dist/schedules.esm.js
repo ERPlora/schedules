@@ -1771,7 +1771,8 @@ var DEFAULT_LABELS = {
   noMatches: "No results match your search or filters",
   showAll: "Show all",
   loadError: "Couldn't load the data",
-  retry: "Retry"
+  retry: "Retry",
+  loading: "Loading\u2026"
 };
 var ES_LABELS = {
   search: "Buscar\u2026",
@@ -1814,7 +1815,8 @@ var ES_LABELS = {
   noMatches: "Ning\xFAn resultado coincide con la b\xFAsqueda o los filtros",
   showAll: "Mostrar todo",
   loadError: "No se han podido cargar los datos",
-  retry: "Reintentar"
+  retry: "Reintentar",
+  loading: "Cargando\u2026"
 };
 var NUMERIC_TEXT = /^-?\d+(\.\d+)?$/;
 var ISO_DATE_OR_TIME = /^(\d{4}-\d{2}-\d{2}|\d{2}:\d{2})/;
@@ -1826,6 +1828,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     this.searchKeys = [];
     this.rowKeyField = "id";
     this.pageSize = 10;
+    this.loading = false;
     this.labels = {};
     this.actions = [];
     this.addable = false;
@@ -1965,7 +1968,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     @media (min-width: 834px) {
       .card.has-panel { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto minmax(0, 1fr) auto; }
       .card.has-panel > .bar { grid-column: 1; grid-row: 1; }
-      .card.has-panel > .scroll, .card.has-panel > .cards-grid, .card.has-panel > .empty, .card.has-panel > .load-error { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; }
+      .card.has-panel > .scroll, .card.has-panel > .cards-grid, .card.has-panel > .empty, .card.has-panel > .load-error, .card.has-panel > .loading-state { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; }
       .card.has-panel > .pager { grid-column: 1; grid-row: 3; }
       .card.has-panel > .drawer { position: static; grid-column: 2; grid-row: 1 / -1; width: auto; max-width: none; height: auto; min-height: 0; animation: none; }
       .card.has-panel > .tk-scrim { display: none; }
@@ -2000,7 +2003,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     /* Sin filas, renderTable/renderCards devuelven SOLO el bloque .empty (sin .scroll). En modo
        fill hay que estirarlo para que ocupe el hueco entre toolbar y pager y centre su contenido
        (icono + mensaje) en vertical; si no, queda pegado arriba con el pager a media altura. */
-    :host([fill]) .empty, :host([fill]) .load-error { flex: 1 1 auto; min-height: 0; }
+    :host([fill]) .empty, :host([fill]) .load-error, :host([fill]) .loading-state { flex: 1 1 auto; min-height: 0; }
     /* #218 — On a phone (MOBILE_BREAKPOINT, where the table turns into cards and «Load more») the
        module paints other blocks above the table, and rows boxed in between toolbar and footer got
        what was left: a 315px card in a 32-155px window, never readable whole. Phone lists scroll
@@ -2225,6 +2228,9 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 3.5rem 1rem; text-align: center; color: var(--color-muted); }
     /* pm#530 — Error state: same frame as the empty state, but its heading reads as text, not muted. */
     .load-error { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 3.5rem 1rem; text-align: center; color: var(--color-muted); }
+    /* #268 — Loading state: same frame as the empty state, a spinner instead of the tray. */
+    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 3.5rem 1rem; text-align: center; color: var(--color-muted); }
+    .loading-state ion-spinner { width: 28px; height: 28px; color: var(--ok-primary, var(--ion-color-primary, #3880ff)); }
     .load-error .load-error-title { color: var(--color); font-weight: 600; }
     .load-error .empty-ic { color: var(--ok-danger, var(--ion-color-danger, #c5000f)); }
     .load-error ion-button { margin-top: 0.25rem; }
@@ -2562,7 +2568,12 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
   /** pm#530 — The last load failed: rows, «empty» and counts would all be claims about data the
    *  table does not have. */
   get loadFailed() {
-    return !!this.error?.trim();
+    return !!this.error?.trim() && !this.awaitingRows;
+  }
+  /** #268 — A load is in flight and there is nothing current to show: no rows yet, or only the
+   *  failure being retried. Neither «empty» nor a count would be true yet. */
+  get awaitingRows() {
+    return this.loading && (this.rows.length === 0 || !!this.error?.trim());
   }
   /** #171 — Effective "no matches" message (explicit prop → i18n label → English default). */
   get effNoMatchesMessage() {
@@ -3496,11 +3507,11 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
     const selCount = this.selection.size;
     const showTopbar = !!this.title || this.hasSearch || this.viewToggle || this.effColumnPicker || this.effExport || this.effImport || this.hasFilterRow || this.addable || !!this.primaryAction;
     return b2`
-      <div class=${`card${this.panel !== "none" ? " has-panel" : ""}`}>
+      <div class=${`card${this.panel !== "none" ? " has-panel" : ""}`} aria-busy=${this.loading ? "true" : A}>
         ${showTopbar ? b2`
               <div class="bar">
                 <div class="bar-main">
-                  ${this.title ? b2`<div class="title-wrap"><h2 class="title">${this.title}</h2>${this.loadFailed ? A : b2`<span class="title-count">${count}</span>`}</div>` : A}
+                  ${this.title ? b2`<div class="title-wrap"><h2 class="title">${this.title}</h2>${this.loadFailed || this.awaitingRows ? A : b2`<span class="title-count">${count}</span>`}</div>` : A}
                   ${this.hasSearch ? b2`<div class="search">${searchbar}</div>` : A}
                   ${this.inlineFilters ? this.renderInlineFilters() : A}
                   <span class="tk-spacer"></span>
@@ -3578,14 +3589,18 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
               </div>
             ` : A}
 
-        ${this.loadFailed ? this.errorState() : this.viewMode === "cards" && this.cardViewEnabled ? this.renderCards(visible) : this.renderTable(visible)}
+        ${this.awaitingRows ? this.loadingState() : this.loadFailed ? this.errorState() : this.viewMode === "cards" && this.cardViewEnabled ? this.renderCards(visible) : this.renderTable(visible)}
 
-        ${!this.loadFailed && (pages > 1 || this.effPageSizes.length) ? b2`
+        ${!this.loadFailed && (this.awaitingRows ? (
+      // #268 — Nothing to count or page through yet: the footer only stays to hold its
+      // page-size selector (no toolbar), never as an empty strip.
+      !showTopbar && this.effPageSizes.length
+    ) : pages > 1 || this.effPageSizes.length) ? b2`
               <div class="pager">
                 <div class="left">
                   <span>
-                    ${pages > 1 ? b2`${this.t.showing.replace("{from}", String(rangeFrom)).replace("{to}", String(rangeTo))} ` : A}
-                    <span class="strong">${count}</span> ${count === 1 ? this.t.recordSingular : this.t.recordPlural}
+                    ${pages > 1 && !this.awaitingRows ? b2`${this.t.showing.replace("{from}", String(rangeFrom)).replace("{to}", String(rangeTo))} ` : A}
+                    ${this.awaitingRows ? A : b2`<span class="strong">${count}</span> ${count === 1 ? this.t.recordSingular : this.t.recordPlural}`}
                   </span>
                   ${!showTopbar && this.effPageSizes.length ? b2`
                         <select class="psize" @change=${(e6) => setPageSize(Number(e6.target.value))}>
@@ -3593,7 +3608,7 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
                         </select>
                       ` : A}
                 </div>
-                ${this.isMobile ? canLoadMore ? b2`<ion-button class="load-more" data-testid=${this.tid("load-more")} size="small" @click=${loadMore}>${this.t.loadMore}</ion-button>` : A : pages > 1 ? b2`
+                ${this.isMobile ? canLoadMore && !this.awaitingRows ? b2`<ion-button class="load-more" data-testid=${this.tid("load-more")} size="small" @click=${loadMore}>${this.t.loadMore}</ion-button>` : A : pages > 1 && !this.awaitingRows ? b2`
                       <div class="nav">
                         <ion-button size="small" fill="clear" data-testid=${this.tid("page-prev")} ?disabled=${current === 0} @click=${() => goTo(current - 1)}><ion-icon slot="icon-only" .icon=${iconChevronBack}></ion-icon></ion-button>
                         ${this.pageList(current + 1, pages).map(
@@ -3687,6 +3702,16 @@ var _OkDataTable = class _OkDataTable2 extends i3 {
         <span class="empty-ic"><ion-icon .icon=${iconFileTrayOutline}></ion-icon></span>
         <span>${noMatches ? this.effNoMatchesMessage : this.effEmptyMessage}</span>
         ${noMatches ? b2`<ion-button fill="clear" size="small" data-role="no-matches-reset" data-testid=${this.tid("show-all")} @click=${() => this.resetSearchAndFilters()}>${this.t.showAll}</ion-button>` : A}
+      </div>
+    `;
+  }
+  /** #268 — The first rows are on their way. Not the empty state: «0 records» before the hub has
+   *  answered told people they had nothing. */
+  loadingState() {
+    return b2`
+      <div class="loading-state" role="status" data-role="loading" data-testid=${this.tid("loading")}>
+        <ion-spinner name="crescent" aria-hidden="true"></ion-spinner>
+        <span>${this.t.loading}</span>
       </div>
     `;
   }
@@ -3848,6 +3873,9 @@ __decorateClass2([
 __decorateClass2([
   n4({ type: String })
 ], _OkDataTable.prototype, "error");
+__decorateClass2([
+  n4({ type: Boolean })
+], _OkDataTable.prototype, "loading");
 __decorateClass2([
   n4({ attribute: "search-placeholder" })
 ], _OkDataTable.prototype, "searchPlaceholder");
@@ -4338,7 +4366,7 @@ var ListController = class {
       this.rows = [];
       this.total = 0;
       const reason = e6 instanceof Error ? e6.message.trim() : "";
-      this.error = reason || listLoadFailedMessage(activeLocale());
+      this.error = tableReadReason(e6, activeLocale()) || reason || listLoadFailedMessage(activeLocale());
     } finally {
       if (mySeq === this.seq) {
         this.loading = false;
@@ -4487,6 +4515,13 @@ var ErploraError = class extends Error {
     this.name = "ErploraError";
   }
 };
+var SERVER_UNAVAILABLE = "server_unavailable";
+var READ_UNREACHABLE_UNDER_HEADING_EN = "The hub is not responding. Check the connection and try again.";
+var READ_UNREACHABLE_UNDER_HEADING_ES = "El hub no responde. Comprueba la conexi\xF3n e int\xE9ntalo de nuevo.";
+function tableReadReason(e6, locale) {
+  if (e6?.code !== SERVER_UNAVAILABLE || !dataTableShowsLoadError()) return "";
+  return locale.toLowerCase().startsWith("en") ? READ_UNREACHABLE_UNDER_HEADING_EN : READ_UNREACHABLE_UNDER_HEADING_ES;
+}
 function activeLocale() {
   try {
     return localStorage.getItem("erplora.locale") || "es";
