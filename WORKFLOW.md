@@ -52,9 +52,11 @@ casilla **Cerrado**, casilla **Abierto 24 horas**, una línea por tramo (hora de
 Mientras la semana siga siendo la que puso el instalador, encima de la tabla sale un aviso amarillo
 «Este es un horario por defecto que hemos puesto por ti. Comprueba que coincide con el de tu
 negocio: las reservas fuera de él se rechazan.» con el botón **Sí, este es mi horario**. En móvil y
-tableta (hasta 834 px) las filas se pintan como tarjetas. Cargando: «Cargando…» · Error: «No se ha
-podido cargar el horario.» con **Reintentar**; el mismo error sale si fallan los ajustes, porque
-sin ellos no se sabe por qué día empezar. La frase «Sin horario configurado.» está en el catálogo,
+tableta (hasta 834 px) las filas se pintan como tarjetas. Cargando: «Cargando…» · Error: la tabla
+dice «No se han podido cargar los datos», con la causa debajo y **Reintentar** (vuelve a leer la
+semana y los ajustes); el mismo error sale si fallan los ajustes, porque sin ellos no se sabe por qué
+día empezar. En un hub con una OutfitKit anterior a la 0.1.113 sale en su lugar «No se ha podido
+cargar el horario.» y la causa arriba de la página. La frase «Sin horario configurado.» está en el catálogo,
 pero la pantalla nunca la enseña: con la semana leída siempre hay siete filas.
 
 ### Días especiales
@@ -72,9 +74,10 @@ Pestaña **Días especiales**. Dos tablas una debajo de otra, cada una con su t�
   Por fila, **Eliminar**.
 - Eliminar pide confirmar: título «Eliminar», «Se eliminará «{nombre}». No se puede deshacer.» con
   **Cancelar** y **Eliminar**.
-- Vacías: «Sin días especiales.» / «Sin cambios temporales.» · Cargando: «Cargando…» · Error: el
-  motivo de la lista, o «No se ha podido cargar el horario de los días especiales.» si fallan los
-  tramos, con **Reintentar**. Las listas no se enseñan hasta tener también los tramos, para que un
+- Vacías: «Sin días especiales.» / «Sin cambios temporales.» · Cargando: «Cargando…» · Error: la
+  tabla dice «No se han podido cargar los datos» con la causa y **Reintentar** (también si fallan los
+  tramos); en un hub con una OutfitKit anterior a la 0.1.113 sale en su lugar el motivo de la lista, o
+  «No se ha podido cargar el horario de los días especiales.» si fallan los tramos. Las listas no se enseñan hasta tener también los tramos, para que un
   día partido nunca se vea con solo su primer tramo.
 - Un rechazo al guardar sale **dentro del formulario**, encima del botón, no en la página.
 
@@ -102,7 +105,7 @@ Pasos:
 3. Si la semana empieza en domingo (SCHEDULES-F08), la tabla abre por el domingo; solo cambia el orden.
 Entra: las filas semanales del negocio y el ajuste «Semana empieza».
 Sale: nada; solo lectura.
-Si falla: «No se ha podido cargar el horario.» con **Reintentar**; hasta que se lea todo no se pinta ni una fila, para no enseñar siete «Sin definir» que parecerían un negocio sin horario.
+Si falla: la tabla dice «No se han podido cargar los datos» con la causa y **Reintentar** (en una OutfitKit anterior a la 0.1.113, «No se ha podido cargar el horario.»); hasta que se lea todo no se pinta ni una fila, para no enseñar siete «Sin definir» que parecerían un negocio sin horario.
 Implicados: ninguno
 QA: ninguno
 
@@ -117,7 +120,7 @@ Pasos:
 4. El panel se cierra y la fila enseña el resumen nuevo. Guardar **sustituye** los tramos anteriores de ese día: no se acumulan.
 Entra: el día y sus tramos, de quien edita. Un tramo con apertura y cierre iguales (salvo 00:00–00:00) no vale. Hasta 12 tramos por día. El orden da igual: se guardan ordenados.
 Sale: los tramos del día guardados con el usuario que los firmó, y el aviso de horario cambiado (`schedules.business_hours.updated`), que hoy no escucha ningún módulo. Citas lo lee en la reserva siguiente (SCHEDULES-F11).
-Si falla: el motivo sale dentro del panel («Indica la hora de apertura y de cierre, o márcalo como cerrado» si una línea está a medias; «Hora no válida» bajo el campo ilegible; «Dos tramos se solapan…» si se pisan, también a través de la medianoche) y lo escrito se conserva. Sin permiso, el empleado no escribe: el hub le pide el PIN de un responsable.
+Si falla: el motivo sale dentro del panel («Indica la hora de apertura y cierre, o márcalo como cerrado» si una línea está a medias; «Hora no válida» bajo el campo ilegible; «Dos tramos se solapan…» si se pisan, también a través de la medianoche) y lo escrito se conserva. Sin permiso, el empleado no escribe: el hub le pide el PIN de un responsable.
 Implicados: pendiente
 Pendiente de enlazar: appointments — APPOINTMENTS-F01 y APPOINTMENTS-F02 usan estos tramos para rechazar y ofrecer horas
 QA: BD-06
@@ -138,7 +141,7 @@ Pendiente de enlazar: hub — la lista de puesta en marcha que pinta el paso «C
 QA: BD-01
 
 ### SCHEDULES-F04 Añadir un día especial
-Estado: parcial — un día ya creado no se puede corregir (hay que borrarlo y crearlo otra vez) y, una vez borrado, la misma fecha no se puede volver a usar
+Estado: parcial — un día ya creado no se puede corregir (hay que borrarlo y crearlo otra vez) y, una vez borrado, la misma fecha no se puede volver a usar (y el lote de SCHEDULES-F07 la da por creada sin crearla)
 Actor: responsable, administrador
 Pantalla: Días especiales
 Pasos:
@@ -149,7 +152,7 @@ Pasos:
 5. Pulsa **Añadir día**: el panel se cierra y el día aparece en la lista.
 Entra: fecha, nombre, cerrado o tramos, anual y notas, de quien crea. Una fecha ha de existir en el calendario (el 31 de febrero no vale). Solo hay un día especial vivo por fecha.
 Sale: el día especial con sus tramos y el aviso de día especial creado (`schedules.special_day.created`), que hoy no escucha ningún módulo. Gana a todo lo demás ese día (SCHEDULES-F10, SCHEDULES-F11). Un día anual vale **todos los años**, también los anteriores a su fecha, y el del 29 de febrero solo existe los años bisiestos.
-Si falla: «Ya existe un día especial en esa fecha.» (la lectura del servidor lo dice antes de escribir); «Un día abierto necesita al menos un tramo horario.»; «Dos tramos se solapan…». Si el nombre son solo espacios, el botón no hace nada y no dice por qué. Borrar un día especial y volver a crear otro en **esa misma fecha** falla en la base de datos, porque el índice único de la fecha cuenta también los días borrados: lo que ve la persona, sin confirmar.
+Si falla: «Ya existe un día especial en esa fecha.» (la lectura del servidor lo dice antes de escribir); «Un día abierto necesita al menos un tramo horario.»; «Dos tramos se solapan…». Si el nombre son solo espacios, el botón no hace nada y no dice por qué. Borrar un día especial y volver a crear otro en **esa misma fecha** falla en la base de datos, porque el índice único de la fecha cuenta también los días borrados. No sale «Ya existe un día especial en esa fecha.»: la orden no traduce el error de clave duplicada, así que el panel enseña el mensaje genérico del hub o «No se pudo crear el día especial».
 Implicados: pendiente
 Pendiente de enlazar: appointments — APPOINTMENTS-F01 y APPOINTMENTS-F02 cierran o abren la agenda ese día
 QA: BD-06
@@ -171,7 +174,7 @@ Pendiente de enlazar: appointments — APPOINTMENTS-F01 y APPOINTMENTS-F02 aplic
 QA: BD-06
 
 ### SCHEDULES-F06 Borrar un día especial o un cambio temporal
-Estado: parcial — la fecha de un día especial borrado queda ocupada y no se puede volver a usar (SCHEDULES-F04)
+Estado: parcial — la fecha de un día especial borrado queda ocupada y no se puede volver a usar (SCHEDULES-F04), y el lote de SCHEDULES-F07 la da por creada sin crearla
 Actor: responsable, administrador
 Pantalla: Días especiales
 Pasos:
@@ -191,11 +194,11 @@ Actor: asistente
 Pantalla: asistente
 Pasos:
 1. Pide al asistente que cargue una lista de festivos con fecha y nombre (hasta 366).
-2. Cada uno es cerrado salvo que traiga hora de apertura y de cierre; puede marcarse anual.
+2. Cada uno es cerrado salvo que traiga `is_closed: false` junto con la hora de apertura y la de cierre; si trae horas pero no `is_closed: false`, se guarda **cerrado** (las horas se quedan en la fila y no cuentan). Puede marcarse anual.
 3. El asistente informa de cuántos se crearon y de cuáles no, con el motivo.
 Entra: la lista de días de quien la pide. Cada día lleva fecha y nombre; solo admite el par apertura/cierre (con el cierre posterior a la apertura), nunca varios tramos ni tramos que crucen la medianoche.
-Sale: un día especial por cada día válido y un aviso de día especial creado por cada uno (`schedules.special_day.created`). Un día mal formado, repetido dentro de la lista o ya existente se salta sin parar el resto y vuelve con su código de error.
-Si falla: con la lista vacía se rechaza («La lista de días especiales no puede estar vacía.»). Si la lectura de fechas ocupadas no llegase, el lote se fía de la lista que mande el cliente y la base de datos descarta la fecha repetida sin avisar: el resultado cuenta ese día como creado aunque no lo sea (sin confirmar que ocurra en producción).
+Sale: un día especial por cada día válido y un aviso de día especial creado por cada uno (`schedules.special_day.created`). Un día con una fecha que no existe en el calendario, un nombre de solo espacios, el cierre no posterior a la apertura, o una fecha repetida dentro de la lista o ya ocupada, se salta sin parar el resto y vuelve con su código de error. Un día sin nombre, con una hora mal escrita o con un campo desconocido hace rechazar la lista **entera**, porque el esquema se valida antes.
+Si falla: con la lista vacía se rechaza («La lista de días especiales no puede estar vacía.»). Si un día cae en la fecha de un día especial **borrado**, la base de datos lo descarta sin avisar: el resultado lo cuenta como creado y se emite el aviso de creado, pero el día no existe (pasa siempre, con la lectura de fechas bien hecha). Lo mismo si la lectura de fechas ocupadas no llegase: el lote no comprueba nada y la base de datos descarta en silencio las fechas que ya existan.
 Implicados: pendiente
 Pendiente de enlazar: appointments — APPOINTMENTS-F01 y APPOINTMENTS-F02 respetan estos festivos
 QA: ninguno
@@ -223,7 +226,7 @@ Pasos:
 2. Si no es la tuya, pulsa **Abrir ajustes del hub** y cámbiala allí.
 Entra: la zona que el hub resuelve (la que declara el negocio o la que deduce de su país) y entrega a la pantalla y al motor a la vez.
 Sale: nada; solo lectura. Horarios no guarda zona propia: las horas son de pared (las 10:00 son las 10:00 antes y después del cambio de hora, sin tocar nada).
-Si falla: si el hub no la publica, sale «Este hub todavía no la publica». Si el motor no reconoce la zona, calcula en UTC y la respuesta lo dice (SCHEDULES-F10). Que **Abrir ajustes del hub** aterrice en la pestaña del negocio: sin confirmar.
+Si falla: si el hub no la publica, sale «Este hub todavía no la publica». Si el motor no reconoce la zona, calcula en UTC y la respuesta lo dice (SCHEDULES-F10). **Abrir ajustes del hub** abre Ajustes en la pestaña del negocio, donde están el país y la zona horaria.
 Implicados: pendiente
 Pendiente de enlazar: hub — la zona horaria del negocio que el hub declara o deduce del país y entrega a los módulos
 QA: BD-06
@@ -236,8 +239,8 @@ Pasos:
 1. El asistente (o una integración con la llave de API) pregunta por un instante: con zona (`2026-08-18T08:00:00Z`) lo convierte al reloj del negocio; sin zona (`2026-08-18T10:00`) lo lee tal cual; sin nada, contesta para ahora.
 2. Recibe la respuesta: abierto o cerrado, la regla que decidió, la zona usada, el día y la hora locales y un código estable del motivo.
 Entra: solo el momento; el horario lo lee el servidor de este negocio, nunca lo manda quien pregunta. Hace falta poder ver horarios.
-Sale: nada guardado. La respuesta lleva `is_open`, `code` (`exception_closed`, `exception_hours`, `open_interval`, `on_break`, `closed_today`, `overnight_open`, `outside_hours` o `no_hours`), `source` (`special_day`, `override`, `business_hours` o `none`), `rule_id`, los tramos que lo explican, `timezone`, `today`, `current_time` y, solo si es dato del usuario, `reason` (el nombre del día especial o el motivo del cambio que ganó). Orden: día especial de la fecha exacta, día especial anual del mismo día y mes, cambio temporal que cubre la fecha, horario semanal, nada. Se está abierto desde la hora de apertura y se deja de estar justo a la de cierre (a las 18:00 en punto ya está cerrado). La madrugada de un tramo semanal que cruza la medianoche cuenta como abierta; la de un tramo de día especial o de cambio temporal, no: esa madrugada la deciden las reglas del día siguiente. Un día sin ninguna fila (con otros días definidos) contesta `no_hours`: no está abierto.
-Si falla: un instante mal escrito se rechaza con «Esa fecha no es válida: debe ser una fecha real del calendario (AAAA-MM-DD).». Ningún módulo llama hoy a esta orden: Citas lee las cuatro listas y aplica la misma precedencia por su cuenta (SCHEDULES-F11), y la receta de WhatsApp pregunta a Citas.
+Sale: nada guardado. La respuesta lleva `is_open`, `code` (`exception_closed`, `exception_hours`, `open_interval`, `on_break`, `closed_today`, `overnight_open`, `outside_hours` o `no_hours`), `source` (`special_day`, `override`, `business_hours` o `none`), `rule_id`, los tramos que lo explican, `timezone`, `today`, `current_time` y, solo si es dato del usuario, `reason` (el nombre del día especial o el motivo del cambio que ganó). Orden: día especial de la fecha exacta, día especial anual del mismo día y mes, cambio temporal que cubre la fecha, horario semanal, nada. Se está abierto desde la hora de apertura y se deja de estar justo a la de cierre (a las 18:00 en punto ya está cerrado). La madrugada de un tramo semanal que cruza la medianoche cuenta como abierta, aunque la víspera la cerrara un día especial o un cambio temporal, y no cuenta si ese mismo día tiene su propio día especial o cambio temporal; la de un tramo de día especial o de cambio temporal no cuenta: esa madrugada la deciden las reglas del día siguiente. Citas hace lo mismo. Un día sin ninguna fila (con otros días definidos) contesta `no_hours`: no está abierto.
+Si falla: un instante que no tiene la forma AAAA-MM-DDTHH:MM se rechaza en la validación del hub; uno con esa forma pero con una fecha u hora que no existen, con «Esa fecha no es válida: debe ser una fecha real del calendario (AAAA-MM-DD).». Ningún módulo llama hoy a esta orden: Citas lee las cuatro listas y aplica la misma precedencia por su cuenta (SCHEDULES-F11), y la receta de WhatsApp pregunta a Citas.
 Implicados: pendiente
 Pendiente de enlazar: hub — el reloj del negocio que el hub entrega ya resuelto al motor
 QA: ninguno
@@ -252,7 +255,7 @@ Pasos:
 3. Citas decide con ellas y solo si la cita cabe **entera** dentro de un tramo abierto.
 Entra: las cuatro listas de Horarios; Citas las declara obligatorias y exige Horarios instalado (`schedules` ≥ 2.0.28 en su manifest). La zona horaria es la del hub.
 Sale: nada de Horarios. Citas aplica el mismo orden que SCHEDULES-F10 (día especial exacto, anual, cambio temporal, semana), con estas diferencias que importan: con **cero filas semanales** y sin excepción esa fecha, deja reservar a cualquier hora (F10 diría `no_hours`); el final de la cita puede coincidir con el cierre (F10 cierra a la hora exacta); y una cita puede cruzar la medianoche dentro de un tramo de excepción que la cruza.
-Si falla: si una lista no llega, Citas rechaza la reserva con su propio error («availability_unavailable») y no reserva a ciegas.
+Si falla: si una de las cuatro listas no se puede leer, el hub corta la reserva antes de que Citas decida (error `read_unavailable`) y no se reserva a ciegas. Si una lista no llega sin dar error, Citas la rechaza con su código `appointments.availability_unavailable`, cuyo texto en español habla de «los bloqueos de la agenda» y no del horario.
 Implicados: pendiente
 Pendiente de enlazar: appointments — APPOINTMENTS-F01 reserva dentro del horario del negocio
 Pendiente de enlazar: appointments — APPOINTMENTS-F02 ofrece las horas libres
@@ -266,7 +269,7 @@ Pantalla: ninguna
 Pasos:
 1. Al instalar Horarios en un hub (y en cada actualización del módulo), el instalador mira si el negocio no tiene ninguna fila semanal.
 2. Si no tiene, planta lunes a viernes de 09:00 a 18:00 y sábado y domingo cerrados, firmados por «system».
-3. El hub lo enseña como semana sin confirmar (aviso de SCHEDULES-F01 y paso «Confirma tu horario»).
+3. El hub lo enseña como semana sin confirmar (aviso amarillo de la pantalla Horario, SCHEDULES-F03, y paso «Confirma tu horario»).
 Entra: nada de la persona; el horario por defecto es el del mercado, no del negocio.
 Sale: siete filas semanales. La guarda es de tabla entera: si el negocio tiene alguna fila, viva o borrada, no se planta nada; así una actualización no devuelve días que se dejaron fuera. El catálogo de arranque de peluquería se adueña de esas filas y pone la suya (lunes a viernes 09:30–20:00 con descanso de 14:00 a 16:00, sábado 09:30–14:00, domingo cerrado), firmada sin autor, por lo que el aviso no sale y el paso queda hecho. El exportador del hub no copia la semana mientras nadie la haya tocado y la copia entera en cuanto el negocio firma una fila.
 Si falla: no hay pantalla; si la semilla no corriera, el negocio no tendría filas y Citas dejaría reservar a cualquier hora (SCHEDULES-F11).
@@ -287,7 +290,7 @@ QA: BD-01
 | Festivo que se repite cada año | hecho | SCHEDULES-F04 |
 | Editar un festivo o un cambio ya creado | no hecho — se borra y se vuelve a crear, y la fecha de un día especial borrado no se puede reusar | SCHEDULES-F04, SCHEDULES-F05, SCHEDULES-F06 |
 | Vacaciones del negocio (rango de fechas) y horario de verano | hecho | SCHEDULES-F05 |
-| Cargar varios festivos de una vez | parcial — solo asistente o API | SCHEDULES-F07 |
+| Cargar varios festivos de una vez | parcial — solo asistente o API; una fecha de día borrado se da por creada sin crearse | SCHEDULES-F07 |
 | Calendario de festivos del país precargado | no hecho — no se siembra ninguno | — |
 | Varias plantillas de horario (verano/invierno sin fechas) | fuera del MVP — para eso están los cambios temporales | — |
 | Horario distinto por sede o local | fuera del MVP — un hub es un negocio | — |
@@ -301,8 +304,9 @@ QA: BD-01
 |---|---|---|
 | Tramos semanales, días especiales, cambios temporales y sus tramos | Horarios | propio |
 | «Semana empieza» | Horarios | propio (una fila por negocio) |
-| Zona horaria del negocio | Hub | la entrega el hub ya resuelta; Horarios no la guarda (la columna antigua sigue en la tabla de ajustes y no la lee nadie) |
+| Zona horaria del negocio | Hub | la entrega el hub ya resuelta; Horarios no la guarda (la columna antigua sigue en la tabla de ajustes; la consulta la devuelve pero nada la usa) |
 | Quién firmó la semana («system» = instalador; sin autor = catálogo de arranque) | Horarios | la auditoría de cada fila semanal; de ahí sale el aviso y el paso de puesta en marcha |
+| Descanso antiguo (`break_start`/`break_end`) de una fila semanal, y par apertura/cierre de un día especial o cambio temporal sin tramos | Horarios | propio; siguen contando: el motor, Citas y la pantalla los leen, y el catálogo de peluquería escribe su semana con descanso |
 | Citas, personal, venta | otros | Horarios no los lee ni los escucha |
 
 **Datos personales (inventario RGPD, recorriendo las migraciones):** Horarios no guarda datos de
@@ -312,8 +316,10 @@ nombre y el motivo viajan también dentro de los avisos de «creado»). Además,
 (ajustes, tramos semanales, días especiales, cambios temporales y tramos de excepción), la
 auditoría guarda **quién creó y quién cambió** cada fila (usuario del hub) y, al borrar, cuándo. Los
 borrados son lógicos: nada se elimina de la base de datos. No hay tablas retiradas con otro nombre;
-las columnas antiguas de ajustes (zona, duración de hueco, cierre automático) siguen en su tabla sin
-uso. Contenido del aviso de «borrado»: sin confirmar. Horarios no escucha el borrado de personas.
+las columnas antiguas de ajustes (zona, duración de hueco, cierre automático) siguen en su tabla: la
+consulta las devuelve y nada las usa. Siguen contando, en cambio, el descanso antiguo de las filas
+semanales y el par apertura/cierre de las excepciones sin tramos. El aviso de «borrado» lleva solo el
+id de lo borrado y los datos del sistema (negocio, usuario, hora): ni el nombre ni el motivo. Horarios no escucha el borrado de personas.
 
 ## Reglas que no se rompen
 - **Aislamiento por hub:** toda lectura y toda escritura del módulo filtra por el negocio; un tramo
@@ -326,9 +332,10 @@ uso. Contenido del aviso de «borrado»: sin confirmar. Horarios no escucha el b
   través de la medianoche, y se guardan ordenados. Lo comprueba el servidor antes de escribir nada.
 - **Un solo día especial vivo por fecha** (lectura del servidor y índice único). Con la salvedad de
   SCHEDULES-F04: el índice también cuenta los borrados.
-- **Dos cambios temporales vivos no cubren la misma fecha**, para que la respuesta no dependa del orden de la lista. Solo se comprueba al crear.
-- **Un día abierto necesita al menos un tramo completo**; un cambio temporal o día especial sin
-  horas no se lee como «abierto todo el día».
+- **Dos cambios temporales vivos no cubren la misma fecha**, para que la respuesta no dependa del orden de la lista. Se comprueba al crear, con una lectura del servidor que no es obligatoria; no hay restricción en la base de datos, así que dos altas simultáneas, o un alta cuya lectura falle, pueden dejar dos cambios sobre la misma fecha.
+- **Un día abierto necesita al menos un tramo completo:** el servidor no deja crear un día especial,
+  un cambio temporal ni un día de la semana abiertos sin horas. (Si quedase una fila antigua así, el
+  motor y Citas la leerían como abierta todo el día.)
 - **Un día especial o un cambio borrado se lleva sus tramos** en la misma operación.
 - **Precedencia única:** día especial de la fecha, día especial anual, cambio temporal, horario
   semanal, nada. Citas y el motor la aplican igual.
@@ -371,3 +378,5 @@ Contra el código de `origin/main` (v2.0.48), una línea por discrepancia:
 - La cabecera de `handler/src/lib.rs` aún dice que las filas del motor viajan en el payload; hoy las pre-carga el servidor y el esquema no deja mandarlas. `module.json` titula el paso de puesta en marcha «Confirm your opening hours» y la pantalla española lo traduce «Confirma tu horario».
 - `qa-hub-restaurant` §01 espera horarios del restaurante con festivo y cierre pasada la medianoche; ni el catálogo de arranque del restaurante ni Reservas usan Horarios. `qa-hub.md` §6 no tiene escenario propio del módulo: B-02 y BD-06 lo tocan de refilón.
 - Cita APPOINTMENTS-F01 de `appointments-wf-docs` dice que sin ninguna regla se reserva a cualquier hora: es cierto solo si no hay fila semanal y ninguna excepción cubre la fecha.
+- El texto en español de `appointments.availability_unavailable` en Citas habla de «los bloqueos de la agenda», aunque el código se usa también cuando no se puede leer el horario (SCHEDULES-F11).
+- `module.json` de Horarios no declara cómo traducir una clave duplicada en `schedules.special_days.create`; por eso la fecha reutilizada no sale como «ya existe» (SCHEDULES-F04).
