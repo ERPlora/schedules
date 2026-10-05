@@ -181,7 +181,7 @@ Pasos:
 Entra: el día especial o el cambio temporal elegido. El permiso es el de borrar, distinto del de crear.
 Sale: la fila y sus tramos quedan borrados en la misma operación, y el aviso de día especial o cambio temporal borrado (`schedules.special_day.deleted`, `schedules.override.deleted`). El borrado es lógico: la fila se queda marcada, no se pierde.
 Si falla: el motivo sale arriba de la página («No se pudo eliminar» si no hay otro texto). Borrar algo que ya no existe, o de otro negocio, **responde bien, no borra nada y emite igualmente el aviso**: nada comprueba que haya cambiado una fila.
-Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02
+Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02, REC_PELUQUERIA-F02
 QA: ninguno
 
 ### SCHEDULES-F07 Cargar varios días especiales de golpe
