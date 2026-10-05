@@ -121,8 +121,7 @@ Pasos:
 Entra: el día y sus tramos, de quien edita. Un tramo con apertura y cierre iguales (salvo 00:00–00:00) no vale. Hasta 12 tramos por día. El orden da igual: se guardan ordenados.
 Sale: los tramos del día guardados con el usuario que los firmó, y el aviso de horario cambiado (`schedules.business_hours.updated`), que hoy no escucha ningún módulo. Citas lo lee en la reserva siguiente (SCHEDULES-F11).
 Si falla: el motivo sale dentro del panel («Indica la hora de apertura y cierre, o márcalo como cerrado» si una línea está a medias; «Hora no válida» bajo el campo ilegible; «Dos tramos se solapan…» si se pisan, también a través de la medianoche) y lo escrito se conserva. Sin permiso, el empleado no escribe: el hub le pide el PIN de un responsable.
-Implicados: pendiente
-Pendiente de enlazar: appointments — APPOINTMENTS-F01 y APPOINTMENTS-F02 usan estos tramos para rechazar y ofrecer horas
+Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02, REC_PELUQUERIA-F02
 QA: BD-06
 
 ### SCHEDULES-F03 Confirmar la semana por defecto
@@ -136,7 +135,7 @@ Pasos:
 Entra: la semana que ya está guardada; no se manda ninguna hora, así que nadie puede firmar un horario que no se le ha enseñado.
 Sale: la misma semana, tramo a tramo, firmada con el usuario que pulsa y en una sola operación (todo o nada), y un aviso de horario cambiado por cada día (`schedules.business_hours.updated`). Cambia la firma, no una hora; el descanso antiguo de una fila previa a los tramos se conserva.
 Si falla: el motivo sale arriba de la página («No se pudo confirmar el horario» si no hay otro texto); la semana queda como estaba. Sin ninguna fila guardada la orden se rechaza con «Un día abierto necesita al menos un tramo horario.», pero desde la pantalla no se puede llegar ahí: el aviso solo sale cuando hay semana.
-Implicados: pendiente
+Implicados: REC_PELUQUERIA-F02
 Pendiente de enlazar: hub — la lista de puesta en marcha que pinta el paso «Confirma tu horario» y lo marca hecho
 QA: BD-01
 
@@ -153,8 +152,7 @@ Pasos:
 Entra: fecha, nombre, cerrado o tramos, anual y notas, de quien crea. Una fecha ha de existir en el calendario (el 31 de febrero no vale). Solo hay un día especial vivo por fecha.
 Sale: el día especial con sus tramos y el aviso de día especial creado (`schedules.special_day.created`), que hoy no escucha ningún módulo. Gana a todo lo demás ese día (SCHEDULES-F10, SCHEDULES-F11). Un día anual vale **todos los años**, también los anteriores a su fecha, y el del 29 de febrero solo existe los años bisiestos.
 Si falla: «Ya existe un día especial en esa fecha.» (la lectura del servidor lo dice antes de escribir); «Un día abierto necesita al menos un tramo horario.»; «Dos tramos se solapan…». Si el nombre son solo espacios, el botón no hace nada y no dice por qué. Borrar un día especial y volver a crear otro en **esa misma fecha** falla en la base de datos, porque el índice único de la fecha cuenta también los días borrados. No sale «Ya existe un día especial en esa fecha.»: la orden no traduce el error de clave duplicada, así que el panel enseña el mensaje genérico del hub o «No se pudo crear el día especial».
-Implicados: pendiente
-Pendiente de enlazar: appointments — APPOINTMENTS-F01 y APPOINTMENTS-F02 cierran o abren la agenda ese día
+Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02, REC_PELUQUERIA-F02
 QA: BD-06
 
 ### SCHEDULES-F05 Añadir un cambio temporal
@@ -169,8 +167,7 @@ Pasos:
 Entra: las dos fechas, el motivo, cerrado o tramos. El cambio vale todos los días del rango, ambos incluidos, con las mismas horas.
 Sale: el cambio con sus tramos y el aviso de cambio temporal creado (`schedules.override.created`), que hoy no escucha ningún módulo. Gana al horario semanal, pero pierde contra un día especial de esa fecha.
 Si falla: «La fecha de fin no puede ser anterior a la de inicio.»; «Un día abierto necesita al menos un tramo horario.»; y si el rango toca otro cambio temporal ya guardado (aunque sea de un solo día, también uno cerrado) sale «Dos tramos se solapan (o uno cruza la medianoche sobre otro)…», un texto pensado para tramos y no para rangos. Un cambio temporal puede pisar un día especial: no se avisa. Si el motivo son solo espacios, el botón no hace nada y no dice por qué.
-Implicados: pendiente
-Pendiente de enlazar: appointments — APPOINTMENTS-F01 y APPOINTMENTS-F02 aplican este rango al reservar
+Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02, REC_PELUQUERIA-F02
 QA: BD-06
 
 ### SCHEDULES-F06 Borrar un día especial o un cambio temporal
@@ -184,8 +181,7 @@ Pasos:
 Entra: el día especial o el cambio temporal elegido. El permiso es el de borrar, distinto del de crear.
 Sale: la fila y sus tramos quedan borrados en la misma operación, y el aviso de día especial o cambio temporal borrado (`schedules.special_day.deleted`, `schedules.override.deleted`). El borrado es lógico: la fila se queda marcada, no se pierde.
 Si falla: el motivo sale arriba de la página («No se pudo eliminar» si no hay otro texto). Borrar algo que ya no existe, o de otro negocio, **responde bien, no borra nada y emite igualmente el aviso**: nada comprueba que haya cambiado una fila.
-Implicados: pendiente
-Pendiente de enlazar: appointments — APPOINTMENTS-F01 y APPOINTMENTS-F02 vuelven al horario semanal esos días
+Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02
 QA: ninguno
 
 ### SCHEDULES-F07 Cargar varios días especiales de golpe
@@ -199,8 +195,7 @@ Pasos:
 Entra: la lista de días de quien la pide. Cada día lleva fecha y nombre; solo admite el par apertura/cierre (con el cierre posterior a la apertura), nunca varios tramos ni tramos que crucen la medianoche.
 Sale: un día especial por cada día válido y un aviso de día especial creado por cada uno (`schedules.special_day.created`). Un día con una fecha que no existe en el calendario, un nombre de solo espacios, el cierre no posterior a la apertura, o una fecha repetida dentro de la lista o ya ocupada, se salta sin parar el resto y vuelve con su código de error. Un día sin nombre, con una hora mal escrita o con un campo desconocido hace rechazar la lista **entera**, porque el esquema se valida antes.
 Si falla: con la lista vacía se rechaza («La lista de días especiales no puede estar vacía.»). Si un día cae en la fecha de un día especial **borrado**, la base de datos lo descarta sin avisar: el resultado lo cuenta como creado y se emite el aviso de creado, pero el día no existe (pasa siempre, con la lectura de fechas bien hecha). Lo mismo si la lectura de fechas ocupadas no llegase: el lote no comprueba nada y la base de datos descarta en silencio las fechas que ya existan.
-Implicados: pendiente
-Pendiente de enlazar: appointments — APPOINTMENTS-F01 y APPOINTMENTS-F02 respetan estos festivos
+Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02
 QA: ninguno
 
 ### SCHEDULES-F08 Elegir con qué día empieza la semana
@@ -227,7 +222,7 @@ Pasos:
 Entra: la zona que el hub resuelve (la que declara el negocio o la que deduce de su país) y entrega a la pantalla y al motor a la vez.
 Sale: nada; solo lectura. Horarios no guarda zona propia: las horas son de pared (las 10:00 son las 10:00 antes y después del cambio de hora, sin tocar nada).
 Si falla: si el hub no la publica, sale «Este hub todavía no la publica». Si el motor no reconoce la zona, calcula en UTC y la respuesta lo dice (SCHEDULES-F10). **Abrir ajustes del hub** abre Ajustes en la pestaña del negocio, donde están el país y la zona horaria.
-Implicados: pendiente
+Implicados: REC_PELUQUERIA-F02
 Pendiente de enlazar: hub — la zona horaria del negocio que el hub declara o deduce del país y entrega a los módulos
 QA: BD-06
 
@@ -241,7 +236,7 @@ Pasos:
 Entra: solo el momento; el horario lo lee el servidor de este negocio, nunca lo manda quien pregunta. Hace falta poder ver horarios.
 Sale: nada guardado. La respuesta lleva `is_open`, `code` (`exception_closed`, `exception_hours`, `open_interval`, `on_break`, `closed_today`, `overnight_open`, `outside_hours` o `no_hours`), `source` (`special_day`, `override`, `business_hours` o `none`), `rule_id`, los tramos que lo explican, `timezone`, `today`, `current_time` y, solo si es dato del usuario, `reason` (el nombre del día especial o el motivo del cambio que ganó). Orden: día especial de la fecha exacta, día especial anual del mismo día y mes, cambio temporal que cubre la fecha, horario semanal, nada. Se está abierto desde la hora de apertura y se deja de estar justo a la de cierre (a las 18:00 en punto ya está cerrado). La madrugada de un tramo semanal que cruza la medianoche cuenta como abierta, aunque la víspera la cerrara un día especial o un cambio temporal, y no cuenta si ese mismo día tiene su propio día especial o cambio temporal; la de un tramo de día especial o de cambio temporal no cuenta: esa madrugada la deciden las reglas del día siguiente. Citas hace lo mismo. Un día sin ninguna fila (con otros días definidos) contesta `no_hours`: no está abierto.
 Si falla: un instante que no tiene la forma AAAA-MM-DDTHH:MM se rechaza en la validación del hub; uno con esa forma pero con una fecha u hora que no existen, con «Esa fecha no es válida: debe ser una fecha real del calendario (AAAA-MM-DD).». Ningún módulo llama hoy a esta orden: Citas lee las cuatro listas y aplica la misma precedencia por su cuenta (SCHEDULES-F11), y la receta de WhatsApp pregunta a Citas.
-Implicados: pendiente
+Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02
 Pendiente de enlazar: hub — el reloj del negocio que el hub entrega ya resuelto al motor
 QA: ninguno
 
@@ -256,10 +251,7 @@ Pasos:
 Entra: las cuatro listas de Horarios; Citas las declara obligatorias y exige Horarios instalado (`schedules` ≥ 2.0.28 en su manifest). La zona horaria es la del hub.
 Sale: nada de Horarios. Citas aplica el mismo orden que SCHEDULES-F10 (día especial exacto, anual, cambio temporal, semana), con estas diferencias que importan: con **cero filas semanales** y sin excepción esa fecha, deja reservar a cualquier hora (F10 diría `no_hours`); el final de la cita puede coincidir con el cierre (F10 cierra a la hora exacta); y una cita puede cruzar la medianoche dentro de un tramo de excepción que la cruza.
 Si falla: si una de las cuatro listas no se puede leer, el hub corta la reserva antes de que Citas decida (error `read_unavailable`) y no se reserva a ciegas. Si una lista no llega sin dar error, Citas la rechaza con su código `appointments.availability_unavailable`, cuyo texto en español habla de «los bloqueos de la agenda» y no del horario.
-Implicados: pendiente
-Pendiente de enlazar: appointments — APPOINTMENTS-F01 reserva dentro del horario del negocio
-Pendiente de enlazar: appointments — APPOINTMENTS-F02 ofrece las horas libres
-Pendiente de enlazar: whatsapp_inbox — la receta de cita pregunta la apertura del día a Citas (day_opening), no a Horarios
+Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02, APPOINTMENTS-F04, APPOINTMENTS-F06, APPOINTMENTS-F13, APPOINTMENTS-F14, APPOINTMENTS-F21, APPOINTMENTS-F22, REC_PELUQUERIA-F06, REC_WA_CITA-F04
 QA: B-02, BD-06, W-02, W-06
 
 ### SCHEDULES-F12 Partir de una semana por defecto al instalar
@@ -273,7 +265,7 @@ Pasos:
 Entra: nada de la persona; el horario por defecto es el del mercado, no del negocio.
 Sale: siete filas semanales. La guarda es de tabla entera: si el negocio tiene alguna fila, viva o borrada, no se planta nada; así una actualización no devuelve días que se dejaron fuera. El catálogo de arranque de peluquería se adueña de esas filas y pone la suya (lunes a viernes 09:30–20:00 con descanso de 14:00 a 16:00, sábado 09:30–14:00, domingo cerrado), firmada sin autor, por lo que el aviso no sale y el paso queda hecho. El exportador del hub no copia la semana mientras nadie la haya tocado y la copia entera en cuanto el negocio firma una fila.
 Si falla: no hay pantalla; si la semilla no corriera, el negocio no tendría filas y Citas dejaría reservar a cualquier hora (SCHEDULES-F11).
-Implicados: pendiente
+Implicados: REC_PELUQUERIA-F02
 Pendiente de enlazar: hub — el instalador que aplica la semilla del módulo al instalar y al actualizar
 Pendiente de enlazar: blueprints — el catálogo de arranque de peluquería que sustituye la semana por defecto por la del salón
 QA: BD-01
@@ -377,6 +369,6 @@ Contra el código de `origin/main` (v2.0.48), una línea por discrepancia:
 - `architecture/modules/schedules.md` dice que el importador de `.blueprint.zip` duplica la semana (hub#1535): tomado del documento, sin contrastar con el código del hub.
 - La cabecera de `handler/src/lib.rs` aún dice que las filas del motor viajan en el payload; hoy las pre-carga el servidor y el esquema no deja mandarlas. `module.json` titula el paso de puesta en marcha «Confirm your opening hours» y la pantalla española lo traduce «Confirma tu horario».
 - `qa-hub-restaurant` §01 espera horarios del restaurante con festivo y cierre pasada la medianoche; ni el catálogo de arranque del restaurante ni Reservas usan Horarios. `qa-hub.md` §6 no tiene escenario propio del módulo: B-02 y BD-06 lo tocan de refilón.
-- Cita APPOINTMENTS-F01 de `appointments-wf-docs` dice que sin ninguna regla se reserva a cualquier hora: es cierto solo si no hay fila semanal y ninguna excepción cubre la fecha.
+- El índice de Citas decía que sin ninguna regla se reserva a cualquier hora: es cierto solo si no hay fila semanal y ninguna excepción cubre la fecha; corregido en la oleada 2 en el WORKFLOW de Citas (APPOINTMENTS-F02), que ahora cuenta las tres diferencias con SCHEDULES-F10.
 - El texto en español de `appointments.availability_unavailable` en Citas habla de «los bloqueos de la agenda», aunque el código se usa también cuando no se puede leer el horario (SCHEDULES-F11).
 - `module.json` de Horarios no declara cómo traducir una clave duplicada en `schedules.special_days.create`; por eso la fecha reutilizada no sale como «ya existe» (SCHEDULES-F04).
