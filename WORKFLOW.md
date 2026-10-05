@@ -221,7 +221,7 @@ Pasos:
 2. Si no es la tuya, pulsa **Abrir ajustes del hub** y cámbiala allí.
 Entra: la zona que el hub resuelve (la que declara el negocio o la que deduce de su país) y entrega a la pantalla y al motor a la vez.
 Sale: nada; solo lectura. Horarios no guarda zona propia: las horas son de pared (las 10:00 son las 10:00 antes y después del cambio de hora, sin tocar nada).
-Si falla: si el hub no la publica, sale «Este hub todavía no la publica». Si el motor no reconoce la zona, calcula en UTC y la respuesta lo dice (SCHEDULES-F10). **Abrir ajustes del hub** abre Ajustes en la pestaña del negocio, donde están el país y la zona horaria.
+Si falla: si el hub no la publica, sale «Este hub todavía no la publica». Si el motor no reconoce la zona, calcula en UTC y la respuesta lo dice (SCHEDULES-F10). **Abrir ajustes del hub** abre Ajustes en la pestaña General, donde están el país y la zona horaria.
 Implicados: REC_PELUQUERIA-F02
 Pendiente de enlazar: hub — la zona horaria del negocio que el hub declara o deduce del país y entrega a los módulos
 QA: BD-06
