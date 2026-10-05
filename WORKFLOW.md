@@ -135,8 +135,7 @@ Pasos:
 Entra: la semana que ya está guardada; no se manda ninguna hora, así que nadie puede firmar un horario que no se le ha enseñado.
 Sale: la misma semana, tramo a tramo, firmada con el usuario que pulsa y en una sola operación (todo o nada), y un aviso de horario cambiado por cada día (`schedules.business_hours.updated`). Cambia la firma, no una hora; el descanso antiguo de una fila previa a los tramos se conserva.
 Si falla: el motivo sale arriba de la página («No se pudo confirmar el horario» si no hay otro texto); la semana queda como estaba. Sin ninguna fila guardada la orden se rechaza con «Un día abierto necesita al menos un tramo horario.», pero desde la pantalla no se puede llegar ahí: el aviso solo sale cuando hay semana.
-Implicados: REC_PELUQUERIA-F02
-Pendiente de enlazar: hub — la lista de puesta en marcha que pinta el paso «Confirma tu horario» y lo marca hecho
+Implicados: REC_PELUQUERIA-F02, HUB-F35, HUB_SHELL-F31
 QA: BD-01
 
 ### SCHEDULES-F04 Añadir un día especial
@@ -222,8 +221,7 @@ Pasos:
 Entra: la zona que el hub resuelve (la que declara el negocio o la que deduce de su país) y entrega a la pantalla y al motor a la vez.
 Sale: nada; solo lectura. Horarios no guarda zona propia: las horas son de pared (las 10:00 son las 10:00 antes y después del cambio de hora, sin tocar nada).
 Si falla: si el hub no la publica, sale «Este hub todavía no la publica». Si el motor no reconoce la zona, calcula en UTC y la respuesta lo dice (SCHEDULES-F10). **Abrir ajustes del hub** abre Ajustes en la pestaña General, donde están el país y la zona horaria.
-Implicados: REC_PELUQUERIA-F02
-Pendiente de enlazar: hub — la zona horaria del negocio que el hub declara o deduce del país y entrega a los módulos
+Implicados: REC_PELUQUERIA-F02, HUB-F227, HUB-F228, HUB_SHELL-F157
 QA: BD-06
 
 ### SCHEDULES-F10 Preguntar si el negocio está abierto en un momento
@@ -236,8 +234,7 @@ Pasos:
 Entra: solo el momento; el horario lo lee el servidor de este negocio, nunca lo manda quien pregunta. Hace falta poder ver horarios.
 Sale: nada guardado. La respuesta lleva `is_open`, `code` (`exception_closed`, `exception_hours`, `open_interval`, `on_break`, `closed_today`, `overnight_open`, `outside_hours` o `no_hours`), `source` (`special_day`, `override`, `business_hours` o `none`), `rule_id`, los tramos que lo explican, `timezone`, `today`, `current_time` y, solo si es dato del usuario, `reason` (el nombre del día especial o el motivo del cambio que ganó). Orden: día especial de la fecha exacta, día especial anual del mismo día y mes, cambio temporal que cubre la fecha, horario semanal, nada. Se está abierto desde la hora de apertura y se deja de estar justo a la de cierre (a las 18:00 en punto ya está cerrado). La madrugada de un tramo semanal que cruza la medianoche cuenta como abierta, aunque la víspera la cerrara un día especial o un cambio temporal, y no cuenta si ese mismo día tiene su propio día especial o cambio temporal; la de un tramo de día especial o de cambio temporal no cuenta: esa madrugada la deciden las reglas del día siguiente. Citas hace lo mismo. Un día sin ninguna fila (con otros días definidos) contesta `no_hours`: no está abierto.
 Si falla: un instante que no tiene la forma AAAA-MM-DDTHH:MM se rechaza en la validación del hub; uno con esa forma pero con una fecha u hora que no existen, con «Esa fecha no es válida: debe ser una fecha real del calendario (AAAA-MM-DD).». Ningún módulo llama hoy a esta orden: Citas lee las cuatro listas y aplica la misma precedencia por su cuenta (SCHEDULES-F11), y la receta de WhatsApp pregunta a Citas.
-Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02
-Pendiente de enlazar: hub — el reloj del negocio que el hub entrega ya resuelto al motor
+Implicados: APPOINTMENTS-F01, APPOINTMENTS-F02, HUB-F228
 QA: ninguno
 
 ### SCHEDULES-F11 Dar el horario de un día a Citas
@@ -265,8 +262,7 @@ Pasos:
 Entra: nada de la persona; el horario por defecto es el del mercado, no del negocio.
 Sale: siete filas semanales. La guarda es de tabla entera: si el negocio tiene alguna fila, viva o borrada, no se planta nada; así una actualización no devuelve días que se dejaron fuera. El catálogo de arranque de peluquería se adueña de esas filas y pone la suya (lunes a viernes 09:30–20:00 con descanso de 14:00 a 16:00, sábado 09:30–14:00, domingo cerrado), firmada sin autor, por lo que el aviso no sale y el paso queda hecho. El exportador del hub no copia la semana mientras nadie la haya tocado y la copia entera en cuanto el negocio firma una fila.
 Si falla: no hay pantalla; si la semilla no corriera, el negocio no tendría filas y Citas dejaría reservar a cualquier hora (SCHEDULES-F11).
-Implicados: REC_PELUQUERIA-F02
-Pendiente de enlazar: hub — el instalador que aplica la semilla del módulo al instalar y al actualizar
+Implicados: REC_PELUQUERIA-F02, HUB-F22
 Pendiente de enlazar: blueprints — el catálogo de arranque de peluquería que sustituye la semana por defecto por la del salón
 QA: BD-01
 
