@@ -262,7 +262,7 @@ Pasos:
 Entra: nada de la persona; el horario por defecto es el del mercado, no del negocio.
 Sale: siete filas semanales. La guarda es de tabla entera: si el negocio tiene alguna fila, viva o borrada, no se planta nada; así una actualización no devuelve días que se dejaron fuera. El catálogo de arranque de peluquería se adueña de esas filas y pone la suya (lunes a viernes 09:30–20:00 con descanso de 14:00 a 16:00, sábado 09:30–14:00, domingo cerrado), firmada sin autor, por lo que el aviso no sale y el paso queda hecho. El exportador del hub no copia la semana mientras nadie la haya tocado y la copia entera en cuanto el negocio firma una fila.
 Si falla: no hay pantalla; si la semilla no corriera, el negocio no tendría filas y Citas dejaría reservar a cualquier hora (SCHEDULES-F11).
-Implicados: REC_PELUQUERIA-F02, HUB-F22
+Implicados: REC_PELUQUERIA-F02, HUB-F22, HUB-F235
 Pendiente de enlazar: blueprints — el catálogo de arranque de peluquería que sustituye la semana por defecto por la del salón
 QA: BD-01
 
